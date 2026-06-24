@@ -10,12 +10,14 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from auto_bioinfo.core.provenance import (
+    decision_is_authoritatively_eligible,
     evaluate_scientific_eligibility,
     is_formally_exportable,
     normalize_legacy_provenance,
     recompute_eligibility_for,
     validate_policy_state_consistency,
     validate_provenance,
+    verify_decision_integrity,
 )
 from auto_bioinfo.interfaces.cli import main
 from auto_bioinfo.pipeline import Pipeline, PipelineError
@@ -95,6 +97,64 @@ class TruthfulModeBypassTest(unittest.TestCase):
             state_path.write_text(json.dumps(state))
             with self.assertRaises(PipelineError):
                 Pipeline(resources=fixture_adapter()).run(proj)
+
+
+class DecisionIntegrityBypassTest(unittest.TestCase):
+    """Gate 2 (R0-01 review-fix): tampering a ScientificEligibilityDecision's
+    content or id must make formal output refuse it."""
+
+    def _eligible_decision(self):
+        return evaluate_scientific_eligibility(
+            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
+            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
+            policy_id="pp1", policy_version=1,
+        )
+
+    def test_untampered_decision_passes_integrity(self):
+        d = self._eligible_decision()
+        self.assertEqual(verify_decision_integrity(d, policy=_policy("REAL")), [])
+        self.assertTrue(decision_is_authoritatively_eligible(d, policy=_policy("REAL")))
+
+    def test_flipped_verdict_is_rejected(self):
+        # Facts say INELIGIBLE (DEMO/fixture); attacker flips only the verdict +
+        # release_status, leaving the id (a hash of the *facts*) unchanged.
+        d = evaluate_scientific_eligibility(
+            execution_mode="DEMO", source_class="SYNTHETIC_FIXTURE", retrieval_mode="LOCAL_CACHE",
+            verification_level="UNVERIFIED", qc_status="pass",
+            evaluated_input_refs=["ev1"], evaluated_input_hashes=[], policy_id="pp1", policy_version=1,
+        )
+        d["decision"] = "ELIGIBLE"
+        d["release_status"] = "RESEARCH_PRELIMINARY"
+        errors = verify_decision_integrity(d)
+        self.assertTrue(any("verdict" in e for e in errors))
+        self.assertFalse(decision_is_authoritatively_eligible(d))
+
+    def test_tampered_fact_breaks_decision_id(self):
+        # Editing a fact without recomputing the id is caught by the id mismatch.
+        d = self._eligible_decision()
+        d["source_class"] = "SYNTHETIC_FIXTURE"
+        errors = verify_decision_integrity(d)
+        self.assertTrue(any("does not match recomputed id" in e for e in errors))
+        self.assertFalse(decision_is_authoritatively_eligible(d))
+
+    def test_tampered_decision_id_is_rejected(self):
+        d = self._eligible_decision()
+        d["scientific_eligibility_decision_id"] = "scientific_eligibility_decision_deadbeefdeadbeef"
+        self.assertTrue(verify_decision_integrity(d))
+        self.assertFalse(decision_is_authoritatively_eligible(d))
+
+    def test_policy_binding_mismatch_is_rejected(self):
+        d = self._eligible_decision()
+        # active policy is a different object than the one bound into the decision
+        errors = verify_decision_integrity(d, policy={"project_policy_id": "pp2", "policy_version": 2})
+        self.assertTrue(any("policy_id" in e for e in errors))
+        self.assertFalse(decision_is_authoritatively_eligible(d, policy={"project_policy_id": "pp2", "policy_version": 2}))
+
+    def test_wrong_back_reference_is_rejected(self):
+        d = self._eligible_decision()
+        errors = verify_decision_integrity(d, referencing_decision_id="some_other_decision_id")
+        self.assertTrue(any("references decision" in e for e in errors))
 
 
 class EligibilityRuleTest(unittest.TestCase):

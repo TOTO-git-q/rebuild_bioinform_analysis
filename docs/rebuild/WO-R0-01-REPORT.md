@@ -67,3 +67,41 @@
 
 ## 9. 进入下一 Work Order 的判定
 - **READY → R0-02（CI/退出码/锁定）**。理由：R0-01 退出标准全部满足（fixture 不能伪装正式证据、REAL+fixture 阻断、水印贯穿、门禁重算、策略/状态一致、53 测试绿）。建议下一步把 CI 从 `ci/` 移入 `.github/workflows/` 并设为分支必需检查（需 token 加 `workflow` 范围或网页端提交）。
+
+---
+
+# R0-01-REMEDIATION（CEO 复审反馈 turn 0007 的 8 闸门 + 9 绕过测试）
+
+> 状态：进行中（CEO override turn 0016 启用，`execution_gate=R0-01_REVIEW_FIX_ONLY`）。逐项给绕过测试名 + 真实结果，测试数量不作为验收本身。**不自合并，等 CEO 验收。**
+
+## 闸门进度
+
+| # | 闸门（turn 0007） | 状态 | 绕过测试 / 代码 |
+|---|---|---|---|
+| 1 | 唯一 authoritative eligibility gate（inspect/report/bundle/CLI formal export 全部重核验，Claim 布尔仅作缓存展示） | TODO | — |
+| 2 | decision integrity validation（重算 decision id、核 policy_id/version、evaluated_input_refs、input hashes、Claim/EvidenceItem 引用的 decision_id） | **DONE（本步）** | `provenance.verify_decision_integrity` / `decision_is_authoritatively_eligible`；测试见下 |
+| 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | TODO | — |
+| 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | TODO | — |
+| 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | TODO | — |
+| 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | TODO | — |
+| 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
+| 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 2）真实结果
+
+代码：`auto_bioinfo/core/provenance.py`
+- 抽出单一裁定真值源 `_eligibility_reason_codes()`（fresh 评估与完整性复核共用，防止被篡改的 `decision` 字段与事实不一致）。
+- 新增 `verify_decision_integrity(decision, *, policy, expected_input_refs, expected_input_hashes, referencing_decision_id)`：①用决策自身事实重算 decision id 并比对存储 id；②重算 verdict/reason_codes/release_status（verdict 不入 id 哈希，故翻转 verdict 在此被抓）；③核 policy_id/version；④核 evaluated_input_refs/hashes；⑤核 Claim/EvidenceItem 反向引用 id。
+- 新增 `decision_is_authoritatively_eligible(...)`：完整性通过**且**重算 verdict=ELIGIBLE 才返回 True；从不信任缓存的 `scientific_output_eligible`。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::DecisionIntegrityBypassTest`，6 条全过）：
+1. `test_untampered_decision_passes_integrity` — 合法 REAL 决策完整性通过 ✅
+2. `test_flipped_verdict_is_rejected` — 仅翻转 `decision`+`release_status`（id 不变）被 verdict 重算抓出，非授权 ✅
+3. `test_tampered_fact_breaks_decision_id` — 改 source_class 不重算 id → id mismatch ✅
+4. `test_tampered_decision_id_is_rejected` — 直接改 decision id → 拒绝 ✅
+5. `test_policy_binding_mismatch_is_rejected` — decision 绑定的 policy_id/version 与 active policy 不符 → 拒绝 ✅
+6. `test_wrong_back_reference_is_rejected` — Claim/EvidenceItem 引用的 decision_id 指向他者 → 拒绝 ✅
+
+全量：`python -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 59 tests, OK**（53 基线 + 6 新增，全离线确定性）。
+
+> 闸门 1 将复用 `decision_is_authoritatively_eligible` 把 inspect/report/bundle/CLI 的授权点统一改成"加载持久化 decision → 完整性复核 → 重算 verdict"，使 Claim 上的布尔彻底降级为展示缓存。

@@ -135,6 +135,60 @@ def normalize_legacy_provenance(obj: dict[str, Any]) -> dict[str, Any]:
 
 # --- ScientificEligibilityDecision (immutable, always recomputed) -----------
 
+def _eligibility_reason_codes(
+    *,
+    execution_mode: str,
+    source_class: str,
+    verification_level: str,
+    qc_status: str,
+) -> list[str]:
+    """The single source of truth for *why* an output is (in)eligible.
+
+    Both fresh evaluation and integrity re-verification call this, so a tampered
+    ``decision`` verdict can never disagree with the facts that produced it.
+    """
+    reasons: list[str] = []
+    if execution_mode != "REAL":
+        reasons.append("EXECUTION_MODE_NOT_REAL")
+    if source_class not in REAL_DATA_SOURCE_CLASSES:
+        reasons.append("SOURCE_CLASS_NOT_REAL_DATA")
+    if not verification_at_least(verification_level, _MIN_VERIFICATION_FOR_ELIGIBLE):
+        reasons.append("VERIFICATION_BELOW_METADATA")
+    if str(qc_status).lower() not in {"pass", "pass_with_warnings"}:
+        reasons.append("QC_NOT_PASSED")
+    return reasons
+
+
+def _decision_id_for(inputs: dict[str, Any]) -> str:
+    """Canonical decision id derived purely from the evaluated input facts."""
+    return make_stable_id("scientific_eligibility_decision", inputs)
+
+
+def _decision_inputs(
+    *,
+    execution_mode: str,
+    source_class: str,
+    retrieval_mode: str,
+    verification_level: str,
+    qc_status: str,
+    evaluated_input_refs: list[str],
+    evaluated_input_hashes: list[str],
+    policy_id: str,
+    policy_version: int,
+) -> dict[str, Any]:
+    return {
+        "execution_mode": execution_mode,
+        "source_class": source_class,
+        "retrieval_mode": retrieval_mode,
+        "verification_level": verification_level,
+        "qc_status": qc_status,
+        "evaluated_input_refs": sorted(evaluated_input_refs),
+        "evaluated_input_hashes": sorted(evaluated_input_hashes),
+        "policy_id": policy_id,
+        "policy_version": policy_version,
+    }
+
+
 def evaluate_scientific_eligibility(
     *,
     execution_mode: str,
@@ -152,31 +206,28 @@ def evaluate_scientific_eligibility(
     The decision id is a stable hash of the *inputs* (not the timestamp), so the
     same facts always yield the same decision id and re-computation is verifiable.
     """
-    reasons: list[str] = []
-    if execution_mode != "REAL":
-        reasons.append("EXECUTION_MODE_NOT_REAL")
-    if source_class not in REAL_DATA_SOURCE_CLASSES:
-        reasons.append("SOURCE_CLASS_NOT_REAL_DATA")
-    if not verification_at_least(verification_level, _MIN_VERIFICATION_FOR_ELIGIBLE):
-        reasons.append("VERIFICATION_BELOW_METADATA")
-    if str(qc_status).lower() not in {"pass", "pass_with_warnings"}:
-        reasons.append("QC_NOT_PASSED")
+    reasons = _eligibility_reason_codes(
+        execution_mode=execution_mode,
+        source_class=source_class,
+        verification_level=verification_level,
+        qc_status=qc_status,
+    )
 
     decision = "ELIGIBLE" if not reasons else "INELIGIBLE"
-    inputs = {
-        "execution_mode": execution_mode,
-        "source_class": source_class,
-        "retrieval_mode": retrieval_mode,
-        "verification_level": verification_level,
-        "qc_status": qc_status,
-        "evaluated_input_refs": sorted(evaluated_input_refs),
-        "evaluated_input_hashes": sorted(evaluated_input_hashes),
-        "policy_id": policy_id,
-        "policy_version": policy_version,
-    }
+    inputs = _decision_inputs(
+        execution_mode=execution_mode,
+        source_class=source_class,
+        retrieval_mode=retrieval_mode,
+        verification_level=verification_level,
+        qc_status=qc_status,
+        evaluated_input_refs=evaluated_input_refs,
+        evaluated_input_hashes=evaluated_input_hashes,
+        policy_id=policy_id,
+        policy_version=policy_version,
+    )
     return {
         "schema_version": CANONICAL_SCHEMA_VERSION,
-        "scientific_eligibility_decision_id": make_stable_id("scientific_eligibility_decision", inputs),
+        "scientific_eligibility_decision_id": _decision_id_for(inputs),
         "decision": decision,
         "reason_codes": reasons,
         "execution_mode": execution_mode,
@@ -195,6 +246,127 @@ def evaluate_scientific_eligibility(
 
 def is_eligible(decision: dict[str, Any]) -> bool:
     return bool(decision) and decision.get("decision") == "ELIGIBLE"
+
+
+# --- Decision integrity validation (Gate 2 of R0-01 review-fix) -------------
+
+def verify_decision_integrity(
+    decision: dict[str, Any],
+    *,
+    policy: dict[str, Any] | None = None,
+    expected_input_refs: list[str] | None = None,
+    expected_input_hashes: list[str] | None = None,
+    referencing_decision_id: str | None = None,
+) -> list[str]:
+    """Re-verify a persisted ``ScientificEligibilityDecision`` against its own
+    facts and the active policy, returning a list of integrity violations.
+
+    This is the anti-tamper core of the authoritative eligibility gate: a formal
+    output must never be authorised from a decision that fails any check here.
+
+    Checks performed:
+
+    1. **Decision id** is recomputed from the decision's own stored input facts
+       and must match the stored ``scientific_eligibility_decision_id`` (detects
+       any edit to execution_mode / source_class / verification / qc / refs /
+       hashes / policy binding).
+    2. **Verdict** (``decision`` + ``reason_codes``) is recomputed from the same
+       facts and must match — the verdict is *not* part of the id hash, so a
+       flipped ``INELIGIBLE -> ELIGIBLE`` is caught here rather than by (1).
+    3. **release_status** must agree with the recomputed verdict.
+    4. **Policy binding** — when ``policy`` is given, ``policy_id`` /
+       ``policy_version`` must match the active ProjectPolicy.
+    5. **evaluated_input_refs / hashes** — when expected values are supplied,
+       they must match exactly.
+    6. **Back-reference** — when a Claim/EvidenceItem ``referencing_decision_id``
+       is supplied, it must point at this decision.
+    """
+    errors: list[str] = []
+    if not decision:
+        return ["scientific eligibility decision is missing"]
+
+    stored_id = decision.get("scientific_eligibility_decision_id")
+    inputs = _decision_inputs(
+        execution_mode=decision.get("execution_mode", ""),
+        source_class=decision.get("source_class", ""),
+        retrieval_mode=decision.get("retrieval_mode", ""),
+        verification_level=decision.get("verification_level", ""),
+        qc_status=decision.get("qc_status", ""),
+        evaluated_input_refs=list(decision.get("evaluated_input_refs", [])),
+        evaluated_input_hashes=list(decision.get("evaluated_input_hashes", [])),
+        policy_id=decision.get("policy_id", ""),
+        policy_version=decision.get("policy_version", 1),
+    )
+    recomputed_id = _decision_id_for(inputs)
+    if stored_id != recomputed_id:
+        errors.append(
+            f"decision id {stored_id!r} does not match recomputed id {recomputed_id!r} "
+            "(decision content was tampered with)"
+        )
+
+    reasons = _eligibility_reason_codes(
+        execution_mode=decision.get("execution_mode", ""),
+        source_class=decision.get("source_class", ""),
+        verification_level=decision.get("verification_level", ""),
+        qc_status=decision.get("qc_status", ""),
+    )
+    expected_verdict = "ELIGIBLE" if not reasons else "INELIGIBLE"
+    if decision.get("decision") != expected_verdict:
+        errors.append(
+            f"decision verdict {decision.get('decision')!r} disagrees with the facts "
+            f"(recomputed {expected_verdict!r}); verdict was tampered with"
+        )
+    if sorted(decision.get("reason_codes", [])) != sorted(reasons):
+        errors.append("decision reason_codes disagree with the facts")
+    expected_release = RESEARCH_PRELIMINARY if expected_verdict == "ELIGIBLE" else DEMONSTRATION_ONLY
+    if decision.get("release_status") != expected_release:
+        errors.append(
+            f"release_status {decision.get('release_status')!r} disagrees with the recomputed verdict"
+        )
+
+    if policy is not None:
+        if decision.get("policy_id") != policy.get("project_policy_id"):
+            errors.append("decision policy_id does not match the active ProjectPolicy")
+        if decision.get("policy_version") != policy.get("policy_version"):
+            errors.append("decision policy_version does not match the active ProjectPolicy")
+
+    if expected_input_refs is not None and sorted(decision.get("evaluated_input_refs", [])) != sorted(expected_input_refs):
+        errors.append("decision evaluated_input_refs do not match the evaluated objects")
+    if expected_input_hashes is not None and sorted(decision.get("evaluated_input_hashes", [])) != sorted(expected_input_hashes):
+        errors.append("decision evaluated_input_hashes do not match the evaluated objects")
+
+    if referencing_decision_id is not None and referencing_decision_id != stored_id:
+        errors.append(
+            f"object references decision {referencing_decision_id!r} but the verified decision is {stored_id!r}"
+        )
+    return errors
+
+
+def decision_is_authoritatively_eligible(
+    decision: dict[str, Any],
+    *,
+    policy: dict[str, Any] | None = None,
+    expected_input_refs: list[str] | None = None,
+    expected_input_hashes: list[str] | None = None,
+    referencing_decision_id: str | None = None,
+) -> bool:
+    """True only when the decision passes integrity *and* its recomputed verdict
+    is ELIGIBLE.  Never trusts a cached ``scientific_output_eligible`` flag."""
+    if verify_decision_integrity(
+        decision,
+        policy=policy,
+        expected_input_refs=expected_input_refs,
+        expected_input_hashes=expected_input_hashes,
+        referencing_decision_id=referencing_decision_id,
+    ):
+        return False
+    reasons = _eligibility_reason_codes(
+        execution_mode=decision.get("execution_mode", ""),
+        source_class=decision.get("source_class", ""),
+        verification_level=decision.get("verification_level", ""),
+        qc_status=decision.get("qc_status", ""),
+    )
+    return not reasons
 
 
 def recompute_eligibility_for(obj: dict[str, Any], *, qc_status: str, policy: dict[str, Any]) -> dict[str, Any]:
