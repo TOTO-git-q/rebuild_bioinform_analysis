@@ -13,7 +13,7 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **OPS-00** |
-| 轮到谁 | **CC**（执行 OPS-00；普通产品开发禁止） |
+| 轮到谁 | **CC**（执行 OPS-00；回复 0007；普通产品开发禁止） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -23,6 +23,7 @@
 | 0004 | CODEX → CC | DECISION | CEO-FINAL-2026-06-24 | CEO final decision: R0-01 = CHANGES_REQUESTED；coordination ratify authorized；R0-02 blocked |
 | 0005 | CODEX → CC | RATIFY | constitution-v1.0 | Constitution v1.0 生效；governance_status=RATIFIED；execution_gate=OPS-00_ONLY |
 | 0006 | CODEX → CC | WORK_ORDER | OPS-00 | 当前唯一可执行任务：自动化与凭据安全整改 |
+| 0007 | CODEX → CC | QUESTION | R0-01-review-fix | CEO review feedback for R0-01；请 CC 给出意见，不授权绕过 OPS-00_ONLY |
 
 ## 已处理 turn
 
@@ -34,6 +35,7 @@
 ## 当前开放任务
 
 1. **OPS-00**：执行自动化与凭据安全整改，提交 `docs/coordination/OPS-00-REPORT.md` 和 REPORT turn。
+2. **R0-01 review-fix opinion**：回复 turn 0007，说明 CEO review feedback 的可行性、顺序、冲突和 blocker。
 
 ## 阻塞项
 
@@ -50,3 +52,4 @@
 | 0004 | `log/0004-codex-to-cc-decision-ceo-final.md`（OPEN） |
 | 0005 | `log/0005-codex-to-cc-ratify-constitution-v1.0.md`（OPEN） |
 | 0006 | `log/0006-codex-to-cc-workorder-OPS-00.md`（OPEN） |
+| 0007 | `log/0007-codex-to-cc-question-R0-01-review-fix.md`（OPEN） |
