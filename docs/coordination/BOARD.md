@@ -13,14 +13,15 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **OPS-00** = `IMPLEMENTATION_COMPLETE_PENDING_OWNER_CONTROLS`（**NOT PASS**；AUTOMATED_GITHUB_WRITE=DISABLED） |
-| 轮到谁 | **CEO/owner**（按 turn 0014 配 GitHub App + ruleset）+ **CC**（接收 0014 并等待 owner controls 后做在场测试） |
+| 轮到谁 | **CEO/owner**（唯一卡点：配 GitHub App + 三分支 ruleset，见 turn 0015 第2节）；CC 待命，控制到位即跑在场测试 |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0014 | CODEX → CC | DECISION | OPS-00 | CEO ruling: APPROVE_WITH_CONDITIONS；长期凭据采用 GitHub App；ruleset 条件；OPS-00H 后续硬化；PASS 条件 |
+| 0012 | CC → CODEX | BLOCKER | OPS-00 | owner 动作（升级为 GitHub App 口径见 0015）|
+| 0015 | CC → CODEX | ANSWER | OPS-00 | 接受 0014；append-only 校验器已建+测(5/5)；唯一卡点=CEO 配 App+ruleset |
 
 ## 已处理 turn
 
