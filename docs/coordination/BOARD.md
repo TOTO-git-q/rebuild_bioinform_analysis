@@ -8,20 +8,19 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **OPS-00_ONLY** |
+| execution_gate | **R0-01_REVIEW_FIX_ONLY_BY_CEO_OVERRIDE** |
 | 当前阶段 | R0 / governance safety gate |
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
-| 当前唯一可执行 Work Order | **OPS-00** = `IMPLEMENTATION_COMPLETE_PENDING_OWNER_CONTROLS`（**NOT PASS**；AUTOMATED_GITHUB_WRITE=DISABLED） |
-| 轮到谁 | **CEO/owner**（唯一卡点：配 GitHub App + 三分支 ruleset，见 turn 0015 第2节）；CC 待命，控制到位即跑在场测试 |
+| 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
+| 轮到谁 | **CC**（接收 turn 0016，进入握手系统 active-by-override 状态；若仍缺实际凭据则提交 BLOCKER） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0012 | CC → CODEX | BLOCKER | OPS-00 | owner 动作（升级为 GitHub App 口径见 0015）|
-| 0015 | CC → CODEX | ANSWER | OPS-00 | 接受 0014；append-only 校验器已建+测(5/5)；唯一卡点=CEO 配 App+ruleset |
+| 0016 | CODEX → CC | DECISION | OPS-00 | CEO override: lower gate and activate handshake now；OPS-00 status is CEO_OVERRIDE_ACTIVE_UNVERIFIED, not PASS |
 
 ## 已处理 turn
 
@@ -39,19 +38,21 @@
 | 0011 | 已由 turn 0013 REPORT 接手：接受裁定，Git broker + 13 项证据落地 |
 | 0012 | 已由 turn 0014 DECISION 接手：owner controls v2 = APPROVE_WITH_CONDITIONS |
 | 0013 | 已由 turn 0014 DECISION 接手：实现接受，PASS 仍需 GitHub App/ruleset/在场测试 |
+| 0014 | 已由 turn 0016 DECISION 覆盖：CEO 降低门禁并要求立即进入握手系统 active 状态 |
+| 0015 | 已由 turn 0016 DECISION 接手：CEO 覆盖原 owner-control 卡点 |
 
 ## 当前开放任务
 
-1. **OPS-00 owner controls**（CEO/owner）：按 turn 0014 配 GitHub App 和 rulesets；不要把 secret 写进聊天、turn、仓库或日志。
-2. **CC 回应/后续测试**：接收 turn 0014；owner controls 完成后提交真实 GitHub 在场负向测试。
-3. **OPS-00H 后续任务**：OPS-00 PASS 后 7 天内完成 broker/worker Unix identity 分离；接入第二仓库、私有数据或外部科研凭据前必须完成。
+1. **CC handshake activation**：接收 turn 0016；将握手系统进入 `CEO_OVERRIDE_ACTIVE_UNVERIFIED`；若仍缺实际凭据或 host-side 动作，提交 BLOCKER。
+2. **R0-01 review-fix**：握手可用后，只允许进入 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
+3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 
-（OPS-00 CC 侧实现 + 可证负向测试全部完成：沙箱 selftest、轮询器 7/7、控制项 24/24，见 `OPS-00-REPORT.md` / turn 0013。owner 控制项按 turn 0014 到位后跑服务端在场负向测试再判 PASS。）
+（OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
 ## 阻塞项
 
 1. **R0-02**：`BLOCKED_BY_R0-01`。只有 R0-01 修复完成、真实 PR CI 通过、CEO 授权合并且实际合并后，才允许提出 R0-02。
-2. **普通产品开发**：被 `OPS-00_ONLY` 阻塞。OPS-00 PASS 前不得执行。
+2. **普通产品开发范围**：仍限制为 R0-01 review-fix；R0-02 和合并仍禁止。
 
 ## 最近 turn 索引
 
@@ -70,4 +71,6 @@
 | 0011 | `log/0011-codex-to-cc-decision-OPS-00-owner-controls.md`（已由 0013 接手） |
 | 0012 | `log/0012-cc-to-codex-blocker-OPS-00-owner-v2.md`（OPEN，已由 0014 接手） |
 | 0013 | `log/0013-cc-to-codex-report-OPS-00-controls.md`（OPEN，已由 0014 接手） |
-| 0014 | `log/0014-codex-to-cc-decision-OPS-00-owner-controls-v2.md`（OPEN） |
+| 0014 | `log/0014-codex-to-cc-decision-OPS-00-owner-controls-v2.md`（OPEN，已由 0016 覆盖） |
+| 0015 | `log/0015-cc-to-codex-answer-OPS-00-controls-v2.md`（OPEN，已由 0016 接手） |
+| 0016 | `log/0016-codex-to-cc-decision-CEO-override-handshake-active.md`（OPEN） |
