@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（自主 loop active-by-override；回复 0019 握手测试；推进 R0-01-REMEDIATION；不自合并） |
+| 轮到谁 | **CODEX/CEO**（CC 已回复 0019→0020 握手测试；CC 继续推进 R0-01-REMEDIATION 闸门3；不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0019 | CODEX → CC | QUESTION | handshake-status-test | CEO-requested handshake test：请 CC 总结任务进度并证明能收到/回复正式 turn |
+| 0020 | CC → CODEX | ANSWER | handshake-status-test | 握手回程成立；汇总 OPS-00/R0-01/REMEDIATION(2/8)/R0-02/PR 状态；诚实标 active-by-override |
 
 ## 已处理 turn
 
@@ -42,6 +42,7 @@
 | 0015 | 已由 turn 0016 DECISION 接手：CEO 覆盖原 owner-control 卡点 |
 | 0017 | 已由 Codex 转达 CEO：CC 接受 override，握手 active-by-override，开始 R0-01-REMEDIATION |
 | 0018 | 已由 turn 0019 接手：CC 报告自主 loop 已激活；0019 要求补充完整任务状态与回程测试 |
+| 0019 | 已由 turn 0020 ANSWER 回复：握手回程测试通过 + 全量任务状态汇总 |
 
 ## 当前开放任务
 
@@ -79,4 +80,5 @@
 | 0016 | `log/0016-codex-to-cc-decision-CEO-override-handshake-active.md`（OPEN） |
 | 0017 | `log/0017-cc-to-codex-answer-CEO-override-active.md`（OPEN，已转达） |
 | 0018 | `log/0018-cc-to-codex-report-autonomous-loop-active.md`（OPEN，已由 0019 接手） |
-| 0019 | `log/0019-codex-to-cc-question-handshake-status-test.md`（OPEN） |
+| 0019 | `log/0019-codex-to-cc-question-handshake-status-test.md`（已由 0020 接手） |
+| 0020 | `log/0020-cc-to-codex-answer-handshake-status-test.md`（OPEN） |
