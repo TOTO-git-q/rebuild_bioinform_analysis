@@ -80,12 +80,37 @@
 |---|---|---|---|
 | 1 | 唯一 authoritative eligibility gate（inspect/report/bundle/CLI formal export 全部重核验，Claim 布尔仅作缓存展示） | **DONE（本步）** | `provenance.authoritative_release`；测试见下 |
 | 2 | decision integrity validation（重算 decision id、核 policy_id/version、evaluated_input_refs、input hashes、Claim/EvidenceItem 引用的 decision_id） | **DONE（本步）** | `provenance.verify_decision_integrity` / `decision_is_authoritatively_eligible`；测试见下 |
-| 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | TODO | — |
+| 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | **DONE（本步）** | `provenance.verify_project_policy_integrity`；测试见下 |
 | 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | TODO | — |
 | 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | TODO | — |
 | 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | TODO | — |
 | 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
 | 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 3）真实结果
+
+代码：`auto_bioinfo/core/provenance.py::verify_project_policy_integrity(policy, state)`
+- ProjectPolicy 视为**不可变对象**：不再只比对 policy/state 两个投影是否"一致"（旧 `validate_policy_state_consistency`），而是从 policy 自身载荷**重算完整性**：
+  ①`_recompute_policy_content_hash` 按 `build_project_policy` 同一规范体重算 `content_hash` 并比对；
+  ②`_recompute_policy_id` 按 (project_id, execution_mode, policy_version) 重算 `project_policy_id` 并比对；
+  ③`execution_mode` 必须是合法枚举；
+  ④`policy.project_id` 必须与 `ProjectState.project_id` 一致；
+  ⑤`ProjectState.project_policy_ref` 不得缺失且须指向该 policy。
+  末尾并入旧一致性检查（execution_mode 投影一致 + ref 指向），去重，使本门成为其严格超集。
+- 关键安全属性：攻击者把 `execution_mode` 在 **policy 与 state 两个文件**同时改成 REAL、却无法重新派生 policy 的 hash/id（需项目自身哈希函数）→ content_hash + project_policy_id 双失配被抓。
+- 接线：`pipeline.run` 启动/恢复时由 `verify_project_policy_integrity` 取代原 `validate_policy_state_consistency`，任一失配抛 `PipelineError`，绝不以 REAL 运行。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::ProjectPolicyIntegrityBypassTest`，6 条全过）：
+1. `test_untampered_policy_passes_integrity` — 合法 policy 完整性通过 ✅
+2. `test_tampered_execution_mode_breaks_hash_and_id` — 仅改 policy.execution_mode（hash/id 未重算）→ content_hash + id 双失配 ✅
+3. `test_both_policy_and_state_tampered_still_detected` — policy 与 state 同时改 REAL 并把 ref 指回旧 id → 仍因 hash/id 失配被检出（CEO 核心要求项）✅
+4. `test_missing_policy_ref_is_rejected` — `project_policy_ref` 缺失 → 拒绝 ✅
+5. `test_project_id_mismatch_is_rejected` — policy.project_id 与 state.project_id 不一致 → 拒绝 ✅
+6. `test_pipeline_rejects_tampered_policy_on_resume` — 端到端：落盘后同时篡改 `project_policy.json` 与 `project_state.json` 的 mode，再 resume → `PipelineError`，不以 REAL 运行 ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 69 tests, OK**（63 基线 + 6 闸门3，全离线确定性）。
+
+> 闸门进度：已完成闸门 1、2、3 → **3/8**。下一步闸门 4：正式区分 demo export 与 `export --formal`（不合格返回非零退出码且不产出正式导出物，不只打印警告）。
 
 ## 本步（闸门 2）真实结果
 

@@ -81,6 +81,78 @@ def validate_policy_state_consistency(policy: dict[str, Any], state: dict[str, A
     return errors
 
 
+def _recompute_policy_content_hash(policy: dict[str, Any]) -> str:
+    """Recompute the content_hash exactly as ``build_project_policy`` does."""
+    body = {
+        "schema_version": policy.get("schema_version"),
+        "project_id": policy.get("project_id"),
+        "execution_mode": policy.get("execution_mode"),
+        "policy_version": policy.get("policy_version"),
+        "status": policy.get("status"),
+    }
+    return hash_payload(body)
+
+
+def _recompute_policy_id(policy: dict[str, Any]) -> str:
+    return make_stable_id(
+        "project_policy",
+        {
+            "project_id": policy.get("project_id"),
+            "execution_mode": policy.get("execution_mode"),
+            "policy_version": policy.get("policy_version"),
+        },
+    )
+
+
+def verify_project_policy_integrity(policy: dict[str, Any], state: dict[str, Any]) -> list[str]:
+    """Gate 3 (R0-01 review-fix): the ProjectPolicy is an *immutable* object.
+
+    Unlike :func:`validate_policy_state_consistency` (which only checks that the
+    two projections *agree*), this recomputes the policy's own integrity from its
+    payload, so editing the policy JSON — even if ``ProjectState`` is edited to
+    match — is detected:
+
+    - ``content_hash`` is recomputed from the canonical body and compared;
+    - ``project_policy_id`` is recomputed from (project_id, execution_mode,
+      policy_version) and compared;
+    - ``execution_mode`` must be a valid enum member;
+    - ``project_id`` must agree with ``ProjectState.project_id``;
+    - ``ProjectState.project_policy_ref`` must be present and point at the policy.
+
+    An attacker who flips ``execution_mode`` DEMO→REAL in *both* files without
+    re-deriving the hash/id (which they cannot, without the project's own
+    hashing) is rejected here.
+    """
+    errors: list[str] = []
+    if not policy:
+        errors.append("project policy is missing; execution_mode has no authoritative source")
+        return errors
+
+    mode = policy.get("execution_mode")
+    if mode not in EXECUTION_MODES:
+        errors.append(f"ProjectPolicy.execution_mode={mode!r} is not a valid execution mode")
+
+    if policy.get("content_hash") != _recompute_policy_content_hash(policy):
+        errors.append("ProjectPolicy.content_hash does not match recomputed content (policy tampered)")
+
+    if policy.get("project_policy_id") != _recompute_policy_id(policy):
+        errors.append("ProjectPolicy.project_policy_id does not match recomputed id (policy tampered)")
+
+    state_project_id = state.get("project_id")
+    if state_project_id and policy.get("project_id") != state_project_id:
+        errors.append("ProjectPolicy.project_id disagrees with ProjectState.project_id")
+
+    if not state.get("project_policy_ref"):
+        errors.append("ProjectState.project_policy_ref is missing; policy binding is unverifiable")
+
+    # Subsume the agreement check (execution_mode + ref pointing) so the
+    # integrity gate is a strict superset; de-dup while preserving order.
+    for e in validate_policy_state_consistency(policy, state):
+        if e not in errors:
+            errors.append(e)
+    return errors
+
+
 # --- Provenance shape validation + pseudo-REAL detection --------------------
 
 def validate_provenance(candidate: dict[str, Any]) -> list[str]:

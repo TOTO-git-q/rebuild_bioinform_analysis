@@ -19,7 +19,9 @@ from auto_bioinfo.core.provenance import (
     validate_policy_state_consistency,
     validate_provenance,
     verify_decision_integrity,
+    verify_project_policy_integrity,
 )
+from auto_bioinfo.core.provenance import build_project_policy
 from auto_bioinfo.interfaces.cli import main
 from auto_bioinfo.pipeline import Pipeline, PipelineError
 from auto_bioinfo.report import build_final_report
@@ -234,6 +236,69 @@ class AuthoritativeEligibilityGateBypassTest(unittest.TestCase):
         self.assertTrue(release["scientific_output_eligible"])
         self.assertEqual(release["release_status"], "RESEARCH_PRELIMINARY")
         self.assertEqual(release["reasons"], [])
+
+
+class ProjectPolicyIntegrityBypassTest(unittest.TestCase):
+    """Gate 3 (R0-01 review-fix): the ProjectPolicy is immutable. Editing it —
+    even with ProjectState edited to match — must be detected by hash/id
+    recomputation."""
+
+    def _genuine(self, mode="DEMO"):
+        policy = build_project_policy("proj1", mode)
+        state = {"project_id": "proj1", "execution_mode": mode, "project_policy_ref": policy["project_policy_id"]}
+        return policy, state
+
+    def test_untampered_policy_passes_integrity(self):
+        policy, state = self._genuine("DEMO")
+        self.assertEqual(verify_project_policy_integrity(policy, state), [])
+
+    def test_tampered_execution_mode_breaks_hash_and_id(self):
+        # Flip DEMO->REAL in the policy only, leaving its hash/id stale.
+        policy, state = self._genuine("DEMO")
+        policy["execution_mode"] = "REAL"
+        errors = verify_project_policy_integrity(policy, state)
+        self.assertTrue(any("content_hash" in e for e in errors))
+        self.assertTrue(any("project_policy_id" in e for e in errors))
+
+    def test_both_policy_and_state_tampered_still_detected(self):
+        # Attacker flips the mode in BOTH files (and re-points the ref to the
+        # unchanged id) but cannot re-derive the policy's hash/id -> detected.
+        policy, state = self._genuine("DEMO")
+        policy["execution_mode"] = "REAL"
+        state["execution_mode"] = "REAL"  # state now agrees with the tampered policy
+        state["project_policy_ref"] = policy["project_policy_id"]
+        errors = verify_project_policy_integrity(policy, state)
+        self.assertTrue(errors)
+        self.assertTrue(any("content_hash" in e or "project_policy_id" in e for e in errors))
+
+    def test_missing_policy_ref_is_rejected(self):
+        policy, state = self._genuine("DEMO")
+        state["project_policy_ref"] = ""
+        errors = verify_project_policy_integrity(policy, state)
+        self.assertTrue(any("project_policy_ref is missing" in e for e in errors))
+
+    def test_project_id_mismatch_is_rejected(self):
+        policy, state = self._genuine("DEMO")
+        state["project_id"] = "other_project"
+        errors = verify_project_policy_integrity(policy, state)
+        self.assertTrue(any("project_id" in e for e in errors))
+
+    def test_pipeline_rejects_tampered_policy_on_resume(self):
+        # End-to-end: tamper the persisted ProjectPolicy + ProjectState together;
+        # resume must refuse with a PipelineError rather than run as REAL.
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            policy_path = proj / "state" / "objects" / "project_policy.json"
+            state_path = proj / "state" / "project_state.json"
+            policy = json.loads(policy_path.read_text())
+            state = json.loads(state_path.read_text())
+            policy["execution_mode"] = "REAL"
+            state["execution_mode"] = "REAL"
+            policy_path.write_text(json.dumps(policy))
+            state_path.write_text(json.dumps(state))
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=fixture_adapter()).run(proj)
 
 
 class EligibilityRuleTest(unittest.TestCase):

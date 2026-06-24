@@ -30,8 +30,8 @@ from .core.provenance import (
     build_project_policy,
     evaluate_scientific_eligibility,
     is_eligible,
-    validate_policy_state_consistency,
     validate_provenance,
+    verify_project_policy_integrity,
     validate_real_mode_dataset,
 )
 from .core.store import init_project_state, load_project_state, transition_state
@@ -75,11 +75,12 @@ class Pipeline:
             policy = build_project_policy(project_dir.name, execution_mode)
             write_object(project_dir, "project_policy", policy)
             init_project_state(project_dir, question, execution_mode=execution_mode, project_policy_ref=policy["project_policy_id"])
-        # ProjectState must always agree with the immutable ProjectPolicy.
+        # The ProjectPolicy is immutable: recompute its integrity (hash/id) and
+        # require ProjectState to agree, so editing either file is detected.
         policy = read_object(project_dir, "project_policy", {})
-        consistency = validate_policy_state_consistency(policy, load_project_state(project_dir))
-        if consistency:
-            raise PipelineError(f"project policy/state inconsistency: {consistency}")
+        integrity = verify_project_policy_integrity(policy, load_project_state(project_dir))
+        if integrity:
+            raise PipelineError(f"project policy integrity failure: {integrity}")
 
         # Drive guarded steps until a terminal/paused stage is reached.
         steps: list[tuple[str, Callable[[Path], None]]] = [
