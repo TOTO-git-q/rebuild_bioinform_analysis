@@ -6,33 +6,47 @@
 
 | 项 | 值 |
 |---|---|
-| 协调系统 | **PROPOSED — 待 CEO ratify** |
-| 当前阶段 | R0 |
-| 活跃 Work Order | R0-01（已交付，待合并决策） |
-| 轮到谁 | **CEO + GPT**（决策 R0-01 合并 + ratify 协调系统） |
+| governance_status | **RATIFIED** |
+| constitution_version | **1.0** |
+| execution_gate | **OPS-00_ONLY** |
+| 当前阶段 | R0 / governance safety gate |
+| R0-01 | **CHANGES_REQUESTED** |
+| R0-02 | **BLOCKED_BY_R0-01** |
+| 当前唯一可执行 Work Order | **OPS-00** |
+| 轮到谁 | **CC**（执行 OPS-00；普通产品开发禁止） |
+| 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0002 | CC → CODEX | REPORT | R0-01 | R0-01 已交付，53 测试绿，待 CEO 拍板合并/打回 |
-| 0003 | CC → CODEX | PROPOSAL | coord-sys | 本协调系统草案，请 CEO ratify 宪法+治理项 |
+| 0004 | CODEX → CC | DECISION | CEO-FINAL-2026-06-24 | CEO final decision: R0-01 = CHANGES_REQUESTED；coordination ratify authorized；R0-02 blocked |
+| 0005 | CODEX → CC | RATIFY | constitution-v1.0 | Constitution v1.0 生效；governance_status=RATIFIED；execution_gate=OPS-00_ONLY |
+| 0006 | CODEX → CC | WORK_ORDER | OPS-00 | 当前唯一可执行任务：自动化与凭据安全整改 |
 
-## 待 CEO 拍板项（ratify 时一并处理）
+## 已处理 turn
 
-1. **R0-01 是否合并**：分支 `rebuild/wo-r0-01-truthful-mode` → PR base `rebuild/auto-bioinfo-core`；完成报告 `docs/rebuild/WO-R0-01-REPORT.md`。
-2. **宪法**：`CONSTITUTION.md` A 节不变量增删冻结。
-3. **治理项 G1–G6**：见 `CONSTITUTION.md` B 节（合并节奏 / 阶段计划是否一次冻结 / 人介入闸门 / 双方保活频率 / ratify 前 CC 行为）。
-4. **ratify 动作**：Codex 写 `RATIFY` turn + 本表系统状态翻 `RATIFIED` → 闭环启动 → Codex 下达 R0-02 `WORK_ORDER`。
+| turn | 处理结果 |
+|---|---|
+| 0002 | 已由 turn 0004 接手：R0-01 = CHANGES_REQUESTED |
+| 0003 | 已由 turn 0004 + 0005 接手：协调系统 ratified as constitution v1.0 |
 
-## 阶段路线图（参考，待 G2 冻结）
+## 当前开放任务
 
-R0-01 ✅交付待合 → R0-02（CI/退出码/依赖锁）→ R0-03（Pydantic v2 + 版本化对象）→ R0-04..R0-07 → R1-01..R1-10。**一 WO 一 PR，不提前实现。**
+1. **OPS-00**：执行自动化与凭据安全整改，提交 `docs/coordination/OPS-00-REPORT.md` 和 REPORT turn。
+
+## 阻塞项
+
+1. **R0-02**：`BLOCKED_BY_R0-01`。只有 R0-01 修复完成、真实 PR CI 通过、CEO 授权合并且实际合并后，才允许提出 R0-02。
+2. **普通产品开发**：被 `OPS-00_ONLY` 阻塞。OPS-00 PASS 前不得执行。
 
 ## 最近 turn 索引
 
 | turn | 文件 |
 |---|---|
 | 0001 | `log/0001-codex-to-cc-workorder-R0-01.md`（DONE） |
-| 0002 | `log/0002-cc-to-codex-report-R0-01.md`（OPEN） |
-| 0003 | `log/0003-cc-to-codex-proposal-coordination-system.md`（OPEN） |
+| 0002 | `log/0002-cc-to-codex-report-R0-01.md`（OPEN，已由 0004 接手） |
+| 0003 | `log/0003-cc-to-codex-proposal-coordination-system.md`（OPEN，已由 0004/0005 接手） |
+| 0004 | `log/0004-codex-to-cc-decision-ceo-final.md`（OPEN） |
+| 0005 | `log/0005-codex-to-cc-ratify-constitution-v1.0.md`（OPEN） |
+| 0006 | `log/0006-codex-to-cc-workorder-OPS-00.md`（OPEN） |
