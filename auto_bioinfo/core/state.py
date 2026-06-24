@@ -99,8 +99,14 @@ def allowed_next_stages(stage: str) -> list[str]:
     return list(LINEAR_NEXT.get(stage, []))
 
 
-def build_initial_state(project_id: str, user_question: str) -> dict[str, Any]:
-    state = ProjectState(project_id=project_id, current_stage="INTAKE", allowed_next_stages=allowed_next_stages("INTAKE"))
+def build_initial_state(project_id: str, user_question: str, *, execution_mode: str = "DEMO", project_policy_ref: str = "") -> dict[str, Any]:
+    state = ProjectState(
+        project_id=project_id,
+        current_stage="INTAKE",
+        allowed_next_stages=allowed_next_stages("INTAKE"),
+        execution_mode=execution_mode,
+        project_policy_ref=project_policy_ref,
+    )
     data = asdict(state)
     data["project_state_id"] = make_stable_id("project_state", {"project_id": project_id})
     data["schema_version"] = CANONICAL_SCHEMA_VERSION

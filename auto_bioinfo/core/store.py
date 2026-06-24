@@ -22,9 +22,9 @@ def _events_path(project_dir: str | Path) -> Path:
     return _v5_dir(project_dir) / "events.jsonl"
 
 
-def init_project_state(project_dir: str | Path, user_question: str) -> dict[str, Any]:
+def init_project_state(project_dir: str | Path, user_question: str, *, execution_mode: str = "DEMO", project_policy_ref: str = "") -> dict[str, Any]:
     project_id = Path(project_dir).name
-    state = build_initial_state(project_id=project_id, user_question=user_question)
+    state = build_initial_state(project_id=project_id, user_question=user_question, execution_mode=execution_mode, project_policy_ref=project_policy_ref)
     _write_state(project_dir, state)
     event = build_event(
         project_id=project_id,
@@ -34,7 +34,7 @@ def init_project_state(project_dir: str | Path, user_question: str) -> dict[str,
         next_stage="INTAKE",
         object_refs=[{"object_type": "ProjectState", "object_id": state["project_state_id"]}],
         message="Initialized canonical v5 project state.",
-        payload={"user_question": user_question},
+        payload={"user_question": user_question, "execution_mode": execution_mode, "project_policy_ref": project_policy_ref},
     )
     append_event(project_dir, event)
     return state

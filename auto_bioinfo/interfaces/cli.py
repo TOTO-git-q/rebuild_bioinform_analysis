@@ -23,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     p_run = sub.add_parser("run", help="Create a project and run the closed loop end to end.")
     p_run.add_argument("--project", required=True, help="Project directory to create/use.")
     p_run.add_argument("--question", required=True, help="Natural-language research question.")
+    p_run.add_argument("--mode", default="DEMO", choices=["DEMO", "TEST", "REAL"], help="Execution mode (default DEMO). REAL refuses synthetic-fixture data.")
 
     p_resume = sub.add_parser("resume", help="Resume an existing project from its persisted stage.")
     p_resume.add_argument("--project", required=True)
@@ -41,9 +42,9 @@ def main(argv: list[str] | None = None) -> int:
     project = Path(args.project)
 
     if args.command == "run":
-        summary = Pipeline().run(project, args.question)
+        summary = Pipeline().run(project, args.question, execution_mode=args.mode)
         _print_summary(summary)
-        return 0 if summary["current_stage"] in {"COMPLETED", "HUMAN_REVIEW_REQUIRED"} else 0
+        return 0
 
     if args.command == "resume":
         summary = Pipeline().run(project)
@@ -62,6 +63,9 @@ def main(argv: list[str] | None = None) -> int:
         manifest = build_reproduction_bundle(project)
         print(f"Reproduction bundle: {project / manifest['bundle_dir']}")
         print(f"  files: {len(manifest['files'])}  ·  id: {manifest['reproduction_bundle_id']}")
+        print(f"  MODE: {manifest.get('execution_mode')}  ·  release_status: {manifest.get('release_status')}")
+        if not manifest.get("scientific_output_eligible"):
+            print("  ⚠️  DEMONSTRATION_ONLY — not for export as research results.")
         return 0
 
     if args.command == "validate":
@@ -93,6 +97,12 @@ def _validate(project: Path) -> dict:
 
 def _print_summary(summary: dict) -> None:
     print(f"project : {summary['project_id']}")
+    mode = summary.get("execution_mode", "DEMO")
+    eligible = summary.get("scientific_output_eligible", False)
+    banner = f"MODE    : {mode}  ·  release_status: {summary.get('release_status', 'DEMONSTRATION_ONLY')}"
+    if not eligible:
+        banner += "  ⚠️ DEMONSTRATION_ONLY — not formal scientific evidence"
+    print(banner)
     print(f"stage   : {summary['current_stage']}")
     print(f"history : {' -> '.join(summary.get('stage_history', []))}")
     claims = summary.get("claims", [])

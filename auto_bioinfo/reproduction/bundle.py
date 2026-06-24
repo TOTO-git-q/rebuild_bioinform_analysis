@@ -44,6 +44,10 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
     research_spec = read_object(project_dir, "research_spec", {})
     workflow = read_object(project_dir, "workflow_plan", {})
     artifact = read_object(project_dir, "registered_artifact", {})
+    policy = read_object(project_dir, "project_policy", {})
+    execution_mode = policy.get("execution_mode", "DEMO")
+    eligible = any(c.get("scientific_output_eligible") for c in load_claims(project_dir))
+    release_status = "RESEARCH_PRELIMINARY" if eligible else "DEMONSTRATION_ONLY"
 
     # Copy locked inputs and produced outputs into the bundle.
     for _name, rel in manifest.get("materialized_files", {}).items():
@@ -94,9 +98,16 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
         "\nThis bundle is offline and deterministic; a correct re-run is BITWISE_IDENTICAL.\n"
     )
     (bundle / "run_order.md").write_text(run_order, encoding="utf-8")
+    demo_banner = (
+        f"> ⚠️ **{release_status}** (execution_mode = `{execution_mode}`). This bundle reproduces a "
+        f"DEMONSTRATION run; its claims are NOT formal scientific evidence and must not be exported as research results.\n\n"
+        if not eligible
+        else f"> execution_mode = `{execution_mode}` · release_status = `{release_status}`.\n\n"
+    )
     (bundle / "README.md").write_text(
         f"# Reproduction bundle for project `{project_dir.name}`\n\n"
-        "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
+        + demo_banner
+        + "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
         "Inputs are a committed fixture, not a real biological dataset.\n",
         encoding="utf-8",
     )
@@ -104,6 +115,9 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
     manifest_obj = {
         "reproduction_bundle_id": make_stable_id("reproduction_bundle", {"project_id": project_dir.name, "checksums": checksums}),
         "project_id": project_dir.name,
+        "execution_mode": execution_mode,
+        "release_status": release_status,
+        "scientific_output_eligible": eligible,
         "bundle_dir": "reproduction_bundle",
         "files": sorted(checksums.keys()),
         "checksums_sha256": checksums,

@@ -25,6 +25,14 @@ from .core.handoff import build_handoff, write_handoff
 from .core.agent_protocol import validate_agent_handoff
 from .core.alignment_auditor import audit_question_alignment
 from .core.ids import make_stable_id
+from .core.provenance import (
+    build_project_policy,
+    evaluate_scientific_eligibility,
+    is_eligible,
+    validate_policy_state_consistency,
+    validate_provenance,
+    validate_real_mode_dataset,
+)
 from .core.store import init_project_state, load_project_state, transition_state
 from .core.task_packets import build_analysis_task_packet, build_review_task_packet, validate_task_packets
 from .core.validation import validate_no_unknown_verified_dataset
@@ -56,13 +64,21 @@ class Pipeline:
 
     # -- public API ----------------------------------------------------------
 
-    def run(self, project_dir: str | Path, question: str | None = None) -> dict[str, Any]:
+    def run(self, project_dir: str | Path, question: str | None = None, execution_mode: str = "DEMO") -> dict[str, Any]:
         project_dir = Path(project_dir)
         state_file = project_dir / "state" / "project_state.json"
         if not state_file.exists():
             if not question:
                 raise PipelineError("a question is required to start a new project")
-            init_project_state(project_dir, question)
+            # The immutable ProjectPolicy is the authoritative source of mode.
+            policy = build_project_policy(project_dir.name, execution_mode)
+            write_object(project_dir, "project_policy", policy)
+            init_project_state(project_dir, question, execution_mode=execution_mode, project_policy_ref=policy["project_policy_id"])
+        # ProjectState must always agree with the immutable ProjectPolicy.
+        policy = read_object(project_dir, "project_policy", {})
+        consistency = validate_policy_state_consistency(policy, load_project_state(project_dir))
+        if consistency:
+            raise PipelineError(f"project policy/state inconsistency: {consistency}")
 
         # Drive guarded steps until a terminal/paused stage is reached.
         steps: list[tuple[str, Callable[[Path], None]]] = [
@@ -100,12 +116,17 @@ class Pipeline:
     def inspect(self, project_dir: str | Path) -> dict[str, Any]:
         project_dir = Path(project_dir)
         state = load_project_state(project_dir)
+        claims = load_claims(project_dir)
+        eligible_claims = [c for c in claims if c.get("scientific_output_eligible")]
         return {
             "project_id": state["project_id"],
             "current_stage": state["current_stage"],
             "stage_history": state.get("stage_history", []),
+            "execution_mode": state.get("execution_mode", "DEMO"),
+            "release_status": "RESEARCH_PRELIMINARY" if eligible_claims else "DEMONSTRATION_ONLY",
+            "scientific_output_eligible": bool(eligible_claims),
             "research_spec": read_object(project_dir, "research_spec", {}),
-            "claims": load_claims(project_dir),
+            "claims": claims,
             "evidence_items": load_evidence_items(project_dir),
             "qc_reports": load_qc_reports(project_dir),
             "artifacts": load_artifact_registry(project_dir),
@@ -144,12 +165,21 @@ class Pipeline:
     def _discover_resources(self, project_dir: Path) -> None:
         spec = read_object(project_dir, "research_spec")
         plan = read_object(project_dir, "evidence_plan")
+        execution_mode = self._execution_mode(project_dir)
         candidates = self.resources.discover(spec, plan)
         # Hard guard: a verified dataset may never come from a mock/placeholder source.
         for c in candidates:
             errors = validate_no_unknown_verified_dataset(c)
+            errors += validate_provenance(c)
             if errors:
-                raise PipelineError(f"resource discovery produced an invalid verified dataset: {errors}")
+                raise PipelineError(f"resource discovery produced an invalid/ inconsistent dataset: {errors}")
+            # R0-01: a REAL run may not be backed by a synthetic fixture; stop
+            # conservatively *before* any dataset is locked.
+            policy_errors = validate_real_mode_dataset(c, execution_mode)
+            if policy_errors:
+                write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": policy_errors, "candidate": c.get("resource_candidate_id", "")})
+                self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {policy_errors}")
+                return
         profile = self.resources.profile(candidates[0])
         write_object(project_dir, "resource_candidates", candidates)
         ref = write_object(project_dir, "dataset_profile", profile)
@@ -299,6 +329,24 @@ class Pipeline:
             self._advance(project_dir, "INSUFFICIENT_DATA", "result_auditor", [], f"No QC-passed artifact for evidence: {gate_errors or artifact.get('qc_status')}")
             return
 
+        # R0-01: recompute scientific eligibility from the source objects (never
+        # trust an eligible flag already on an object).  In DEMO/TEST this is
+        # INELIGIBLE, so the loop still completes but produces *demonstration*
+        # evidence/claims that can never enter the formal scientific pool.
+        policy = read_object(project_dir, "project_policy", {})
+        decision = evaluate_scientific_eligibility(
+            execution_mode=policy.get("execution_mode", "DEMO"),
+            source_class=profile.get("source_class", "LEGACY_UNKNOWN"),
+            retrieval_mode=profile.get("retrieval_mode", "LOCAL_CACHE"),
+            verification_level=profile.get("verification_level", "UNVERIFIED"),
+            qc_status=artifact.get("qc_status", ""),
+            evaluated_input_refs=[artifact.get("artifact_id", ""), profile.get("dataset_profile_id", "")],
+            evaluated_input_hashes=[artifact.get("checksum_sha256", "")],
+            policy_id=policy.get("project_policy_id", ""),
+            policy_version=policy.get("policy_version", 1),
+        )
+        write_object(project_dir, "scientific_eligibility_decision", decision)
+
         evidence = build_evidence_item(
             deg_table_path=str(project_dir / artifact["path"]),
             method_result=result,
@@ -309,9 +357,10 @@ class Pipeline:
             subquestion_ids=[s["subquestion_id"] for s in subs],
             contract=contract,
             project_ceiling=ceiling,
+            eligibility_decision=decision,
         )
         write_evidence_item(project_dir, evidence)
-        claims = synthesize_claims(evidence_items=[evidence], research_spec=read_object(project_dir, "research_spec"), scope_bundle=scope, project_ceiling=ceiling)
+        claims = synthesize_claims(evidence_items=[evidence], research_spec=read_object(project_dir, "research_spec"), scope_bundle=scope, project_ceiling=ceiling, eligibility_decision=decision)
         for claim in claims:
             write_claim(project_dir, claim)
         ev_ref = {"object_type": "EvidenceItem", "object_id": evidence["evidence_item_id"], "audit_status": "audited"}
@@ -349,6 +398,11 @@ class Pipeline:
         self._advance(project_dir, "COMPLETED", "system", [], "Closed loop completed end-to-end.")
 
     # -- helpers -------------------------------------------------------------
+
+    def _execution_mode(self, project_dir: Path) -> str:
+        """Authoritative execution mode comes from the immutable ProjectPolicy."""
+        policy = read_object(project_dir, "project_policy", {})
+        return policy.get("execution_mode", "DEMO")
 
     def _advance(self, project_dir: Path, next_stage: str, actor: str, object_refs: list[dict[str, Any]], message: str) -> None:
         transition_state(project_dir, next_stage, next_stage, actor, object_refs, message)

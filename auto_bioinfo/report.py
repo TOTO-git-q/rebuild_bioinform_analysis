@@ -31,10 +31,18 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
     claims = load_claims(project_dir)
     evidence = load_evidence_items(project_dir)
     qc_reports = load_qc_reports(project_dir)
+    policy = read_object(project_dir, "project_policy", {})
+    execution_mode = policy.get("execution_mode", "DEMO")
+    eligible_claims = [c for c in claims if c.get("scientific_output_eligible")]
+    release_status = "RESEARCH_PRELIMINARY" if eligible_claims else "DEMONSTRATION_ONLY"
 
     structured = {
         "schema_version": "auto_bioinfo.final_report/0.1",
         "project_id": project_dir.name,
+        "execution_mode": execution_mode,
+        "release_status": release_status,
+        "scientific_output_eligible": bool(eligible_claims),
+        "demonstration_only": not eligible_claims,
         "original_question": spec.get("research_question", ""),
         "normalized_spec": {k: spec.get(k) for k in ("organism", "tissue", "comparison_groups", "claim_ceiling", "open_questions", "assumptions")},
         "scope": {"species": scope.get("species", []), "tissue": scope.get("tissues", []), "condition": scope.get("conditions", [])},
@@ -62,6 +70,9 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
         "claim_ids": [c["claim_id"] for c in claims],
         "evidence_item_ids": [e["evidence_item_id"] for e in evidence],
         "alignment_decision": alignment.get("final_decision", ""),
+        "execution_mode": execution_mode,
+        "release_status": release_status,
+        "scientific_output_eligible": bool(eligible_claims),
         "generated_at": now_iso(),
         "status": "draft" if alignment.get("final_decision") == "approve" else "review_required",
     }
@@ -86,8 +97,17 @@ def _subquestion_answers(subs: list[dict[str, Any]], claims: list[dict[str, Any]
 
 
 def _render_markdown(s: dict[str, Any]) -> str:
+    watermark = (
+        f"> ⚠️ **{s['release_status']}** — execution_mode = `{s['execution_mode']}`, "
+        f"scientific_output_eligible = `{s['scientific_output_eligible']}`.\n"
+        f"> The claims below are NOT formal scientific evidence and must not be exported as research results."
+        if not s["scientific_output_eligible"]
+        else f"> Execution mode: `{s['execution_mode']}` · release_status: `{s['release_status']}`."
+    )
     lines = [
         f"# Auto-Bioinfo Report — {s['project_id']}",
+        "",
+        watermark,
         "",
         f"_Generated: {s['generated_at']}  ·  Alignment decision: **{s['alignment_decision']}**_",
         "",
