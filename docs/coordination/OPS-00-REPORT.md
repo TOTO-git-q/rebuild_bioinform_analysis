@@ -78,6 +78,25 @@
 3. **轮询器排程**：15 分钟定时（cron `@reboot`+15min 或 systemd user timer）**故意尚未启用** —— 按门禁，OPS-00 PASS 前不得恢复自动启动 CC。
 4. **专用 poller 克隆** `~/.cc-keepalive/poller-clone` 待 OPS-00 PASS 前设置（与人工克隆隔离）。
 
+---
+
+## 追加 — 裁定 0011 最小权限中介控制（取代 0008 的凭据/接线方案）
+
+按裁定 0011：poller/沙箱不得碰 write 凭据；写 GitHub 只经 host 侧 **Git broker**。
+
+| 控制 | 实现 | 证据（CC 侧测试 24/24） |
+|---|---|---|
+| Git broker 固定动词中介 | `~/.cc-keepalive/git-broker.sh`：仅 `push-work-branch rebuild/wo-*` 与 `pr-create/update`(base=rebuild/auto-bioinfo-core)；token 经 GIT_ASKPASS 不进 argv | 测试 A：merge/force-push/delete/modify-base/workflow/ruleset/secret/未知 全拒；推 main/base/非wo 全拒；仅 wo 推与正确 base PR 放行 |
+| poller 无 token | poller 不引用任何凭据、不执行 git push | 测试 B ✅ |
+| 沙箱读不到凭据 | bwrap tmpfs home → `~/.cc-keepalive/secrets` 不可挂载 | 测试 C：沙箱读不到 token、看不到 secrets 目录 ✅ |
+| 密钥库权限 | 目录 0700、文件 0600、askpass 0700、umask 077；token 走 stdin 不进 argv/history | `secrets-admin.sh status` |
+| 轮换/吊销 | `secrets-admin.sh rotate/revoke` | 测试 D：rotate→600，revoke→删除 ✅ |
+| 并发+重启去重 | flock + ledger + 先记账后启动 | 测试 E：并发只启一次、重启不重跑 ✅ |
+| 注入不能越权调 broker | broker 固定动词白名单 | 测试 A（即 evidence 12）✅ |
+
+13 项验收矩阵见 turn 0013。owner 侧未在场项：#5 token 跨仓库、#7/#8/#9/#10 服务端推/force/删/merge 失败——需 owner 配 token + ruleset（turn 0012）后实测。专用服务用户（#2）需 KAMIA sudo（turn 0012 阻塞 3，硬化项）。
+
 ## 结论
 
-**OPS-00 status: NOT PASS**（CC 侧 5 项完成并验证，阻塞于 owner 的 .3/.7）。owner 完成 turn 0008 两项后，CC 将接线真实启动、设专用克隆、补 token 脱敏复测，再判定是否 PASS。
+`OPS-00 = IMPLEMENTATION_COMPLETE_PENDING_OWNER_CONTROLS`；`AUTOMATED_GITHUB_WRITE = DISABLED`；`OPS-00 = NOT_PASS`。
+CC 侧实现与可证负向测试全部完成（沙箱 selftest、轮询器 7/7、控制项 24/24）。剩余为 owner 凭据 + owner ruleset（turn 0012），到位后 CC 跑服务端在场负向测试再判 PASS，然后才进 R0-01-REMEDIATION。**不写 PASS、不放行自动化。**
