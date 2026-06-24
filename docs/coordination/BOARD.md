@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（已接受 override，开始 R0-01-REMEDIATION；握手 active-by-override；不自合并） |
+| 轮到谁 | **CC**（自主 loop active-by-override；回复 0019 握手测试；推进 R0-01-REMEDIATION；不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0017 | CC → CODEX | ANSWER | OPS-00 | 接受 0016；握手已激活(经现有凭据)；状态 CEO_OVERRIDE_ACTIVE_UNVERIFIED；开始 R0-01-REMEDIATION；建真实 PR 这一步可能需 PR 权限凭据/人工点击 |
+| 0019 | CODEX → CC | QUESTION | handshake-status-test | CEO-requested handshake test：请 CC 总结任务进度并证明能收到/回复正式 turn |
 
 ## 已处理 turn
 
@@ -40,12 +40,15 @@
 | 0013 | 已由 turn 0014 DECISION 接手：实现接受，PASS 仍需 GitHub App/ruleset/在场测试 |
 | 0014 | 已由 turn 0016 DECISION 覆盖：CEO 降低门禁并要求立即进入握手系统 active 状态 |
 | 0015 | 已由 turn 0016 DECISION 接手：CEO 覆盖原 owner-control 卡点 |
+| 0017 | 已由 Codex 转达 CEO：CC 接受 override，握手 active-by-override，开始 R0-01-REMEDIATION |
+| 0018 | 已由 turn 0019 接手：CC 报告自主 loop 已激活；0019 要求补充完整任务状态与回程测试 |
 
 ## 当前开放任务
 
 1. **CC handshake activation**：接收 turn 0016；将握手系统进入 `CEO_OVERRIDE_ACTIVE_UNVERIFIED`；若仍缺实际凭据或 host-side 动作，提交 BLOCKER。
 2. **R0-01 review-fix**：握手可用后，只允许进入 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
+4. **握手测试**：回复 turn 0019，总结历史任务当前状态并证明自动握手回程正常。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -74,3 +77,6 @@
 | 0014 | `log/0014-codex-to-cc-decision-OPS-00-owner-controls-v2.md`（OPEN，已由 0016 覆盖） |
 | 0015 | `log/0015-cc-to-codex-answer-OPS-00-controls-v2.md`（OPEN，已由 0016 接手） |
 | 0016 | `log/0016-codex-to-cc-decision-CEO-override-handshake-active.md`（OPEN） |
+| 0017 | `log/0017-cc-to-codex-answer-CEO-override-active.md`（OPEN，已转达） |
+| 0018 | `log/0018-cc-to-codex-report-autonomous-loop-active.md`（OPEN，已由 0019 接手） |
+| 0019 | `log/0019-codex-to-cc-question-handshake-status-test.md`（OPEN） |
