@@ -13,15 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **OPS-00** = `IMPLEMENTATION_COMPLETE_PENDING_OWNER_CONTROLS`（**NOT PASS**；AUTOMATED_GITHUB_WRITE=DISABLED） |
-| 轮到谁 | **CEO/owner**（turn 0012 凭据+ruleset）+ **KAMIA**（可选专用用户）+ **Codex** 转达 0012/0013；CC 待命 |
+| 轮到谁 | **CEO/owner**（按 turn 0014 配 GitHub App + ruleset）+ **CC**（接收 0014 并等待 owner controls 后做在场测试） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0012 | CC → CODEX | BLOCKER | OPS-00 | owner 动作 v2（取代 0008）：窄 token(30天/无Workflows/首选App) + 三分支 ruleset + 可选专用用户 |
-| 0013 | CC → CODEX | REPORT | OPS-00 | 接受 0011；Git broker + 隔离落地；13 项证据矩阵；CC 侧 24/24 测试过；状态 IMPLEMENTATION_COMPLETE_PENDING_OWNER_CONTROLS |
+| 0014 | CODEX → CC | DECISION | OPS-00 | CEO ruling: APPROVE_WITH_CONDITIONS；长期凭据采用 GitHub App；ruleset 条件；OPS-00H 后续硬化；PASS 条件 |
 
 ## 已处理 turn
 
@@ -37,14 +36,16 @@
 | 0009 | 已转达 CEO；R0-01 review-fix 需等 OPS-00 PASS |
 | 0010 | 已由 turn 0011 DECISION 接手：OPS-00 remains NOT_PASS |
 | 0011 | 已由 turn 0013 REPORT 接手：接受裁定，Git broker + 13 项证据落地 |
+| 0012 | 已由 turn 0014 DECISION 接手：owner controls v2 = APPROVE_WITH_CONDITIONS |
+| 0013 | 已由 turn 0014 DECISION 接手：实现接受，PASS 仍需 GitHub App/ruleset/在场测试 |
 
 ## 当前开放任务
 
-1. **OPS-00 凭据 + ruleset**（owner）：见 turn 0012，CEO 按精确参数配窄 token + 三分支保护；完成写 DECISION。
-2. **可选硬化**（KAMIA sudo）：专用服务用户（turn 0012 阻塞 3）。
-3. **Codex 回程**：转达 0012/0013 给 CEO；确认能轮询到 `to: CODEX`。
+1. **OPS-00 owner controls**（CEO/owner）：按 turn 0014 配 GitHub App 和 rulesets；不要把 secret 写进聊天、turn、仓库或日志。
+2. **CC 回应/后续测试**：接收 turn 0014；owner controls 完成后提交真实 GitHub 在场负向测试。
+3. **OPS-00H 后续任务**：OPS-00 PASS 后 7 天内完成 broker/worker Unix identity 分离；接入第二仓库、私有数据或外部科研凭据前必须完成。
 
-（OPS-00 CC 侧实现 + 可证负向测试全部完成：沙箱 selftest、轮询器 7/7、控制项 24/24，见 `OPS-00-REPORT.md` / turn 0013。owner 控制项到位后跑服务端在场负向测试再判 PASS。）
+（OPS-00 CC 侧实现 + 可证负向测试全部完成：沙箱 selftest、轮询器 7/7、控制项 24/24，见 `OPS-00-REPORT.md` / turn 0013。owner 控制项按 turn 0014 到位后跑服务端在场负向测试再判 PASS。）
 
 ## 阻塞项
 
@@ -66,5 +67,6 @@
 | 0009 | `log/0009-cc-to-codex-answer-R0-01-review-fix.md`（OPEN，已转达） |
 | 0010 | `log/0010-cc-to-codex-report-OPS-00.md`（OPEN，已由 0011 接手） |
 | 0011 | `log/0011-codex-to-cc-decision-OPS-00-owner-controls.md`（已由 0013 接手） |
-| 0012 | `log/0012-cc-to-codex-blocker-OPS-00-owner-v2.md`（OPEN） |
-| 0013 | `log/0013-cc-to-codex-report-OPS-00-controls.md`（OPEN） |
+| 0012 | `log/0012-cc-to-codex-blocker-OPS-00-owner-v2.md`（OPEN，已由 0014 接手） |
+| 0013 | `log/0013-cc-to-codex-report-OPS-00-controls.md`（OPEN，已由 0014 接手） |
+| 0014 | `log/0014-codex-to-cc-decision-OPS-00-owner-controls-v2.md`（OPEN） |
