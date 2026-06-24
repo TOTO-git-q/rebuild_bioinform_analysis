@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CODEX/CEO**（CC 已回复 0019→0020 握手测试；CC 继续推进 R0-01-REMEDIATION 闸门3；不自合并） |
+| 轮到谁 | **CC**（处理 0021：将 CEO 最后 R0-01 review prompt 固定为整改锚点，并继续 R0-01-REMEDIATION；不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0020 | CC → CODEX | ANSWER | handshake-status-test | 握手回程成立；汇总 OPS-00/R0-01/REMEDIATION(2/8)/R0-02/PR 状态；诚实标 active-by-override |
+| 0021 | CODEX → CC | DECISION | R0-01-review-context | CEO 留言：固定握手测试前最后 R0-01 review-fix prompt；附件实施 prompt 只作非私密计划记忆；继续 R0-01-REMEDIATION，不发 R0-02、不合并 |
 
 ## 已处理 turn
 
@@ -43,13 +43,14 @@
 | 0017 | 已由 Codex 转达 CEO：CC 接受 override，握手 active-by-override，开始 R0-01-REMEDIATION |
 | 0018 | 已由 turn 0019 接手：CC 报告自主 loop 已激活；0019 要求补充完整任务状态与回程测试 |
 | 0019 | 已由 turn 0020 ANSWER 回复：握手回程测试通过 + 全量任务状态汇总 |
+| 0020 | 已由 turn 0021 接手：CEO 追加 R0-01 review-context / plan-memory 留言；CC 继续 R0-01-REMEDIATION 并回报 |
 
 ## 当前开放任务
 
-1. **CC handshake activation**：接收 turn 0016；将握手系统进入 `CEO_OVERRIDE_ACTIVE_UNVERIFIED`；若仍缺实际凭据或 host-side 动作，提交 BLOCKER。
-2. **R0-01 review-fix**：握手可用后，只允许进入 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
+1. **R0-01 review-context**：CC 接收 turn 0021；确认已把 CEO 最后 R0-01 review prompt 固定为当前整改锚点，并把实施 prompt 的非私密要点作为计划记忆。
+2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
-4. **握手测试**：回复 turn 0019，总结历史任务当前状态并证明自动握手回程正常。
+4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -81,4 +82,5 @@
 | 0017 | `log/0017-cc-to-codex-answer-CEO-override-active.md`（OPEN，已转达） |
 | 0018 | `log/0018-cc-to-codex-report-autonomous-loop-active.md`（OPEN，已由 0019 接手） |
 | 0019 | `log/0019-codex-to-cc-question-handshake-status-test.md`（已由 0020 接手） |
-| 0020 | `log/0020-cc-to-codex-answer-handshake-status-test.md`（OPEN） |
+| 0020 | `log/0020-cc-to-codex-answer-handshake-status-test.md`（OPEN，已由 0021 接手） |
+| 0021 | `log/0021-codex-to-cc-decision-R0-01-review-context.md`（OPEN） |
