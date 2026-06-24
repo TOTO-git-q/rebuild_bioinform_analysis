@@ -10,6 +10,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from auto_bioinfo.core.provenance import (
+    authoritative_release,
     decision_is_authoritatively_eligible,
     evaluate_scientific_eligibility,
     is_formally_exportable,
@@ -21,6 +22,8 @@ from auto_bioinfo.core.provenance import (
 )
 from auto_bioinfo.interfaces.cli import main
 from auto_bioinfo.pipeline import Pipeline, PipelineError
+from auto_bioinfo.report import build_final_report
+from auto_bioinfo.reproduction.bundle import build_reproduction_bundle
 from tests._helpers import DEMO_QUESTION, fixture_adapter
 
 
@@ -155,6 +158,82 @@ class DecisionIntegrityBypassTest(unittest.TestCase):
         d = self._eligible_decision()
         errors = verify_decision_integrity(d, referencing_decision_id="some_other_decision_id")
         self.assertTrue(any("references decision" in e for e in errors))
+
+
+class AuthoritativeEligibilityGateBypassTest(unittest.TestCase):
+    """Gate 1 (R0-01 review-fix): inspect / report / bundle / CLI all release
+    through the *same* authoritative gate, which recomputes eligibility from the
+    persisted ScientificEligibilityDecision + active ProjectPolicy.  The cached
+    ``scientific_output_eligible`` flag on a Claim/EvidenceItem is a display cache
+    only and can never authorise a formal release."""
+
+    @staticmethod
+    def _set_flag_true(path: Path) -> None:
+        rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+        for row in rows:
+            row["scientific_output_eligible"] = True
+            row["release_status"] = "RESEARCH_PRELIMINARY"
+        path.write_text("\n".join(json.dumps(r, sort_keys=True) for r in rows) + "\n")
+
+    def test_tampered_claim_flag_does_not_release_inspect_report_bundle(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            res = Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            self.assertEqual(len(res["claims"]), 1)
+            # Attacker flips the cached eligibility flag on every Claim + EvidenceItem.
+            self._set_flag_true(proj / "state" / "claims.jsonl")
+            self._set_flag_true(proj / "state" / "evidence_items.jsonl")
+
+            # inspect — still demonstration-only.
+            summary = Pipeline(resources=fixture_adapter()).inspect(proj)
+            self.assertFalse(summary["scientific_output_eligible"])
+            self.assertEqual(summary["release_status"], "DEMONSTRATION_ONLY")
+
+            # report — still demonstration-only, watermark intact.
+            report = build_final_report(proj)
+            self.assertFalse(report["scientific_output_eligible"])
+            self.assertEqual(report["release_status"], "DEMONSTRATION_ONLY")
+            self.assertIn("DEMONSTRATION_ONLY", (proj / "state" / "reports" / "report.md").read_text())
+
+            # bundle — still demonstration-only, banner intact.
+            manifest = build_reproduction_bundle(proj)
+            self.assertFalse(manifest["scientific_output_eligible"])
+            self.assertEqual(manifest["release_status"], "DEMONSTRATION_ONLY")
+            self.assertIn("DEMONSTRATION_ONLY", (proj / "reproduction_bundle" / "README.md").read_text())
+
+    def test_no_persisted_decision_is_demonstration_only(self):
+        release = authoritative_release({}, policy=_policy("REAL"))
+        self.assertFalse(release["scientific_output_eligible"])
+        self.assertEqual(release["release_status"], "DEMONSTRATION_ONLY")
+        self.assertIn("NO_ELIGIBILITY_DECISION", release["reasons"])
+
+    def test_claim_referencing_foreign_decision_forces_demo(self):
+        # A genuinely-eligible decision, but a Claim claims eligibility while
+        # pointing at a *different* decision id — the gate refuses the release.
+        decision = evaluate_scientific_eligibility(
+            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
+            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
+            policy_id="pp1", policy_version=1,
+        )
+        foreign_claim = {"scientific_output_eligible": True, "scientific_eligibility_decision_id": "some_other_decision"}
+        release = authoritative_release(decision, policy=_policy("REAL"), claims=[foreign_claim])
+        self.assertFalse(release["scientific_output_eligible"])
+        self.assertEqual(release["release_status"], "DEMONSTRATION_ONLY")
+        self.assertIn("OBJECT_REFERENCES_FOREIGN_DECISION", release["reasons"])
+
+    def test_authoritative_release_passes_for_genuine_eligible_decision(self):
+        decision = evaluate_scientific_eligibility(
+            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
+            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
+            policy_id="pp1", policy_version=1,
+        )
+        good_claim = {"scientific_output_eligible": True, "scientific_eligibility_decision_id": decision["scientific_eligibility_decision_id"]}
+        release = authoritative_release(decision, policy=_policy("REAL"), claims=[good_claim])
+        self.assertTrue(release["scientific_output_eligible"])
+        self.assertEqual(release["release_status"], "RESEARCH_PRELIMINARY")
+        self.assertEqual(release["reasons"], [])
 
 
 class EligibilityRuleTest(unittest.TestCase):

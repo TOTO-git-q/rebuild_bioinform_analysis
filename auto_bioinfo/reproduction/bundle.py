@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.ids import make_stable_id
+from ..core.provenance import authoritative_release
 from ..core.schemas import now_iso
 from ..execution.objects import read_object
 from ..execution.runs import load_claims, load_evidence_items, load_qc_reports, load_task_runs
@@ -46,8 +47,16 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
     artifact = read_object(project_dir, "registered_artifact", {})
     policy = read_object(project_dir, "project_policy", {})
     execution_mode = policy.get("execution_mode", "DEMO")
-    eligible = any(c.get("scientific_output_eligible") for c in load_claims(project_dir))
-    release_status = "RESEARCH_PRELIMINARY" if eligible else "DEMONSTRATION_ONLY"
+    # Authoritative eligibility gate: recompute from the persisted decision +
+    # active policy; never trust the cached flag on a Claim/EvidenceItem.
+    release = authoritative_release(
+        read_object(project_dir, "scientific_eligibility_decision", {}),
+        policy=policy,
+        claims=load_claims(project_dir),
+        evidence_items=load_evidence_items(project_dir),
+    )
+    eligible = release["scientific_output_eligible"]
+    release_status = release["release_status"]
 
     # Copy locked inputs and produced outputs into the bundle.
     for _name, rel in manifest.get("materialized_files", {}).items():

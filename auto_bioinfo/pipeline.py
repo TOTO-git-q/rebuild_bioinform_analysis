@@ -26,6 +26,7 @@ from .core.agent_protocol import validate_agent_handoff
 from .core.alignment_auditor import audit_question_alignment
 from .core.ids import make_stable_id
 from .core.provenance import (
+    authoritative_release,
     build_project_policy,
     evaluate_scientific_eligibility,
     is_eligible,
@@ -117,17 +118,25 @@ class Pipeline:
         project_dir = Path(project_dir)
         state = load_project_state(project_dir)
         claims = load_claims(project_dir)
-        eligible_claims = [c for c in claims if c.get("scientific_output_eligible")]
+        evidence_items = load_evidence_items(project_dir)
+        # Authoritative eligibility gate: recompute from the persisted decision +
+        # active policy; never trust the cached flag on a Claim/EvidenceItem.
+        release = authoritative_release(
+            read_object(project_dir, "scientific_eligibility_decision", {}),
+            policy=read_object(project_dir, "project_policy", {}),
+            claims=claims,
+            evidence_items=evidence_items,
+        )
         return {
             "project_id": state["project_id"],
             "current_stage": state["current_stage"],
             "stage_history": state.get("stage_history", []),
             "execution_mode": state.get("execution_mode", "DEMO"),
-            "release_status": "RESEARCH_PRELIMINARY" if eligible_claims else "DEMONSTRATION_ONLY",
-            "scientific_output_eligible": bool(eligible_claims),
+            "release_status": release["release_status"],
+            "scientific_output_eligible": release["scientific_output_eligible"],
             "research_spec": read_object(project_dir, "research_spec", {}),
             "claims": claims,
-            "evidence_items": load_evidence_items(project_dir),
+            "evidence_items": evidence_items,
             "qc_reports": load_qc_reports(project_dir),
             "artifacts": load_artifact_registry(project_dir),
             "alignment": read_object(project_dir, "question_alignment_report", {}),

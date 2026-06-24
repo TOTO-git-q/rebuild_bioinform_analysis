@@ -388,3 +388,58 @@ def recompute_eligibility_for(obj: dict[str, Any], *, qc_status: str, policy: di
 def is_formally_exportable(obj: dict[str, Any]) -> bool:
     """A Demo/ineligible Claim or EvidenceItem may never enter a formal export."""
     return bool(obj.get("scientific_output_eligible")) and obj.get("release_status") == RESEARCH_PRELIMINARY
+
+
+# --- Authoritative eligibility gate (Gate 1 of R0-01 review-fix) -------------
+
+def authoritative_release(
+    decision: dict[str, Any] | None,
+    *,
+    policy: dict[str, Any] | None = None,
+    claims: list[dict[str, Any]] | None = None,
+    evidence_items: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """The single authoritative eligibility gate shared by every output surface
+    (``inspect`` / ``report`` / ``bundle`` / CLI formal export).
+
+    The released eligibility is recomputed *only* from the persisted
+    ``ScientificEligibilityDecision`` and the active ``ProjectPolicy``:
+
+    1. With no persisted decision, the release is ``DEMONSTRATION_ONLY``.
+    2. The decision must pass :func:`verify_decision_integrity` against the
+       active policy (anti-tamper) and its recomputed verdict must be ELIGIBLE
+       (:func:`decision_is_authoritatively_eligible`).
+    3. Any ``Claim`` / ``EvidenceItem`` that *claims* eligibility must reference
+       this exact authoritative decision id; one pointing at a foreign decision
+       forces ``DEMONSTRATION_ONLY``.
+
+    Crucially, the cached ``scientific_output_eligible`` flag on a Claim or
+    EvidenceItem is **never** trusted as authorisation — it is a display cache
+    only.  Flipping it to ``true`` therefore cannot move the release to
+    ``RESEARCH_PRELIMINARY``; the verdict still comes from the recomputed
+    decision.
+    """
+    if not decision:
+        return {
+            "scientific_output_eligible": False,
+            "release_status": DEMONSTRATION_ONLY,
+            "reasons": ["NO_ELIGIBILITY_DECISION"],
+        }
+
+    reasons: list[str] = list(verify_decision_integrity(decision, policy=policy))
+    eligible = decision_is_authoritatively_eligible(decision, policy=policy)
+
+    authoritative_id = decision.get("scientific_eligibility_decision_id")
+    for obj in list(claims or []) + list(evidence_items or []):
+        if obj.get("scientific_output_eligible") and obj.get("scientific_eligibility_decision_id") != authoritative_id:
+            eligible = False
+            reasons.append("OBJECT_REFERENCES_FOREIGN_DECISION")
+
+    if not eligible and not reasons:
+        reasons = list(decision.get("reason_codes", [])) or ["INELIGIBLE"]
+
+    return {
+        "scientific_output_eligible": bool(eligible),
+        "release_status": RESEARCH_PRELIMINARY if eligible else DEMONSTRATION_ONLY,
+        "reasons": [] if eligible else reasons,
+    }

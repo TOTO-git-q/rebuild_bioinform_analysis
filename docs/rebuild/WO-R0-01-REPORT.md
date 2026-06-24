@@ -78,7 +78,7 @@
 
 | # | 闸门（turn 0007） | 状态 | 绕过测试 / 代码 |
 |---|---|---|---|
-| 1 | 唯一 authoritative eligibility gate（inspect/report/bundle/CLI formal export 全部重核验，Claim 布尔仅作缓存展示） | TODO | — |
+| 1 | 唯一 authoritative eligibility gate（inspect/report/bundle/CLI formal export 全部重核验，Claim 布尔仅作缓存展示） | **DONE（本步）** | `provenance.authoritative_release`；测试见下 |
 | 2 | decision integrity validation（重算 decision id、核 policy_id/version、evaluated_input_refs、input hashes、Claim/EvidenceItem 引用的 decision_id） | **DONE（本步）** | `provenance.verify_decision_integrity` / `decision_is_authoritatively_eligible`；测试见下 |
 | 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | TODO | — |
 | 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | TODO | — |
@@ -104,4 +104,19 @@
 
 全量：`python -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 59 tests, OK**（53 基线 + 6 新增，全离线确定性）。
 
-> 闸门 1 将复用 `decision_is_authoritatively_eligible` 把 inspect/report/bundle/CLI 的授权点统一改成"加载持久化 decision → 完整性复核 → 重算 verdict"，使 Claim 上的布尔彻底降级为展示缓存。
+## 本步（闸门 1）真实结果
+
+代码：单一权威资格门 `auto_bioinfo/core/provenance.py::authoritative_release(decision, *, policy, claims, evidence_items)`
+- 释放资格只从**持久化的 `ScientificEligibilityDecision` + 活动 `ProjectPolicy`** 复算：①无决策 → `DEMONSTRATION_ONLY`（reason `NO_ELIGIBILITY_DECISION`）；②决策须过 `verify_decision_integrity`（闸门2，含 policy 绑定）**且** 重算 verdict=ELIGIBLE（`decision_is_authoritatively_eligible`）；③任何"自称合格"的 Claim/EvidenceItem 必须引用该权威 decision id，指向他者 → 强制 `DEMONSTRATION_ONLY`（reason `OBJECT_REFERENCES_FOREIGN_DECISION`）。
+- **彻底不信任** Claim/EvidenceItem 上缓存的 `scientific_output_eligible`，仅作展示缓存。
+- 四个输出面统一改走此门：`pipeline.inspect`、`report.build_final_report`、`reproduction.bundle.build_reproduction_bundle`（CLI `inspect`/`export`/`_print_summary` 经由前三者继承）。原先三处各自 `c.get("scientific_output_eligible")` 的弱判定全部移除。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::AuthoritativeEligibilityGateBypassTest`，4 条全过）：
+1. `test_tampered_claim_flag_does_not_release_inspect_report_bundle` — DEMO 项目落盘后把所有 Claim+EvidenceItem 的 `scientific_output_eligible` 篡改为 true，`inspect` / `report` / `bundle` 三面仍判 `DEMONSTRATION_ONLY` 且水印/banner 不变 ✅（核心 CEO 要求项）
+2. `test_no_persisted_decision_is_demonstration_only` — 无持久化决策 → `DEMONSTRATION_ONLY` ✅
+3. `test_claim_referencing_foreign_decision_forces_demo` — 决策本身合格，但 Claim 自称合格却引用他者 decision id → 强制 demo ✅
+4. `test_authoritative_release_passes_for_genuine_eligible_decision` — 真实合格 REAL 决策 + Claim 正确引用 → 放行 `RESEARCH_PRELIMINARY` ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 63 tests, OK**（53 基线 + 6 闸门2 + 4 闸门1，全离线确定性）。
+
+> 闸门进度更新为 **2/8 → 3/8**（闸门 1、2 完成）。下一步闸门 3：`ProjectPolicy` 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出）。

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .core.ids import make_stable_id
+from .core.provenance import authoritative_release
 from .core.schemas import now_iso
 from .execution.objects import read_object
 from .execution.runs import load_claims, load_evidence_items, load_qc_reports
@@ -33,16 +34,24 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
     qc_reports = load_qc_reports(project_dir)
     policy = read_object(project_dir, "project_policy", {})
     execution_mode = policy.get("execution_mode", "DEMO")
-    eligible_claims = [c for c in claims if c.get("scientific_output_eligible")]
-    release_status = "RESEARCH_PRELIMINARY" if eligible_claims else "DEMONSTRATION_ONLY"
+    # Authoritative eligibility gate: recompute from the persisted decision +
+    # active policy; the cached flag on a Claim is only a display cache.
+    release = authoritative_release(
+        read_object(project_dir, "scientific_eligibility_decision", {}),
+        policy=policy,
+        claims=claims,
+        evidence_items=evidence,
+    )
+    eligible = release["scientific_output_eligible"]
+    release_status = release["release_status"]
 
     structured = {
         "schema_version": "auto_bioinfo.final_report/0.1",
         "project_id": project_dir.name,
         "execution_mode": execution_mode,
         "release_status": release_status,
-        "scientific_output_eligible": bool(eligible_claims),
-        "demonstration_only": not eligible_claims,
+        "scientific_output_eligible": eligible,
+        "demonstration_only": not eligible,
         "original_question": spec.get("research_question", ""),
         "normalized_spec": {k: spec.get(k) for k in ("organism", "tissue", "comparison_groups", "claim_ceiling", "open_questions", "assumptions")},
         "scope": {"species": scope.get("species", []), "tissue": scope.get("tissues", []), "condition": scope.get("conditions", [])},
@@ -72,7 +81,7 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
         "alignment_decision": alignment.get("final_decision", ""),
         "execution_mode": execution_mode,
         "release_status": release_status,
-        "scientific_output_eligible": bool(eligible_claims),
+        "scientific_output_eligible": eligible,
         "generated_at": now_iso(),
         "status": "draft" if alignment.get("final_decision") == "approve" else "review_required",
     }
