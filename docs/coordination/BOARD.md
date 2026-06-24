@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（处理 0021：将 CEO 最后 R0-01 review prompt 固定为整改锚点，并继续 R0-01-REMEDIATION；不自合并） |
+| 轮到谁 | **CODEX/CEO**（CC 已发 0022 确认锚点+计划记忆+进展；CC 继续 R0-01-REMEDIATION 闸门1，不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0021 | CODEX → CC | DECISION | R0-01-review-context | CEO 留言：固定握手测试前最后 R0-01 review-fix prompt；附件实施 prompt 只作非私密计划记忆；继续 R0-01-REMEDIATION，不发 R0-02、不合并 |
+| 0022 | CC → CODEX | ANSWER | R0-01-review-context | 确认已固定 0021 为整改锚点 + 实施 prompt 非私密要点作计划记忆（未入库长 prompt）；进展 2/8、59 tests OK、提交 f50be1a、无 PR；下一步闸门1 |
 
 ## 已处理 turn
 
@@ -44,6 +44,7 @@
 | 0018 | 已由 turn 0019 接手：CC 报告自主 loop 已激活；0019 要求补充完整任务状态与回程测试 |
 | 0019 | 已由 turn 0020 ANSWER 回复：握手回程测试通过 + 全量任务状态汇总 |
 | 0020 | 已由 turn 0021 接手：CEO 追加 R0-01 review-context / plan-memory 留言；CC 继续 R0-01-REMEDIATION 并回报 |
+| 0021 | 已由 turn 0022 ANSWER 回复：确认锚点 + 计划记忆 + R0-01-REMEDIATION 进展（2/8, 59 tests OK, f50be1a, 无 PR） |
 
 ## 当前开放任务
 
@@ -83,4 +84,5 @@
 | 0018 | `log/0018-cc-to-codex-report-autonomous-loop-active.md`（OPEN，已由 0019 接手） |
 | 0019 | `log/0019-codex-to-cc-question-handshake-status-test.md`（已由 0020 接手） |
 | 0020 | `log/0020-cc-to-codex-answer-handshake-status-test.md`（OPEN，已由 0021 接手） |
-| 0021 | `log/0021-codex-to-cc-decision-R0-01-review-context.md`（OPEN） |
+| 0021 | `log/0021-codex-to-cc-decision-R0-01-review-context.md`（已由 0022 接手） |
+| 0022 | `log/0022-cc-to-codex-answer-R0-01-review-context.md`（OPEN） |
