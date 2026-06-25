@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-01B_ACTIVE** |
-| 当前阶段 | WP-01b / configuration model and structured logging redaction |
+| execution_gate | **WP-01C_ACTIVE** |
+| 当前阶段 | WP-01c / quality commands and fixture lifecycle |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01b：配置模型 + 结构化日志/脱敏测试**（已交付，PR #4 OPEN，等待独立审核） |
-| 轮到谁 | **CODEX/CEO**（独立审核 WP-01b PR #4；CC 已停） |
+| 当前唯一可执行 Work Order | **WP-01c：lint/format/type/test/coverage 命令 + fixture 生命周期** |
+| 轮到谁 | **CC**（执行 WP-01c；完成后提交 PR + REPORT，等待 Codex 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -24,7 +24,8 @@
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
 | 0046 | CODEX → CC | DECISION | WP-01-scope-and-guardrails | 处理 turn 0045：WP-01 拆包；CI/`.github/workflows` 授权为后续独立小 WO；Docker/Compose/容器计划内授权但暂缓 |
 | 0049 | CODEX → CC | DECISION | WP-01a-pr3-merged | WP-01a 独立审核通过并机械合并 PR #3，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4`；按 turn 0050 启动 WP-01b |
-| 0051 | CC → CODEX | REPORT | WP-01b | WP-01b 交付：PR #4 OPEN，head `ecce8f2b95acead55f4f670b3ce4035c9bef6370`，138 测试绿（113+25）；config 模型 + 结构化日志/脱敏；未自合并，R0-02 未启动 |
+| 0052 | CODEX → CC | DECISION | WP-01b-pr4-merged | WP-01b 独立审核通过并机械合并 PR #4，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8`；按 turn 0053 启动 WP-01c |
+| 0053 | CODEX → CC | WORK_ORDER | WP-01c | 启动 WP-01c：T-01-07 lint/format/type/test/coverage 命令 + T-01-09 fixture 生命周期；不得启动 CI/Docker/WP-02 |
 
 ## 已处理 turn
 
@@ -74,13 +75,14 @@
 | 0047 | 已由 turn 0048 REPORT 接手：WP-01a 交付（PR #3 OPEN，head `a659fe43`，113 测试绿） |
 | 0048 | 已由 turn 0049 DECISION 接手：独立审核通过，PR #3 已机械合并，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4` |
 | 0050 | 已由 turn 0051 REPORT 接手：WP-01b 交付（PR #4 OPEN，head `ecce8f2b95acead55f4f670b3ce4035c9bef6370`，138 测试绿） |
+| 0051 | 已由 turn 0052 DECISION 接手：独立审核通过，PR #4 已机械合并，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8` |
 
 ## 当前开放任务
 
-1. **WP-01b**：已由 turn 0050 派发并由 turn 0051 交付（PR #4 OPEN，head `ecce8f2b95acead55f4f670b3ce4035c9bef6370`）；等待 Codex 独立审核与 CEO 合并裁定。
-2. **WP-01c**：下一包；未启动，等 WP-01b 合并并记录 merge SHA 后再派发。
-3. **CI / `.github/workflows`**：CEO 已授权为 WP-01 核心合并门；须在 WP-01c 工具链就绪后作为独立小 WO 尽快派发。
-4. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-01b 不做。
+1. **WP-01c**：已由 turn 0053 派发；范围仅 T-01-07 lint/format/type/test/coverage 命令 + T-01-09 fixture 生命周期，完成后提交 PR + REPORT。
+2. **CI / `.github/workflows`**：CEO 已授权为 WP-01 核心合并门；WP-01c 合并后应作为下一独立小 WO 尽快派发。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-01c 不做。
+4. **WP-01d/e**：未启动；等 CI 小 WO 或后续排程到位后按拆包路线继续。
 5. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -90,7 +92,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-01b；不得启动 WP-01c、CI、Docker、migrations、SBOM、PR-template 或 WP-02，不得加入业务/科学分析逻辑。
+4. **当前范围**：仅 WP-01c；不得启动 CI workflow、Docker、migrations、SBOM、PR-template 或 WP-02，不得加入业务/科学分析逻辑。
 
 ## 最近 turn 索引
 
@@ -146,4 +148,6 @@
 | 0048 | `log/0048-cc-to-codex-report-WP-01a.md`（OPEN，已由 0049 接手：PR #3 reviewed and merged） |
 | 0049 | `log/0049-codex-to-cc-decision-WP-01a-pr3-merged.md`（OPEN，WP-01a merged，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4`） |
 | 0050 | `log/0050-codex-to-cc-workorder-WP-01b.md`（已由 0051 接手） |
-| 0051 | `log/0051-cc-to-codex-report-WP-01b.md`（OPEN，WP-01b REPORT，PR #4） |
+| 0051 | `log/0051-cc-to-codex-report-WP-01b.md`（OPEN，已由 0052 接手：PR #4 reviewed and merged） |
+| 0052 | `log/0052-codex-to-cc-decision-WP-01b-pr4-merged.md`（OPEN，WP-01b merged，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8`） |
+| 0053 | `log/0053-codex-to-cc-workorder-WP-01c.md`（OPEN，WP-01c WORK_ORDER） |
