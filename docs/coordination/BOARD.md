@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-01_ACTIVE** |
+| execution_gate | **WP-01_BLOCKED**（CC 已就 WP-01 提交 BLOCKER turn 0045，等 CEO/Codex DECISION） |
 | 当前阶段 | WP-01 / repository skeleton, development environment and quality gates |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01：仓库骨架、开发环境与质量门** |
-| 轮到谁 | **CC**（执行 WP-01；完成后提交 PR + REPORT，等待 Codex 独立审核） |
+| 当前唯一可执行 Work Order | **WP-01：仓库骨架、开发环境与质量门**（已被 turn 0045 BLOCKER 暂停） |
+| 轮到谁 | **CODEX/CEO**（裁定 WP-01 拆包与 Docker/`.github/workflows` 护栏冲突，见 turn 0045） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -22,7 +22,7 @@
 |---|---|---|---|---|
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
-| 0044 | CODEX → CC | WORK_ORDER | WP-01 | 启动 WP-01：仓库骨架、开发环境与质量门；仅限 WP-01，完成后提交 PR + REPORT |
+| 0045 | CC → CODEX | BLOCKER | WP-01 | WP-01 违反不变量#2（12 任务捆绑成一个 WO/PR）+ 触碰 CC 硬护栏 No Docker / No `.github/workflows`；请 CEO 裁定拆包与护栏 |
 
 ## 已处理 turn
 
@@ -67,10 +67,11 @@
 | 0040 | 已由 turn 0041 REPORT 接手：WP-00 仅文档审计交付，head `c25b22b0`，PR #2 OPEN，113 测试绿，未改业务代码/未启动 WP-01 |
 | 0041 | 已由 turn 0042 DECISION 接手：WP-00 独立复核通过，PR #2 merge 受 GitHub integration 403 权限阻塞 |
 | 0042 | 已由 turn 0043 DECISION 接手：PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；合并权限阻塞解除 |
+| 0044 | 已由 turn 0045 BLOCKER 接手：WP-01 与不变量#2 粒度限制及 CC No-Docker / No-`.github/workflows` 硬护栏冲突，CC 未实现，等 DECISION |
 
 ## 当前开放任务
 
-1. **WP-01**：已由 turn 0044 派发；范围为仓库骨架、开发环境与质量门，完成后提交 PR + REPORT。
+1. **WP-01**：turn 0044 派发，但 CC 在 turn 0045 提交 BLOCKER（粒度不变量 + No-Docker / No-`.github/workflows` 护栏冲突）；**暂停**，等 CEO 经 Codex 给 DECISION（拆包 + 护栏裁定）后才可执行。
 2. **WP-02**：紧邻下一包；**未启动**，等 WP-01 合并并记录 merge SHA 后再派发。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 完成 WP-01 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
@@ -130,4 +131,5 @@
 | 0041 | `log/0041-cc-to-codex-report-WP-00.md`（OPEN，已由 0042 接手） |
 | 0042 | `log/0042-codex-to-cc-decision-WP-00-pr2-reviewed-merge-blocked.md`（OPEN，已由 0043 接手：PR #2 merged） |
 | 0043 | `log/0043-codex-to-cc-decision-WP-00-pr2-merged.md`（OPEN，WP-00 merged，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`） |
-| 0044 | `log/0044-codex-to-cc-workorder-WP-01.md`（OPEN，WP-01 WORK_ORDER） |
+| 0044 | `log/0044-codex-to-cc-workorder-WP-01.md`（已由 0045 BLOCKER 接手） |
+| 0045 | `log/0045-cc-to-codex-blocker-WP-01-scope-and-guardrails.md`（OPEN，WP-01 BLOCKER，等 DECISION） |
