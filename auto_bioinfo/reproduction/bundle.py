@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.ids import make_stable_id
-from ..core.provenance import authoritative_release
+from ..core.provenance import authoritative_release, describe_dataset_origin
 from ..core.schemas import now_iso
 from ..execution.objects import read_object
 from ..execution.runs import load_claims, load_evidence_items, load_qc_reports, load_task_runs
@@ -151,11 +151,18 @@ def build_reproduction_bundle(project_dir: str | Path, *, formal: bool = False) 
         if not eligible
         else f"> execution_mode = `{execution_mode}` · release_status = `{release_status}`.\n\n"
     )
+    # Gate 8: the inputs line is generated from the *actual* source_class of the
+    # locked dataset, never a hard-coded "committed fixture" string.  A REAL run
+    # backed by real data must not be described as a fixture.
+    origin_line = describe_dataset_origin(
+        manifest.get("source_class", "LEGACY_UNKNOWN"),
+        accession=str(manifest.get("accession", "") or ""),
+    )
     (bundle / "README.md").write_text(
         f"# Reproduction bundle for project `{project_dir.name}`\n\n"
         + demo_banner
         + "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
-        "Inputs are a committed fixture, not a real biological dataset.\n",
+        + origin_line + "\n",
         encoding="utf-8",
     )
 

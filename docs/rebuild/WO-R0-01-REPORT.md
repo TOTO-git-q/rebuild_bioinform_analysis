@@ -85,7 +85,33 @@
 | 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | **DONE（本步）** | `provenance.validate_real_mode_lock` / `pipeline._lock_datasets`；测试见下 |
 | 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | **DONE（本步）** | `provenance.classify_project_policy_state` / `migrate_legacy_project_policy` / `pipeline.LegacyMigrationRequired` / `store.record_legacy_migration`；测试见下 |
 | 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | **DONE（本步）** | `provenance.validate_provenance` + `_RETRIEVAL_CONSISTENT_WITH_SOURCE` / `_MAX_VERIFICATION_BY_SOURCE`；测试见下 |
-| 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+| 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | **DONE（本步）** | `provenance.describe_dataset_origin` + `bundle.build_reproduction_bundle` README 生成；测试见下 |
+
+## 本步（闸门 8）真实结果
+
+需求（turn 0007 闸门 8）：reproduction bundle 的 README 文案必须**随实际 `source_class` 生成**——REAL 数据（真实公共库 / 用户上传 / 本地数据）的 bundle **不得**再显示固定的「committed fixture」文案。
+
+原实现的问题：`bundle.build_reproduction_bundle` 写 README 时第二段恒为硬编码字符串 `"Inputs are a committed fixture, not a real biological dataset.\n"`——无论锁定数据集的真实 `source_class` 为何，连真实 PUBLIC_DATABASE 数据导出的 bundle 也会被错描述成「committed fixture」，正是闸门 8 点名要修的固定文案。
+
+requirement → 代码 → 测试：
+- `auto_bioinfo/core/provenance.py`
+  - 新增 `_ORIGIN_DESCRIPTION_BY_SOURCE`：五类 source_class 各自的诚实描述句。**只有** `SYNTHETIC_FIXTURE` 句含「committed synthetic fixture」；`PUBLIC_DATABASE`/`USER_UPLOAD`/`LOCAL_DATA` 描述为真实/本地数据，绝不含 fixture 字样；`LEGACY_UNKNOWN` 明确标「unknown (legacy, unverified) provenance」。
+  - 新增纯函数 `describe_dataset_origin(source_class, *, accession="")`：按真实 source_class 取描述；**未识别/缺失** source_class 保守落到 `LEGACY_UNKNOWN`（unknown provenance）而非 fixture；`PUBLIC_DATABASE` 时把真实 accession 织入句中（可审计具体来源）。
+- `auto_bioinfo/reproduction/bundle.py::build_reproduction_bundle`
+  - README 第二段由 `describe_dataset_origin(manifest["source_class"], accession=manifest["accession"])` 生成，数据源取自**已锁定持久化的 `dataset_manifest`**（闸门 5 已使 manifest 持久化 source_class/retrieval_mode/verification_level/file_checksums 四要素）。固定 fixture 字符串删除。demo 水印 banner（闸门 1 的 authoritative gate 驱动）逻辑不变。
+
+关键安全属性：README 的「数据来源」描述现在是**真实锁定 manifest 的 source_class 的函数**，不再是常量。fixture demo 仍诚实显示「committed synthetic fixture」（其输入确实是 fixture，主路径不受影响）；一旦锁定数据集实为真实公共库数据，README 自动切换为真实来源文案并织入 accession，**fixture 字样完全消失**（见测试 5）。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::BundleReadmeSourceClassTest`，5 条全过）：
+1. `test_describe_each_source_class_is_honest` — 仅 SYNTHETIC_FIXTURE 含 fixture，其余四类（含 legacy）均无 fixture 字样且非空 ✅
+2. `test_unknown_source_class_defaults_to_unknown_not_fixture` — 非法/缺失 source_class → 保守落「unknown」，不冒充 fixture ✅
+3. `test_public_database_weaves_in_accession` — PUBLIC_DATABASE 文案织入真实 accession `GSE12345` 且含「public database」✅
+4. `test_demo_bundle_readme_says_synthetic_fixture` — 端到端 demo：README 诚实显示「synthetic fixture」且保留 `DEMONSTRATION_ONLY` 水印 ✅
+5. `test_real_source_bundle_readme_is_not_a_fixture` — 端到端：把持久化 manifest 的 source_class 改标为 PUBLIC_DATABASE + accession `GSE45678` 后重建 bundle → README **不含任何 fixture 字样**、含「public database」与 `GSE45678`，证明文案随真实 source_class 走而非硬编码 ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 97 tests, OK**（92 基线 + 5 闸门8，全离线确定性，约 0.74s）。
+
+> 闸门进度：已完成闸门 1、2、3、4、5、6、7、8 → **8/8 全部完成**。R0-01-REMEDIATION 的 8 闸门收口；下一步尝试建真实 PR（base `rebuild/auto-bioinfo-core`，head `rebuild/wo-r0-01-truthful-mode`）；缺 PR 权限/需人工点击则写 BLOCKER turn 说明，不卡死。**不自合并，等 CEO 验收。**
 
 ## 本步（闸门 7）真实结果
 

@@ -15,6 +15,7 @@ from auto_bioinfo.core.provenance import (
     authoritative_release,
     classify_project_policy_state,
     decision_is_authoritatively_eligible,
+    describe_dataset_origin,
     evaluate_scientific_eligibility,
     is_formally_exportable,
     migrate_legacy_project_policy,
@@ -613,6 +614,65 @@ class StructuredProvenanceConsistencyBypassTest(unittest.TestCase):
             "accession": "GSE12345",  # innocent-looking, but irrelevant here
         })
         self.assertTrue(any("inconsistent with source_class" in e for e in errs))
+
+
+class BundleReadmeSourceClassTest(unittest.TestCase):
+    """Gate 8 (R0-01 review-fix): the reproduction-bundle README must describe
+    its inputs from the *actual* ``source_class`` of the locked dataset.  A run
+    backed by real data must never be described as a "committed fixture", and
+    only a SYNTHETIC_FIXTURE may be."""
+
+    def test_describe_each_source_class_is_honest(self):
+        # Only the synthetic fixture is ever called a fixture; every real data
+        # source and the unknown-provenance class avoid the word entirely.
+        self.assertIn("fixture", describe_dataset_origin("SYNTHETIC_FIXTURE").lower())
+        for sc in ("PUBLIC_DATABASE", "USER_UPLOAD", "LOCAL_DATA", "LEGACY_UNKNOWN"):
+            text = describe_dataset_origin(sc)
+            self.assertNotIn("fixture", text.lower(), f"{sc} must not be called a fixture")
+            self.assertTrue(text.strip())
+
+    def test_unknown_source_class_defaults_to_unknown_not_fixture(self):
+        # A missing/garbage source_class is treated conservatively as unknown
+        # provenance — never silently presented as a committed fixture.
+        text = describe_dataset_origin("NOT_A_REAL_CLASS")
+        self.assertNotIn("fixture", text.lower())
+        self.assertIn("unknown", text.lower())
+
+    def test_public_database_weaves_in_accession(self):
+        text = describe_dataset_origin("PUBLIC_DATABASE", accession="GSE12345")
+        self.assertIn("GSE12345", text)
+        self.assertIn("public database", text.lower())
+
+    def test_demo_bundle_readme_says_synthetic_fixture(self):
+        # The demo main path is unchanged: its inputs really ARE a committed
+        # fixture, so the README honestly says so (and keeps the demo watermark).
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            build_reproduction_bundle(proj)
+            readme = (proj / "reproduction_bundle" / "README.md").read_text()
+            self.assertIn("synthetic fixture", readme.lower())
+            self.assertIn("DEMONSTRATION_ONLY", readme)
+
+    def test_real_source_bundle_readme_is_not_a_fixture(self):
+        # Critical: drive the README off the persisted manifest's source_class.
+        # Re-label the locked dataset as real public-database data and rebuild —
+        # the README must drop the "committed fixture" prose entirely and instead
+        # describe a real source, proving the text tracks the actual source_class
+        # rather than a hard-coded string.
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            manifest_path = proj / "state" / "objects" / "dataset_manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["source_class"] = "PUBLIC_DATABASE"
+            manifest["accession"] = "GSE45678"
+            manifest_path.write_text(json.dumps(manifest))
+            build_reproduction_bundle(proj)
+            readme = (proj / "reproduction_bundle" / "README.md").read_text()
+            self.assertNotIn("fixture", readme.lower())
+            self.assertIn("public database", readme.lower())
+            self.assertIn("GSE45678", readme)
 
 
 if __name__ == "__main__":

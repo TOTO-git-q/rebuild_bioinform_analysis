@@ -179,6 +179,34 @@ _MAX_VERIFICATION_BY_SOURCE: dict[str, str] = {
     "LEGACY_UNKNOWN": "UNVERIFIED",
 }
 
+# --- Gate 8: honest, source_class-driven bundle prose -----------------------
+# An exported reproduction bundle must describe its inputs by what they *are*.
+# Only a SYNTHETIC_FIXTURE may be called a committed fixture; real data sources
+# must never be labelled as a fixture, and unknown-provenance data must say so.
+_ORIGIN_DESCRIPTION_BY_SOURCE: dict[str, str] = {
+    "SYNTHETIC_FIXTURE": "Inputs are a committed synthetic fixture, not a real biological dataset.",
+    "PUBLIC_DATABASE": "Inputs are real data retrieved from a public database.",
+    "USER_UPLOAD": "Inputs are user-uploaded files.",
+    "LOCAL_DATA": "Inputs are local on-disk research data.",
+    "LEGACY_UNKNOWN": "Inputs are of unknown (legacy, unverified) provenance.",
+}
+
+
+def describe_dataset_origin(source_class: str, *, accession: str = "") -> str:
+    """Return one honest sentence describing where a bundle's inputs come from,
+    driven by the *actual* ``source_class`` (Gate 8).
+
+    A real data source (PUBLIC_DATABASE / USER_UPLOAD / LOCAL_DATA) is never
+    described as a "committed fixture"; an unrecognised/missing source_class is
+    treated conservatively as unknown provenance rather than as a fixture.
+    """
+    base = _ORIGIN_DESCRIPTION_BY_SOURCE.get(source_class)
+    if base is None:
+        base = _ORIGIN_DESCRIPTION_BY_SOURCE["LEGACY_UNKNOWN"]
+    if source_class == "PUBLIC_DATABASE" and accession:
+        base = base[:-1] + f" (accession `{accession}`)."
+    return base
+
 
 def validate_provenance(candidate: dict[str, Any]) -> list[str]:
     """Audit the *structured* provenance triple for internal consistency.
