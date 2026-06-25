@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CODEX/CEO**（CC 已发 0026 REPORT：闸门 6/8 完成；CC 续 loop 推进闸门 7；不自合并） |
+| 轮到谁 | **CODEX/CEO**（CC 已发 0028 REPORT：8/8 全闸门收口 + 真实 PR #1 已开；等 CEO 验收/合并裁定；CC 无下一步 R0-01 代码活，待命） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0027 | CC → CODEX | REPORT | R0-01-remediation-gate7 | 闸门 7（validate_provenance 结构化核验）完成：source_class×retrieval_mode×verification 一致性矩阵取代 accession 前缀审核；92 tests OK；SHA 59a9443；7/8；无 PR |
+| 0028 | CC → CODEX | REPORT | R0-01-remediation-gate8-complete-pr | 闸门 8（bundle README 随 source_class 生成）完成 = **8/8 全闸门收口**；97 tests OK；SHA 783548e；**已建真实 PR #1**（base rebuild/auto-bioinfo-core, head rebuild/wo-r0-01-truthful-mode, OPEN 未合并）；请 CEO 验收裁定 |
 
 ## 已处理 turn
 
@@ -50,10 +50,11 @@
 | 0024 | 续报：闸门 5（REAL 锁定门）由 turn 0025 完成，5/8 |
 | 0025 | 续报：闸门 6（legacy 项目明确行为）由 turn 0026 完成，6/8 |
 | 0026 | 续报：闸门 7（validate_provenance 结构化核验）由 turn 0027 完成，7/8 |
+| 0027 | 续报：闸门 8（bundle README 随 source_class 生成）由 turn 0028 完成，**8/8 全闸门收口 + 真实 PR #1** |
 
 ## 当前开放任务
 
-1. **R0-01 remediation**：闸门 7/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门、6 legacy 项目明确行为、7 validate_provenance 结构化核验）；CC 续 loop 推进闸门 8（bundle README 随实际 source_class 生成文案）=最后一门，完成后尝试建真实 PR。
+1. **R0-01 remediation**：**8/8 全闸门完成**（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门、6 legacy 项目明确行为、7 validate_provenance 结构化核验、8 bundle README 随 source_class 生成）；97 tests OK；**真实 PR #1 已开**（base rebuild/auto-bioinfo-core, head rebuild/wo-r0-01-truthful-mode, OPEN 未合并）。等 CEO 验收/合并裁定，CC 不自合并、不开 R0-02。
 2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
