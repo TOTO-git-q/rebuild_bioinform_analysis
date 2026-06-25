@@ -343,6 +343,16 @@ class ScopeBundleContractTest(unittest.TestCase):
         errors = validation.validate_scope_bundle(data)
         self.assertTrue(any("two distinct groups" in e for e in errors))
 
+    def test_blank_only_axis_is_not_populated_scope(self):
+        data = self._scope(species=["  "], tissues=[], conditions=[], comparisons=[]).to_dict()
+        errors = validation.validate_scope_bundle(data)
+        self.assertTrue(any("non-empty" in e for e in errors))
+        self.assertTrue(any("scope is empty" in e for e in errors))
+
+    def test_blank_entry_mixed_with_real_value_rejected(self):
+        data = self._scope(species=["human", "  "]).to_dict()
+        self.assertTrue(any("non-empty" in e for e in validation.validate_scope_bundle(data)))
+
     def test_require_comparison_flag(self):
         data = self._scope(comparisons=[]).to_dict()
         self.assertEqual(validation.validate_scope_bundle(data), [])  # tissue/species still populated
@@ -391,6 +401,13 @@ class SubQuestionContractTest(unittest.TestCase):
         data = self._sub("Which genes change and how are the pathways enriched?")
         errors = validation.validate_subquestion(data)
         self.assertTrue(any("single purpose" in e for e in errors))
+
+    def test_coordinated_second_predicate_rejected(self):
+        # a fresh subject taking its own verb is a second purpose, even without an
+        # interrogative immediately after the conjunction
+        self.assertFalse(validation.subquestion_is_single_purpose("Which genes change and pathways are enriched?"))
+        data = self._sub("Which genes change and pathways are enriched?")
+        self.assertTrue(any("single purpose" in e for e in validation.validate_subquestion(data)))
 
     def test_multiple_question_marks_rejected(self):
         self.assertFalse(validation.subquestion_is_single_purpose("Which genes change? Are they enriched?"))
@@ -451,6 +468,13 @@ class EvidencePlanContractTest(unittest.TestCase):
         # an explicit stop reason makes a no-axis plan acceptable
         stopped = self._plan(evidence_axes=[], stop_conditions=["No verifiable dataset available"])
         self.assertEqual(validation.validate_evidence_plan(stopped), [])
+
+    def test_blank_stop_or_gap_does_not_excuse_missing_axis(self):
+        # whitespace-only stop/gap reasons are not a meaningful explicit reason
+        blank_stop = self._plan(evidence_axes=[], stop_conditions=["  "])
+        self.assertTrue(any("evidence axis" in e for e in validation.validate_evidence_plan(blank_stop)))
+        blank_gap = self._plan(evidence_axes=[], planned_gaps=["", "   "])
+        self.assertTrue(any("evidence axis" in e for e in validation.validate_evidence_plan(blank_gap)))
 
     def test_bad_claim_level_rejected(self):
         self.assertTrue(validation.validate_evidence_plan(self._plan(max_claim_level="causal_certainty")))

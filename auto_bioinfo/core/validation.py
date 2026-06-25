@@ -201,6 +201,11 @@ def validate_approval_decision(decision: dict[str, Any], request: dict[str, Any]
     return errors
 
 
+def _has_nonblank_entry(value: Any) -> bool:
+    """True when ``value`` is a list with at least one non-blank string entry."""
+    return isinstance(value, list) and any(isinstance(item, str) and item.strip() for item in value)
+
+
 # --- WP-02b / T-02-03: ResearchSpec, AmbiguityReport, ScopeBundle, Ontology --
 
 
@@ -272,7 +277,9 @@ def validate_scope_bundle(scope: dict[str, Any], *, require_comparison: bool = F
         if not isinstance(value, list):
             errors.append(f"{axis}: expected a list")
             continue
-        if value:
+        if any((not isinstance(item, str)) or not item.strip() for item in value):
+            errors.append(f"{axis}: scope entries must be non-empty strings (a blank value is not a scope)")
+        if _has_nonblank_entry(value):
             populated = True
         if len(set(value)) != len(value):
             errors.append(f"{axis}: contradictory scope — the same value is listed more than once")
@@ -320,8 +327,19 @@ def validate_ontology_mapping(mapping: dict[str, Any]) -> list[str]:
 # clause conjunction or asks more than one thing.  ``between X and Y`` is a single
 # relationship, so a bare "and" is not enough — only conjunctions that introduce a
 # second interrogative/predicate count.
+#
+# Two cases are caught: a conjunction directly followed by a second
+# interrogative/auxiliary ("...and how are..."), and a conjunction that introduces
+# a fresh subject which then takes its own finite verb/auxiliary
+# ("...change and pathways are enriched").  A range like "between A and B" carries
+# no trailing auxiliary after the conjunction, so it stays single-purpose.
+_FINITE_AUX = (
+    r"is|are|was|were|be|been|being|has|have|had|do|does|did"
+    r"|can|could|shall|should|will|would|may|might|must"
+)
 _COMPOUND_MARKERS = re.compile(
-    r"\b(?:and|or)\s+(?:also|then|how|what|which|whether|why|when|where|is|are|does|do|can|should|will)\b"
+    r"\b(?:and|or)\s+(?:also|then|how|what|which|whether|why|when|where|" + _FINITE_AUX + r")\b"
+    r"|\b(?:and|or)\s+(?:\w+\s+){1,2}(?:" + _FINITE_AUX + r")\b"
     r"|\bas well as\b|\bin addition to\b",
     re.IGNORECASE,
 )
@@ -406,7 +424,8 @@ def validate_evidence_plan(plan: dict[str, Any]) -> list[str]:
         if list_field in plan and not isinstance(plan.get(list_field), list):
             errors.append(f"{list_field}: expected a list")
     has_axes = bool(axes)
-    has_stop = bool(plan.get("stop_conditions")) or bool(plan.get("planned_gaps"))
+    # A blank/whitespace-only entry is not a meaningful stop reason or planned gap.
+    has_stop = _has_nonblank_entry(plan.get("stop_conditions")) or _has_nonblank_entry(plan.get("planned_gaps"))
     if not has_axes and not has_stop:
         errors.append("evidence plan must declare at least one evidence axis or an explicit stop_condition/planned_gap")
     return errors
