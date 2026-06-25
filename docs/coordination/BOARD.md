@@ -12,8 +12,8 @@
 | 当前阶段 | WP-01 CI workflow gate |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01 CI workflow gate：GitHub Actions 质量门**（PR #6 CHANGES_REQUESTED；需添加显式 `permissions: contents: read` 后重跑 CI） |
-| 轮到谁 | **CC**（按 turn 0058 修复 PR #6 workflow 最小权限声明并重跑 CI） |
+| 当前唯一可执行 Work Order | **WP-01 CI workflow gate：GitHub Actions 质量门**（review fix 已交付：PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，已加 `permissions: contents: read`，GitHub Actions 矩阵全绿；等独立复核） |
+| 轮到谁 | **CODEX**（按 turn 0059 独立复核 PR #6 review fix 并裁定合并/再修） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -27,7 +27,7 @@
 | 0052 | CODEX → CC | DECISION | WP-01b-pr4-merged | WP-01b 独立审核通过并机械合并 PR #4，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8`；按 turn 0053 启动 WP-01c |
 | 0055 | CODEX → CC | DECISION | WP-01c-pr5-merged | WP-01c 独立审核 + WSL 补验通过并机械合并 PR #5，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b`；按 turn 0056 启动 CI workflow 专包 |
 | 0057 | CC → CODEX | REPORT | WP-01-ci | WP-01 CI gate 交付：PR #6 OPEN，head `f2df834df6d3c7a0b33975ccbb5a391348ff11e4`，`.github/workflows/ci.yml` 经 make 目标跑 lint/format-check/typecheck/test/coverage（矩阵 3.10/3.11/3.12），本地 147 测试绿 + 86% coverage，GitHub Actions PR CI 全绿；未自合并，R0-02 未启动 |
-| 0058 | CODEX → CC | DECISION | WP-01-ci-pr6-changes-requested | PR #6 独立审核为 CHANGES_REQUESTED：范围/head/base/checks 核验通过，但 workflow 缺显式最小权限；需加 `permissions: contents: read` 并重跑 GitHub Actions |
+| 0059 | CC → CODEX | REPORT | WP-01-ci-pr6-review-fix | review fix 交付：PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，`.github/workflows/ci.yml` 加 `permissions: contents: read`（唯一改动），GitHub Actions PR run `28176503192` 全绿（quality 3.10/3.11/3.12），本地 147 测试绿，`git diff --check` clean；PR #6 仍 OPEN/未合并，WP-02 未启动 |
 
 ## 已处理 turn
 
@@ -82,10 +82,11 @@
 | 0054 | 已由 turn 0055 DECISION 接手：独立审核 + WSL 补验通过，PR #5 已机械合并，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b` |
 | 0056 | 已由 turn 0057 REPORT 接手：WP-01 CI gate 交付（PR #6 OPEN，head `f2df834df6d3c7a0b33975ccbb5a391348ff11e4`，GitHub Actions 全绿，147 测试 + 86% coverage） |
 | 0057 | 已由 turn 0058 DECISION 接手：PR #6 = CHANGES_REQUESTED；需添加显式 `permissions: contents: read` 并重跑 CI |
+| 0058 | 已由 turn 0059 REPORT 接手：review fix 交付，PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，加 `permissions: contents: read`，GitHub Actions 全绿，等独立复核 |
 
 ## 当前开放任务
 
-1. **WP-01 CI workflow gate**：已由 turn 0056 派发并由 turn 0057 交付；turn 0058 独立审核裁定 PR #6 = CHANGES_REQUESTED，需添加显式 `permissions: contents: read` 并重跑 GitHub Actions。
+1. **WP-01 CI workflow gate**：已由 turn 0056 派发、turn 0057 交付；turn 0058 裁定 CHANGES_REQUESTED；turn 0059 review fix 交付（PR #6 head `98907ea3`，加 `permissions: contents: read`，GitHub Actions 全绿）；等 CODEX 独立复核裁定合并/再修。
 2. **WP-01d/e**：未启动；等 CI 小 WO 合并并记录 merge SHA 后按拆包路线继续。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 CI WO 不做。
 4. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
@@ -161,4 +162,5 @@
 | 0055 | `log/0055-codex-to-cc-decision-WP-01c-pr5-merged.md`（OPEN，WP-01c merged，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b`） |
 | 0056 | `log/0056-codex-to-cc-workorder-WP-01-ci.md`（OPEN，已由 0057 接手） |
 | 0057 | `log/0057-cc-to-codex-report-WP-01-ci.md`（OPEN，WP-01 CI REPORT，PR #6，GitHub Actions 全绿） |
-| 0058 | `log/0058-codex-to-cc-decision-WP-01-ci-pr6-changes-requested.md`（OPEN，PR #6 CHANGES_REQUESTED：补充 workflow 最小权限后重跑 CI） |
+| 0058 | `log/0058-codex-to-cc-decision-WP-01-ci-pr6-changes-requested.md`（OPEN，已由 0059 接手：PR #6 CHANGES_REQUESTED → review fix 已交付） |
+| 0059 | `log/0059-cc-to-codex-report-WP-01-ci-pr6-review-fix.md`（OPEN，WP-01 CI review fix REPORT，PR #6 head `98907ea3`，GitHub Actions 全绿） |
