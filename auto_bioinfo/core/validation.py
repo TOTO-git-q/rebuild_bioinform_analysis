@@ -16,6 +16,7 @@ from .schemas import (
     FEASIBILITY_DECISIONS,
     ONTOLOGY_CONFIDENCE_FLOOR,
     ONTOLOGY_MAPPING_STATES,
+    TASK_RUN_RESULT_STATUSES,
     DependencyGraph,
     WorkflowPlan,
 )
@@ -1083,4 +1084,172 @@ def validate_data_preparation_task_packet(packet: dict[str, Any]) -> list[str]:
         ),
         "data-preparation packet",
     )
+    return errors
+
+
+# --- WP-02f / T-02-11: TaskRun run-record contract (REQ-OBJ-12) ---------------
+
+
+def _validate_resource_usage(usage: Any) -> list[str]:
+    """Resource-usage facts must be a map of named, non-negative numbers.
+
+    Each value is a measured quantity (cpu seconds, peak memory, wall time, ...),
+    so it must be a real non-negative number; booleans, negatives and non-numeric
+    values are malformed resource facts.
+    """
+    if usage is None:
+        return []
+    if not isinstance(usage, dict):
+        return ["resource_usage: expected an object of named numeric facts"]
+    errors: list[str] = []
+    for key, value in usage.items():
+        if not (isinstance(key, str) and key.strip()):
+            errors.append("resource_usage: every resource key must be a non-blank string")
+            continue
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            errors.append(f"resource_usage[{key!r}]: must be a non-negative number")
+        elif value < 0:
+            errors.append(f"resource_usage[{key!r}]: must be non-negative")
+    return errors
+
+
+# Authority-like flags (and obvious alias spellings) a run record may never assert.
+_TASK_RUN_AUTHORITY_FLAGS = (
+    "authorizes_execution",
+    "authorizes_real_execution",
+    "real_execution_authorized",
+    "locks_dataset",
+    "dataset_locked",
+    "creates_formal_evidence",
+    "creates_evidence",
+    "authorizes_formal_evidence",
+    "bypasses_gates",
+    "raises_claim_level",
+    "raises_claim",
+    "claim_level_raised",
+    "mutates_workflow_state",
+    "workflow_state_mutated",
+)
+
+
+def _validate_task_run_status_facts(run: dict[str, Any], status: str, exit_code: int | None) -> list[str]:
+    """Status-dependent exit-code consistency and auditability of a TaskRun.
+
+    A ``completed`` run must exit 0 and carry identity + output/artifact facts; a
+    ``failed`` run must not record a success exit and must carry identity +
+    error/log facts; an incomplete (``pending`` / ``running`` / ``skipped``) run
+    has not exited, so it must not record an exit code and must state an explicit
+    reason for the missing execution facts.
+    """
+    errors: list[str] = []
+    has_identity = bool((run.get("tool_identity") or "").strip()) or bool(run.get("environment"))
+    has_outputs = bool(run.get("artifact_refs")) or bool(run.get("output_refs"))
+    has_error_or_log = bool((run.get("error_summary") or "").strip()) or bool(run.get("log_refs"))
+    reason = (run.get("reason") or "").strip()
+
+    if status == "completed":
+        if exit_code is None:
+            errors.append("exit_code: a completed run must record an explicit exit code 0")
+        elif exit_code != 0:
+            errors.append(f"exit_code: a completed run must exit 0, not {exit_code}")
+        if not has_identity:
+            errors.append("result_status 'completed' requires non-empty environment or tool_identity facts to be auditable")
+        if not has_outputs:
+            errors.append("result_status 'completed' requires at least one output or artifact ref")
+    elif status == "failed":
+        if exit_code is not None and exit_code == 0:
+            errors.append("exit_code: a failed run must not record a success exit code 0")
+        if not has_identity:
+            errors.append("result_status 'failed' requires non-empty environment or tool_identity facts to be auditable")
+        if not has_error_or_log:
+            errors.append("result_status 'failed' requires an explicit error_summary or log ref")
+    else:  # pending / running / skipped — incomplete records
+        if exit_code is not None:
+            errors.append(f"exit_code: an incomplete '{status}' run has not exited and must not record an exit code")
+        if not reason:
+            errors.append(f"result_status '{status}' is incomplete and requires an explicit reason")
+    return errors
+
+
+def validate_task_run(run: dict[str, Any]) -> list[str]:
+    """Validate a TaskRun run-record contract (REQ-OBJ-12).
+
+    Identity (``task_run_id`` / ``task_id``) is required and well-formed and the
+    ``result_status`` must be one of the bounded :data:`TASK_RUN_RESULT_STATUSES`.
+    Log / output / artifact references must be distinct, non-blank facts; the
+    ``environment`` / ``parameters`` maps and ``resource_usage`` (named,
+    non-negative numbers) must be well-typed; ``exit_code`` is an optional integer
+    that must be consistent with ``result_status``; retry lineage (``attempt`` /
+    ``retry_of``) must not self-reference and must use consistent attempt
+    numbering.  Completed / failed records must be auditable on their own and
+    incomplete records must state an explicit reason.  Any truthy authority-like
+    flag (under any alias spelling) is rejected — a run record is never authority.
+    This validates the contract record only; it never runs, compiles, schedules,
+    or registers anything.
+    """
+    errors = validate_required_fields(run, ["schema_version", "task_run_id", "task_id", "result_status"])
+    errors += common.validate_identifier(run.get("task_run_id", ""), "task_run_id")
+    errors += common.validate_identifier(run.get("task_id", ""), "task_id")
+
+    status = run.get("result_status")
+    if status not in TASK_RUN_RESULT_STATUSES:
+        errors.append(f"result_status: must be one of {', '.join(TASK_RUN_RESULT_STATUSES)}")
+
+    # Reference lists must hold distinct, non-blank facts (empty is allowed at the
+    # shape level; status-specific auditability decides when refs are required).
+    errors += _string_list_errors(run.get("artifact_refs"), "artifact_refs", require_unique=True)
+    for list_field in ("output_refs", "log_refs"):
+        if run.get(list_field) is not None:
+            errors += _string_list_errors(run.get(list_field), list_field, require_unique=True)
+
+    # A reference identifies one fact and may appear in exactly one ref list: the
+    # same id must not be claimed as both (e.g.) an artifact and a log. Enforce
+    # non-blank uniqueness globally across all three ref lists, not just per-list.
+    seen_refs: set[str] = set()
+    for list_field in ("artifact_refs", "output_refs", "log_refs"):
+        value = run.get(list_field)
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not (isinstance(item, str) and item.strip()):
+                continue
+            if item in seen_refs:
+                errors.append(f"{list_field}: ref {item!r} is already declared in another ref list (refs must be globally unique)")
+            else:
+                seen_refs.add(item)
+
+    for map_field in ("environment", "parameters"):
+        value = run.get(map_field)
+        if value is not None and not isinstance(value, dict):
+            errors.append(f"{map_field}: expected an object of recorded facts")
+
+    errors += _validate_resource_usage(run.get("resource_usage"))
+
+    # Exit code: optional integer, never a bool; a malformed value is dropped so it
+    # does not spawn a spurious status/exit consistency error too.
+    exit_code = run.get("exit_code")
+    if exit_code is not None and (isinstance(exit_code, bool) or not isinstance(exit_code, int)):
+        errors.append("exit_code: must be an integer or null")
+        exit_code = None
+
+    # Retry lineage: positive attempt numbering, no self-reference, consistency.
+    attempt = run.get("attempt", 1)
+    attempt_ok = isinstance(attempt, int) and not isinstance(attempt, bool)
+    if not attempt_ok or attempt < 1:
+        errors.append("attempt: must be a positive integer (attempts start at 1)")
+    retry_of = run.get("retry_of", "")
+    if retry_of:
+        if not (isinstance(retry_of, str) and retry_of.strip()):
+            errors.append("retry_of: must be the non-blank id of the prior run")
+        elif retry_of == run.get("task_run_id"):
+            errors.append("retry_of: a run may not be a retry of itself")
+        if attempt_ok and attempt < 2:
+            errors.append("retry_of: a retry must record attempt >= 2")
+    elif attempt_ok and attempt > 1:
+        errors.append("attempt: attempt > 1 must reference the prior run via retry_of")
+
+    if status in TASK_RUN_RESULT_STATUSES:
+        errors += _validate_task_run_status_facts(run, status, exit_code)
+
+    errors += _reject_truthy_authority_flags(run, _TASK_RUN_AUTHORITY_FLAGS, "task run")
     return errors

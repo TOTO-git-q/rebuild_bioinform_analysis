@@ -30,6 +30,7 @@ from auto_bioinfo.core.schemas import (
     ReviewTaskPacket,
     ScopeBundle,
     SubQuestion,
+    TaskRun,
     WorkflowPlan,
 )
 
@@ -1336,6 +1337,193 @@ class TaskPacketSubtypeBoundaryTest(unittest.TestCase):
             )
         )
         self.assertTrue(any("required_checks" in e for e in validation.validate_review_task_packet(no_checks)))
+
+
+class TaskRunContractTest(unittest.TestCase):
+    def _completed(self, **kw):
+        base = dict(
+            task_run_id="task_run_abc",
+            task_id="analysis_task_1",
+            result_status="completed",
+            artifact_refs=["artifact_deg_table"],
+            environment={"python": "3.11", "container": "none"},
+            tool_identity="bulk_rnaseq_deg@1.0",
+            parameters={"alpha": 0.05},
+            log_refs=["log_run_abc"],
+            output_refs=["output_deg_table"],
+            exit_code=0,
+            resource_usage={"wall_seconds": 12.5, "max_rss_mb": 512},
+        )
+        base.update(kw)
+        return TaskRun(**base)
+
+    def test_legacy_minimal_construction_is_backward_compatible(self):
+        # The legacy four-field positional construction still builds and serialises,
+        # and a minimal completed record validates once it carries the documented
+        # minimum auditable facts (tool identity + an output/artifact ref).
+        legacy = TaskRun("task_run_1", "analysis_task_1", "completed", ["artifact_deg_table"])
+        data = legacy.to_dict()
+        self.assertEqual(data["task_run_id"], "task_run_1")
+        self.assertEqual(data["result_status"], "completed")
+        self.assertEqual(data["artifact_refs"], ["artifact_deg_table"])
+        # a bare legacy record with no environment/tool identity is not auditable
+        self.assertTrue(any("auditable" in e for e in validation.validate_task_run(data)))
+        # adding the minimum tool identity + the explicit completed exit code 0
+        # makes the minimal record valid
+        data["tool_identity"] = "bulk_rnaseq_deg@1.0"
+        data["exit_code"] = 0
+        self.assertEqual(validation.validate_task_run(data), [])
+
+    def test_well_formed_completed_run_validates_with_stable_id(self):
+        data = self._completed(task_run_id="").to_dict()
+        self.assertTrue(data["task_run_id"].startswith("task_run_"))
+        self.assertEqual(validation.validate_task_run(data), [])
+        # the id is content-addressed: same facts, different created_at -> same id
+        again = self._completed(task_run_id="").to_dict()
+        self.assertEqual(data["task_run_id"], again["task_run_id"])
+        # a different fact changes the id
+        changed = self._completed(task_run_id="", exit_code=0, artifact_refs=["artifact_other"]).to_dict()
+        self.assertNotEqual(data["task_run_id"], changed["task_run_id"])
+
+    def test_failed_run_requires_explicit_error_or_log_facts(self):
+        # a failed run with no error summary and no log refs is not auditable
+        bare = self._completed(result_status="failed", exit_code=1, error_summary="", log_refs=[], artifact_refs=[], output_refs=[]).to_dict()
+        self.assertTrue(any("error_summary or log ref" in e for e in validation.validate_task_run(bare)))
+        # with an explicit error summary it validates
+        with_error = self._completed(result_status="failed", exit_code=1, error_summary="segfault in step 2", artifact_refs=[], output_refs=[]).to_dict()
+        self.assertEqual(validation.validate_task_run(with_error), [])
+
+    def test_incomplete_run_requires_explicit_reason(self):
+        for status in ("pending", "skipped", "running"):
+            missing = self._completed(result_status=status, exit_code=None, artifact_refs=[], output_refs=[], log_refs=[], reason="").to_dict()
+            self.assertTrue(
+                any("requires an explicit reason" in e for e in validation.validate_task_run(missing)),
+                f"{status} without reason should be rejected",
+            )
+            ok = self._completed(
+                result_status=status,
+                exit_code=None,
+                artifact_refs=[],
+                output_refs=[],
+                log_refs=[],
+                reason="awaiting upstream dataset",
+            ).to_dict()
+            self.assertEqual(validation.validate_task_run(ok), [], f"{status} with reason should validate")
+
+    def test_invalid_result_status_rejected(self):
+        bad = self._completed(result_status="omniscient").to_dict()
+        self.assertTrue(any("result_status" in e for e in validation.validate_task_run(bad)))
+
+    def test_exit_code_and_status_contradictions_rejected(self):
+        # completed but non-zero exit
+        c1 = self._completed(exit_code=3).to_dict()
+        self.assertTrue(any("must exit 0" in e for e in validation.validate_task_run(c1)))
+        # failed but success exit 0
+        c2 = self._completed(result_status="failed", exit_code=0, error_summary="boom").to_dict()
+        self.assertTrue(any("must not record a success exit code 0" in e for e in validation.validate_task_run(c2)))
+        # incomplete record claiming an exit code it could not have produced
+        c3 = self._completed(result_status="pending", exit_code=0, artifact_refs=[], output_refs=[], log_refs=[], reason="queued").to_dict()
+        self.assertTrue(any("must not record an exit code" in e for e in validation.validate_task_run(c3)))
+        # a non-integer exit code is malformed
+        c4 = self._completed().to_dict()
+        c4["exit_code"] = "0"
+        self.assertTrue(any("exit_code" in e for e in validation.validate_task_run(c4)))
+
+    def test_completed_run_requires_explicit_exit_code_zero(self):
+        # a completed run with no exit code at all is rejected: the contract
+        # requires completed runs to carry an explicit exit_code == 0.
+        missing = self._completed(exit_code=None).to_dict()
+        self.assertTrue(
+            any("must record an explicit exit code 0" in e for e in validation.validate_task_run(missing)),
+            "completed run with exit_code=None must be rejected",
+        )
+        # the explicit success exit code makes it valid
+        ok = self._completed(exit_code=0).to_dict()
+        self.assertEqual(validation.validate_task_run(ok), [])
+
+    def test_duplicate_or_blank_refs_rejected(self):
+        dup = self._completed(artifact_refs=["a", "a"]).to_dict()
+        self.assertTrue(any("artifact_refs" in e and "duplicate" in e for e in validation.validate_task_run(dup)))
+        blank = self._completed(log_refs=["", "ok"]).to_dict()
+        self.assertTrue(any("log_refs" in e for e in validation.validate_task_run(blank)))
+        dup_out = self._completed(output_refs=["o", "o"]).to_dict()
+        self.assertTrue(any("output_refs" in e and "duplicate" in e for e in validation.validate_task_run(dup_out)))
+
+    def test_cross_list_duplicate_refs_rejected(self):
+        # the same ref must not be claimed across two different ref lists.
+        artifact_log = self._completed(artifact_refs=["ref_shared"], output_refs=["output_deg_table"], log_refs=["ref_shared"]).to_dict()
+        errors = validation.validate_task_run(artifact_log)
+        self.assertTrue(
+            any("globally unique" in e and "ref_shared" in e for e in errors),
+            "a ref shared between artifact_refs and log_refs must be rejected",
+        )
+        # the same ref in artifact_refs and output_refs is rejected too
+        artifact_output = self._completed(artifact_refs=["ref_dup"], output_refs=["ref_dup"], log_refs=["log_run_abc"]).to_dict()
+        self.assertTrue(
+            any("globally unique" in e and "ref_dup" in e for e in validation.validate_task_run(artifact_output)),
+            "a ref shared between artifact_refs and output_refs must be rejected",
+        )
+        # distinct refs across the three lists remain valid
+        distinct = self._completed(artifact_refs=["artifact_deg_table"], output_refs=["output_deg_table"], log_refs=["log_run_abc"]).to_dict()
+        self.assertEqual(validation.validate_task_run(distinct), [])
+
+    def test_malformed_resource_usage_rejected(self):
+        neg = self._completed(resource_usage={"wall_seconds": -1}).to_dict()
+        self.assertTrue(any("non-negative" in e for e in validation.validate_task_run(neg)))
+        non_numeric = self._completed(resource_usage={"wall_seconds": "fast"}).to_dict()
+        self.assertTrue(any("resource_usage" in e for e in validation.validate_task_run(non_numeric)))
+        # a boolean is not a measured quantity
+        boolean = self._completed(resource_usage={"wall_seconds": True}).to_dict()
+        self.assertTrue(any("resource_usage" in e for e in validation.validate_task_run(boolean)))
+        not_a_map = self._completed().to_dict()
+        not_a_map["resource_usage"] = [1, 2]
+        self.assertTrue(any("resource_usage" in e for e in validation.validate_task_run(not_a_map)))
+
+    def test_retry_lineage_self_reference_and_numbering_rejected(self):
+        # a run may not be a retry of itself
+        self_retry = self._completed(task_run_id="task_run_x", retry_of="task_run_x", attempt=2).to_dict()
+        self.assertTrue(any("retry of itself" in e for e in validation.validate_task_run(self_retry)))
+        # a retry must record attempt >= 2
+        bad_attempt = self._completed(retry_of="task_run_prev", attempt=1).to_dict()
+        self.assertTrue(any("attempt >= 2" in e for e in validation.validate_task_run(bad_attempt)))
+        # attempt > 1 with no retry lineage is inconsistent
+        orphan = self._completed(attempt=2, retry_of="").to_dict()
+        self.assertTrue(any("must reference the prior run via retry_of" in e for e in validation.validate_task_run(orphan)))
+        # a zero / negative attempt is rejected
+        zero = self._completed(attempt=0).to_dict()
+        self.assertTrue(any("positive integer" in e for e in validation.validate_task_run(zero)))
+        # a well-formed retry validates
+        good_retry = self._completed(task_run_id="task_run_2", retry_of="task_run_1", attempt=2).to_dict()
+        self.assertEqual(validation.validate_task_run(good_retry), [])
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = (
+            "authorizes_execution",
+            "authorizes_real_execution",
+            "real_execution_authorized",
+            "locks_dataset",
+            "dataset_locked",
+            "creates_formal_evidence",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "bypasses_gates",
+            "raises_claim_level",
+            "raises_claim",
+            "claim_level_raised",
+            "mutates_workflow_state",
+            "workflow_state_mutated",
+        )
+        for flag in flags:
+            for truthy in (True, 1, "true", ["yes"]):
+                data = self._completed().to_dict()
+                data[flag] = truthy
+                errors = validation.validate_task_run(data)
+                self.assertTrue(any(flag in e for e in errors), f"{flag}={truthy!r} should be rejected")
+        # false / absent authority flags pass
+        clean = self._completed().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_task_run(clean), [])
 
 
 if __name__ == "__main__":
