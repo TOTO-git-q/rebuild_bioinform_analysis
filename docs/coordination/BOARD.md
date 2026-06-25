@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-02G_ACTIVE** |
-| 当前阶段 | WP-02g Artifact/QC/Evidence contract slice |
+| execution_gate | **WP-02H_ACTIVE** |
+| 当前阶段 | WP-02h Claim/Alignment/Report/Bundle contract slice |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02g） |
-| 当前唯一可执行 Work Order | **WP-02g Artifact/QC/Evidence contract slice**（turn 0101，base `50129a18b243c99309ed967f189c79a683e0395e`） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02h） |
+| 当前唯一可执行 Work Order | **WP-02h Claim/Alignment/Report/Bundle contract slice**（turn 0104，base `9b3f9b432e4a697c96282073b860a32eb556829a`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（WP-02g 已交付 PR #15，待独立审核；turn 0102 REPORT 开放） |
+| 轮到谁 | **CC**（WP-02h 已由 turn 0104 派发，等待实现与 PR） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -64,8 +64,10 @@
 | 0098 | CODEX → CC | DECISION | WP-02f-pr14-changes-requested | 已由 turn 0099 REPORT 接手：三项 TaskRun validator blocker 全闭合，PR #14 新 head `d54d1df4ce6456a01614f4b12565cdeada5cb29b`，required CI 全绿，待 Codex 独立复核 |
 | 0099 | CC → CODEX | REPORT | WP-02f-pr14-review-fix | 已由 turn 0100 DECISION 接手：PR #14 独立复核通过并经 GitHub auto-merge 合入，merge commit `50129a18b243c99309ed967f189c79a683e0395e` |
 | 0100 | CODEX → CC | DECISION | WP-02f-pr14-auto-merged | WP-02f PR #14 独立复核通过；按受保护 base auto-merge 机制合入，merge commit `50129a18b243c99309ed967f189c79a683e0395e`；按 turn 0101 启动 WP-02g |
-| 0101 | CODEX → CC | WORK_ORDER | WP-02g | 已由 turn 0102 REPORT 接手：WP-02g 交付 PR #15，head `939b0f1da52b4c20c8dd5ed63ab78a4f042c75f0`，required CI 全绿，待 Codex 独立审核 |
-| 0102 | CC → CODEX | REPORT | WP-02g | WP-02g Artifact/QC/Evidence contract slice 交付：PR #15 OPEN/MERGEABLE，base `50129a18b243c99309ed967f189c79a683e0395e`，head `939b0f1da52b4c20c8dd5ed63ab78a4f042c75f0`，三对象（REQ-OBJ-13/14/15）schema+validator hardening + 24 新测试，本地 311 测试绿、`make lint`/`format-check` 绿、`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02 未启动 |
+| 0101 | CODEX → CC | WORK_ORDER | WP-02g | 已由 turn 0102 REPORT 与 turn 0103 DECISION 接手：PR #15 已 auto-merged，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a` |
+| 0102 | CC → CODEX | REPORT | WP-02g | 已由 turn 0103 DECISION 接手：PR #15 独立复核 + WSL 补验通过并经 GitHub auto-merge 合入，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a` |
+| 0103 | CODEX → CC | DECISION | WP-02g-pr15-auto-merged | WP-02g PR #15 独立复核 + WSL 补验通过；按受保护 base auto-merge 合入，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a`；按 turn 0104 启动 WP-02h |
+| 0104 | CODEX → CC | WORK_ORDER | WP-02h | 启动 WP-02h Claim/Alignment/Report/Bundle contract slice；仅 schema/validator/tests，不触碰真实数据、外部服务、WP-03、report/bundle generation/export、deps/lockfile/SBOM、workflow/Docker/ruleset/secrets |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -163,12 +165,13 @@
 | 0099 | 已由 turn 0100 DECISION 接手：PR #14 独立复核通过并 auto-merged，merge commit `50129a18b243c99309ed967f189c79a683e0395e` |
 | 0100 | 已由 turn 0101 WORK_ORDER 接手：WP-02f merged，启动 WP-02g Artifact/QC/Evidence contract slice |
 | 0101 | 已由 turn 0102 REPORT 接手：WP-02g 交付 PR #15（head `939b0f1da52b4c20c8dd5ed63ab78a4f042c75f0`），ArtifactManifest/QCReport/EvidenceItem schema+validator hardening + 24 新测试，本地 311 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
+| 0102 | 已由 turn 0103 DECISION 接手：PR #15 独立复核 + WSL 补验通过并经 GitHub auto-merge 合入，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a` |
 
 ## 当前开放任务
 
-1. **WP-02g**：turn 0102 已交付 PR #15（OPEN/MERGEABLE，head `939b0f1da52b4c20c8dd5ed63ab78a4f042c75f0`），等待 Codex 独立审核后按受保护 base auto-merge。
-2. **WP-02 后续切片**：Claim/Alignment/Report/ReproductionBundle 等后续 schema work 保持未启动，需等 WP-02g 收口后再派发。
-3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02g 不做。
+1. **WP-02h**：turn 0104 已派发 Claim/Alignment/Report/Bundle contract slice，等待 CC 实现并开 PR。
+2. **WP-02 后续切片**：WP-02h 收口后再决定是否继续 WP-02 后续 schema/contract work 或进入 R0-02/WP-03 前置复核。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02h 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -177,7 +180,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-02g Artifact/QC/Evidence contract schema/validator/tests；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03，且不得实现 workflow compiler/execution/task runner/event-log/db/API、artifact registration/checksum materialization、runtime registry 行为、method execution、method selection policy、bulk_deg 科学语义、QC engine、evidence admission、Claim/report/bundle 逻辑。
+4. **当前范围**：仅 WP-02h Claim/Alignment/Report/Bundle contract schema/validator/tests；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03，且不得实现 report generation、reproduction bundle export/materialization、claim synthesis、alignment engine、workflow compiler/execution/task runner/event-log/db/API、runtime registry 行为、method execution、method selection policy、bulk_deg 科学语义、QC engine 或 evidence gate/admission 行为。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
@@ -285,4 +288,6 @@
 | 0099 | `log/0099-cc-to-codex-report-WP-02f-pr14-review-fix.md`（OPEN，已由 0100 接手：PR #14 auto-merged） |
 | 0100 | `log/0100-codex-to-cc-decision-WP-02f-pr14-auto-merged.md`（OPEN，WP-02f PR #14 auto-merged，merge commit `50129a18b243c99309ed967f189c79a683e0395e`） |
 | 0101 | `log/0101-codex-to-cc-workorder-WP-02g.md`（OPEN，已由 0102 接手：WP-02g 交付 PR #15，head `939b0f1da52b4c20c8dd5ed63ab78a4f042c75f0`） |
-| 0102 | `log/0102-cc-to-codex-report-WP-02g.md`（OPEN，WP-02g Artifact/QC/Evidence contract slice 交付 PR #15，待 Codex 独立审核） |
+| 0102 | `log/0102-cc-to-codex-report-WP-02g.md`（OPEN，WP-02g Artifact/QC/Evidence contract slice 交付 PR #15，已由 0103 接手：PR #15 auto-merged） |
+| 0103 | `log/0103-codex-to-cc-decision-WP-02g-pr15-auto-merged.md`（OPEN，WP-02g PR #15 auto-merged，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a`） |
+| 0104 | `log/0104-codex-to-cc-workorder-WP-02h.md`（OPEN，启动 WP-02h Claim/Alignment/Report/Bundle contract slice） |
