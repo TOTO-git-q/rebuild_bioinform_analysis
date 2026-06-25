@@ -17,6 +17,7 @@ from .schemas import (
     ONTOLOGY_CONFIDENCE_FLOOR,
     ONTOLOGY_MAPPING_STATES,
     DependencyGraph,
+    WorkflowPlan,
 )
 
 
@@ -829,4 +830,257 @@ def validate_compatibility_decision(decision: dict[str, Any]) -> list[str]:
             errors.append("an incompatible/insufficient decision must record the blocking facts or gaps behind it")
         if verdict == "insufficient_information" and not has_ceiling:
             errors.append("imposed_claim_ceiling: an insufficient decision must record a conservative claim ceiling")
+    return errors
+
+
+# --- WP-02e / T-02-09..10: workflow DAG & task-packet contract validators ------
+
+
+def _string_list_errors(value: Any, field: str, *, require_unique: bool = False) -> list[str]:
+    """Shared non-blank-string-list check used by the task-packet validators.
+
+    A present value must be a list whose entries are all non-blank strings; with
+    ``require_unique`` a repeated entry (a fact stated twice) is rejected too.
+    """
+    if not isinstance(value, list):
+        return [f"{field}: expected a list"]
+    errors: list[str] = []
+    if any((not isinstance(item, str)) or not item.strip() for item in value):
+        errors.append(f"{field}: entries must be non-empty strings (a blank fact is not a fact)")
+    if require_unique:
+        normalized = [item for item in value if isinstance(item, str)]
+        if len(set(normalized)) != len(normalized):
+            errors.append(f"{field}: duplicate entries are not allowed")
+    return errors
+
+
+def validate_workflow_plan(plan: dict[str, Any]) -> list[str]:
+    """Validate a WorkflowPlan as an explicit acyclic task DAG (REQ-OBJ-10).
+
+    ``workflow_name`` and a non-empty ``task_ids`` list are required.  Every task
+    id must be a non-blank string and may not be declared twice.  Each
+    ``dependencies`` edge must be a ``[from_task, to_task]`` pair whose endpoints
+    are declared tasks and which is not a self-loop, and the resulting dependency
+    graph must be acyclic — acyclicity is checked explicitly, never assumed from
+    the linear ``task_ids`` order.  ``expected_inputs`` / ``expected_outputs``
+    (keyed by task id) and ``gates`` (each bound to a task id) may only reference
+    declared tasks and must carry distinct, non-blank facts.  The plan is contract
+    data only; this validator never compiles, schedules, or runs a task.
+    """
+    errors = validate_required_fields(plan, ["schema_version", "workflow_name", "task_ids"])
+    task_ids = plan.get("task_ids")
+    if not isinstance(task_ids, list):
+        return errors + ["task_ids: expected a list of task ids"]
+
+    declared: set[str] = set()
+    for idx, task_id in enumerate(task_ids):
+        if not (isinstance(task_id, str) and task_id.strip()):
+            errors.append(f"task_ids[{idx}]: a task id must be a non-blank string")
+            continue
+        if task_id in declared:
+            errors.append(f"task_ids[{idx}]: duplicate task id {task_id!r} is not allowed")
+        else:
+            declared.add(task_id)
+
+    dependencies = plan.get("dependencies")
+    if dependencies is None:
+        dependencies = []
+    if not isinstance(dependencies, list):
+        errors.append("dependencies: expected a list of [from_task, to_task] pairs")
+        dependencies = []
+    else:
+        for idx, edge in enumerate(dependencies):
+            if not (isinstance(edge, (list, tuple)) and len(edge) == 2):
+                errors.append(f"dependencies[{idx}]: each dependency must be a [from_task, to_task] pair")
+                continue
+            src, dst = edge[0], edge[1]
+            if src == dst:
+                errors.append(f"dependencies[{idx}]: self-loop {src!r} is not allowed")
+            if src not in declared:
+                errors.append(f"dependencies[{idx}]: source {src!r} is not a declared task")
+            if dst not in declared:
+                errors.append(f"dependencies[{idx}]: target {dst!r} is not a declared task")
+
+    for mapping_field in ("expected_inputs", "expected_outputs"):
+        mapping = plan.get(mapping_field)
+        if mapping is None:
+            continue
+        if not isinstance(mapping, dict):
+            errors.append(f"{mapping_field}: expected an object keyed by task id")
+            continue
+        for task_id, items in mapping.items():
+            if task_id not in declared:
+                errors.append(f"{mapping_field}[{task_id!r}]: references undeclared task")
+            errors += _string_list_errors(items, f"{mapping_field}[{task_id!r}]", require_unique=True)
+
+    gates = plan.get("gates")
+    if gates is not None:
+        if not isinstance(gates, list):
+            errors.append("gates: expected a list of gate objects")
+        else:
+            for idx, gate in enumerate(gates):
+                if not isinstance(gate, dict):
+                    errors.append(f"gates[{idx}]: each gate must be an object")
+                    continue
+                gate_task = gate.get("task_id")
+                if gate_task is not None and gate_task not in declared:
+                    errors.append(f"gates[{idx}]: references undeclared task {gate_task!r}")
+                for member in gate.get("task_ids", []) if isinstance(gate.get("task_ids"), list) else []:
+                    if member not in declared:
+                        errors.append(f"gates[{idx}]: references undeclared task {member!r}")
+
+    # Acyclicity is asserted explicitly over the declared dependency edges; a
+    # linear task_ids list never implies a checked DAG on its own.
+    if (
+        not errors
+        and WorkflowPlan(
+            workflow_name=plan.get("workflow_name", ""),
+            task_ids=list(task_ids),
+            dependencies=[list(e) for e in dependencies],
+        ).has_cycle()
+    ):
+        errors.append("workflow plan has a dependency cycle; task dependencies must form an acyclic DAG")
+    return errors
+
+
+def _reject_truthy_authority_flags(obj: dict[str, Any], flags: tuple[str, ...], subject: str) -> list[str]:
+    """Reject any truthy authority-like flag on a contract-only record.
+
+    A contract record never grants authority on its own, so any truthy value (not
+    just the literal ``True``) is an attempt to assert authority and is rejected;
+    explicit false / absent flags stay valid.
+    """
+    return [f"{flag}: a {subject} confers no such authority and may not assert a truthy {flag}" for flag in flags if obj.get(flag)]
+
+
+def validate_analysis_task_packet(packet: dict[str, Any]) -> list[str]:
+    """Validate an AnalysisTaskPacket contract record (REQ-OBJ-11).
+
+    Identity (``task_id`` / ``subquestion_id``) must be present and well-formed.
+    The expected inputs/outputs, QC requirements and failure conditions must all be
+    distinct, non-blank facts, and an analysis packet may never carry code-change
+    authority.  This only validates the contract record; it does not change the
+    runtime packet behaviour in :mod:`auto_bioinfo.core.task_packets`.
+    """
+    errors = validate_required_fields(
+        packet, ["schema_version", "task_id", "subquestion_id", "expected_inputs", "expected_outputs", "qc_requirements", "failure_conditions"]
+    )
+    errors += common.validate_identifier(packet.get("task_id", ""), "task_id")
+    errors += common.validate_identifier(packet.get("subquestion_id", ""), "subquestion_id")
+    for list_field in ("expected_inputs", "expected_outputs"):
+        if packet.get(list_field) is not None:
+            errors += _string_list_errors(packet.get(list_field), list_field, require_unique=True)
+    for list_field in ("qc_requirements", "failure_conditions"):
+        if packet.get(list_field) is not None:
+            errors += _string_list_errors(packet.get(list_field), list_field)
+    if packet.get("code_change_instructions"):
+        errors.append("code_change_instructions: an analysis packet must not carry code-change authority")
+    return errors
+
+
+def _path_escapes_scope(path: str) -> bool:
+    """True when ``path`` claims authority outside the packet's declared scope.
+
+    Both ``/`` and ``\\`` are treated as separators so a platform-specific path
+    syntax cannot smuggle an escape past the validator.  An escape is any of:
+    a POSIX absolute path or UNC-style absolute path (leading separator), a
+    Windows drive-letter path (``C:\\...`` / ``C:/...`` / ``C:...``), or a
+    ``..`` parent-traversal segment in any slash style.  A relative path that
+    stays inside the declared scope is not an escape.
+    """
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("/"):
+        return True
+    if re.match(r"^[A-Za-z]:", normalized):
+        return True
+    return ".." in normalized.split("/")
+
+
+def validate_engineering_task_packet(packet: dict[str, Any]) -> list[str]:
+    """Validate an EngineeringTaskPacket contract record (REQ-OBJ-11).
+
+    Identity is required and the allowed/forbidden path lists must hold distinct,
+    non-blank paths.  An allowed path may not escape the packet's declared scope —
+    a POSIX or Windows absolute path (leading ``/``, UNC, or a ``C:`` drive
+    letter) or a ``..`` parent traversal in either slash style is path authority
+    outside scope — and a path may not be declared both allowed and forbidden.
+    This validates the contract record only; it does not change runtime packet
+    behaviour.
+    """
+    errors = validate_required_fields(packet, ["schema_version", "task_id", "allowed_paths", "forbidden_paths", "expected_patch_summary", "test_commands"])
+    errors += common.validate_identifier(packet.get("task_id", ""), "task_id")
+    allowed = packet.get("allowed_paths")
+    forbidden = packet.get("forbidden_paths")
+    for path_field, value in (("allowed_paths", allowed), ("forbidden_paths", forbidden)):
+        if value is not None:
+            errors += _string_list_errors(value, path_field, require_unique=True)
+    if packet.get("test_commands") is not None:
+        errors += _string_list_errors(packet.get("test_commands"), "test_commands")
+    if isinstance(allowed, list):
+        for path in allowed:
+            if isinstance(path, str) and _path_escapes_scope(path):
+                errors.append(f"allowed_paths: {path!r} escapes the packet's declared scope (absolute path or parent traversal)")
+    if isinstance(allowed, list) and isinstance(forbidden, list):
+        overlap = {p for p in allowed if isinstance(p, str)} & {p for p in forbidden if isinstance(p, str)}
+        if overlap:
+            errors.append(f"path authority: {sorted(overlap)} listed as both allowed and forbidden")
+    return errors
+
+
+def validate_review_task_packet(packet: dict[str, Any]) -> list[str]:
+    """Validate a ReviewTaskPacket contract record (REQ-OBJ-11).
+
+    Identity is required, the ``claim_ceiling`` must be a valid claim level, and a
+    review packet must record a non-blank audit scope and at least one required
+    review check — a review with no criteria is not a review.  This validates the
+    contract record only; it does not change runtime packet behaviour.
+    """
+    errors = validate_required_fields(packet, ["schema_version", "task_id", "audit_scope", "claim_ceiling", "required_checks"])
+    errors += common.validate_identifier(packet.get("task_id", ""), "task_id")
+    if packet.get("claim_ceiling") not in CLAIM_LEVELS:
+        errors.append(f"claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+    for list_field in ("audit_scope", "required_checks"):
+        if packet.get(list_field) is not None:
+            errors += _string_list_errors(packet.get(list_field), list_field)
+    return errors
+
+
+def validate_data_preparation_task_packet(packet: dict[str, Any]) -> list[str]:
+    """Validate a DataPreparationTaskPacket contract record (REQ-OBJ-11).
+
+    Identity (``task_id`` / ``subquestion_id``) is required and well-formed.  A
+    prep packet must declare at least one planned input fact and one expected
+    materialized output, and those facts (plus any planned resource / dataset
+    profile ids and preparation steps) must be distinct and non-blank.  The packet
+    is a contract record only: it may not download data, lock a dataset, authorise
+    REAL execution, create formal evidence, or bypass gates, so any truthy
+    authority-like flag — including alias field names for the same powers — is
+    rejected.
+    """
+    errors = validate_required_fields(packet, ["schema_version", "task_id", "subquestion_id", "planned_inputs", "expected_outputs"])
+    errors += common.validate_identifier(packet.get("task_id", ""), "task_id")
+    errors += common.validate_identifier(packet.get("subquestion_id", ""), "subquestion_id")
+    for list_field in ("planned_inputs", "expected_outputs", "planned_resource_ids", "planned_dataset_profile_ids", "preparation_steps", "failure_conditions"):
+        if packet.get(list_field) is not None:
+            errors += _string_list_errors(packet.get(list_field), list_field, require_unique=True)
+    errors += _reject_truthy_authority_flags(
+        packet,
+        (
+            "downloads_data",
+            "locks_dataset",
+            "authorizes_real_execution",
+            "creates_formal_evidence",
+            # Alias / alternative authority field names that express the same
+            # forbidden powers; a prep packet is a contract record only and may
+            # not lock datasets, authorise REAL execution, create formal
+            # evidence, or bypass gates under any spelling.
+            "authorizes_execution",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "bypasses_gates",
+            "dataset_locked",
+            "real_execution_authorized",
+        ),
+        "data-preparation packet",
+    )
     return errors
