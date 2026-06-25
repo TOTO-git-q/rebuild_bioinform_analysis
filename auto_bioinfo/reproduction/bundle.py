@@ -31,8 +31,46 @@ CONSISTENCY_LEVELS = [
 ]
 
 
-def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
+class FormalExportRefused(Exception):
+    """Raised when a *formal* export is requested for a project whose
+    authoritative release is ``DEMONSTRATION_ONLY``.  No formal export artifact
+    is produced — the caller must surface a non-zero exit (Gate 4)."""
+
+    def __init__(self, release: dict[str, Any]) -> None:
+        self.release = release
+        reasons = ", ".join(release.get("reasons", [])) or "INELIGIBLE"
+        super().__init__(f"formal export refused: release is {release.get('release_status')} ({reasons})")
+
+
+def compute_project_release(project_dir: str | Path) -> dict[str, Any]:
+    """Recompute the project's authoritative release through the single gate
+    (persisted ScientificEligibilityDecision + active ProjectPolicy), without
+    building any bundle.  Lets the CLI gate ``export --formal`` *before* it would
+    write any artifact."""
     project_dir = Path(project_dir)
+    policy = read_object(project_dir, "project_policy", {})
+    return authoritative_release(
+        read_object(project_dir, "scientific_eligibility_decision", {}),
+        policy=policy,
+        claims=load_claims(project_dir),
+        evidence_items=load_evidence_items(project_dir),
+    )
+
+
+def build_reproduction_bundle(project_dir: str | Path, *, formal: bool = False) -> dict[str, Any]:
+    """Build the reproduction bundle.
+
+    A plain (``formal=False``) export always carries the ``DEMONSTRATION_ONLY``
+    watermark for an ineligible project.  A ``formal=True`` export is the Gate 4
+    formal-output door: if the authoritative release is not eligible it raises
+    :class:`FormalExportRefused` *before writing anything*, so no formal export
+    artifact can ever be produced for a demonstration run.
+    """
+    project_dir = Path(project_dir)
+    if formal:
+        guard = compute_project_release(project_dir)
+        if not guard["scientific_output_eligible"]:
+            raise FormalExportRefused(guard)
     bundle = project_dir / "reproduction_bundle"
     if bundle.exists():
         shutil.rmtree(bundle)
@@ -127,6 +165,7 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
         "execution_mode": execution_mode,
         "release_status": release_status,
         "scientific_output_eligible": eligible,
+        "export_type": "FORMAL" if formal else "DEMONSTRATION",
         "bundle_dir": "reproduction_bundle",
         "files": sorted(checksums.keys()),
         "checksums_sha256": checksums,

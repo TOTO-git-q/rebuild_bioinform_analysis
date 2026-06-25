@@ -81,11 +81,35 @@
 | 1 | 唯一 authoritative eligibility gate（inspect/report/bundle/CLI formal export 全部重核验，Claim 布尔仅作缓存展示） | **DONE（本步）** | `provenance.authoritative_release`；测试见下 |
 | 2 | decision integrity validation（重算 decision id、核 policy_id/version、evaluated_input_refs、input hashes、Claim/EvidenceItem 引用的 decision_id） | **DONE（本步）** | `provenance.verify_decision_integrity` / `decision_is_authoritatively_eligible`；测试见下 |
 | 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | **DONE（本步）** | `provenance.verify_project_policy_integrity`；测试见下 |
-| 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | TODO | — |
+| 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | **DONE（本步）** | `cli export --formal` / `bundle.build_reproduction_bundle(formal=True)`；测试见下 |
 | 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | TODO | — |
 | 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | TODO | — |
 | 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
 | 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 4）真实结果
+
+需求（turn 0021 §4）：正式区分 demo export 与 formal export。普通 demo bundle 仍可生成但始终带 `DEMONSTRATION_ONLY`；新增明确正式导出门 `export --formal`；不合格时**返回非零退出码且不得生成正式导出物**，不要只打印警告后返回成功。
+
+requirement → 代码 → 测试：
+- `auto_bioinfo/reproduction/bundle.py`
+  - 新增 `compute_project_release(project_dir)`：不构建任何 bundle，仅经唯一 authoritative gate（持久化 `ScientificEligibilityDecision` + 活动 `ProjectPolicy` + claims/evidence）复算 release，供 CLI 在**写任何产物之前**做闸控。
+  - 新增异常 `FormalExportRefused`：携带 release（含 `release_status` 与 `reasons`）。
+  - `build_reproduction_bundle(project_dir, *, formal=False)`：当 `formal=True` 时先 `compute_project_release` 闸控，**不合格则在 rmtree/mkdir 之前抛 `FormalExportRefused`**——确保 demo 项目永不产出 formal 导出物（防御纵深）。manifest 增加 `export_type` 字段（`FORMAL` / `DEMONSTRATION`）。
+- `auto_bioinfo/interfaces/cli.py`
+  - `export` 子命令新增 `--formal` 开关。`export --formal` 捕获 `FormalExportRefused` → 打印 `❌ FORMAL EXPORT REFUSED …`（含原因）并 **`return 1`（非零）**，不产出任何 formal 产物；合格才构建并 `return 0`。
+  - 不带 `--formal` 的 `export` 行为不变：始终生成带 `DEMONSTRATION_ONLY` 水印的 demo bundle。
+
+关键安全属性：formal 闸控发生在任何文件写入之前；即便攻击者翻转 Claim/EvidenceItem 的缓存 `scientific_output_eligible` 布尔（闸门 1 已使其仅为展示缓存），`compute_project_release` 仍判 `DEMONSTRATION_ONLY`，formal 导出被拒、退出码非零、磁盘无 formal 产物。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::FormalExportGateBypassTest`，3 条全过；其中第 1 条即 turn 0021 要求的「`export --formal` 对 Demo 返回非零且不生成正式导出物」）：
+1. `test_formal_export_refused_for_demo_returns_nonzero_and_no_artifact` — DEMO 项目（先删去 run 写出的 demo bundle）`export --formal` → 退出码 1、打印 REFUSED、磁盘无 `reproduction_bundle/` ✅
+2. `test_build_formal_bundle_raises_before_writing_for_demo` — 直接 `build_reproduction_bundle(formal=True)` 对 DEMO 抛 `FormalExportRefused`，且目录未被重建；`compute_project_release` 判不合格 ✅
+3. `test_plain_export_still_emits_demonstration_bundle` — 不带 `--formal` 的 `export` 退出码 0、输出含 `DEMONSTRATION_ONLY`、manifest `export_type=DEMONSTRATION` 且不合格 ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 72 tests, OK**（69 基线 + 3 闸门4，全离线确定性，约 0.6s）。
+
+> 闸门进度：已完成闸门 1、2、3、4 → **4/8**。下一步闸门 5：REAL 数据锁定门补全（≥`FILES_CHECKSUM_VERIFIED`、`file_checksums` 非空且与实际文件一致、`RECORDED_REPLAY` 不单独授权 REAL 锁定、`DatasetManifest` 须存 source_class/retrieval_mode/verification_level/输入校验值）。
 
 ## 本步（闸门 3）真实结果
 

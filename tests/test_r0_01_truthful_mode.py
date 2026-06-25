@@ -4,6 +4,7 @@ baseline requires."""
 
 import io
 import json
+import shutil
 import tempfile
 import unittest
 from contextlib import redirect_stdout
@@ -25,7 +26,11 @@ from auto_bioinfo.core.provenance import build_project_policy
 from auto_bioinfo.interfaces.cli import main
 from auto_bioinfo.pipeline import Pipeline, PipelineError
 from auto_bioinfo.report import build_final_report
-from auto_bioinfo.reproduction.bundle import build_reproduction_bundle
+from auto_bioinfo.reproduction.bundle import (
+    FormalExportRefused,
+    build_reproduction_bundle,
+    compute_project_release,
+)
 from tests._helpers import DEMO_QUESTION, fixture_adapter
 
 
@@ -236,6 +241,52 @@ class AuthoritativeEligibilityGateBypassTest(unittest.TestCase):
         self.assertTrue(release["scientific_output_eligible"])
         self.assertEqual(release["release_status"], "RESEARCH_PRELIMINARY")
         self.assertEqual(release["reasons"], [])
+
+
+class FormalExportGateBypassTest(unittest.TestCase):
+    """Gate 4 (R0-01 review-fix): ``export --formal`` is the formal-output door.
+    For a DEMONSTRATION_ONLY project it must refuse with a non-zero exit and
+    produce *no* formal export artifact — not merely print a warning and succeed.
+    A plain ``export`` still emits the watermarked demonstration bundle."""
+
+    def test_formal_export_refused_for_demo_returns_nonzero_and_no_artifact(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            # Remove the demonstration bundle the run already wrote, so any
+            # artifact present afterwards could only come from the formal export.
+            shutil.rmtree(proj / "reproduction_bundle")
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["export", "--project", str(proj), "--formal"])
+            # Non-zero exit, explicit refusal, and NO bundle artifact written.
+            self.assertEqual(code, 1)
+            self.assertIn("FORMAL EXPORT REFUSED", buf.getvalue())
+            self.assertFalse((proj / "reproduction_bundle").exists())
+
+    def test_build_formal_bundle_raises_before_writing_for_demo(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            shutil.rmtree(proj / "reproduction_bundle")
+            with self.assertRaises(FormalExportRefused):
+                build_reproduction_bundle(proj, formal=True)
+            # The guard fires before any directory is recreated.
+            self.assertFalse((proj / "reproduction_bundle").exists())
+            self.assertFalse(compute_project_release(proj)["scientific_output_eligible"])
+
+    def test_plain_export_still_emits_demonstration_bundle(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["export", "--project", str(proj)])
+            self.assertEqual(code, 0)
+            self.assertIn("DEMONSTRATION_ONLY", buf.getvalue())
+            manifest = build_reproduction_bundle(proj)
+            self.assertEqual(manifest["export_type"], "DEMONSTRATION")
+            self.assertFalse(manifest["scientific_output_eligible"])
 
 
 class ProjectPolicyIntegrityBypassTest(unittest.TestCase):

@@ -13,7 +13,12 @@ from pathlib import Path
 
 from ..core.store import load_events, load_project_state
 from ..pipeline import Pipeline
-from ..reproduction.bundle import build_reproduction_bundle, compare_bundle
+from ..reproduction.bundle import (
+    FormalExportRefused,
+    build_reproduction_bundle,
+    compare_bundle,
+    compute_project_release,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -34,6 +39,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p_export = sub.add_parser("export", help="Build/locate the reproduction bundle.")
     p_export.add_argument("--project", required=True)
+    p_export.add_argument(
+        "--formal",
+        action="store_true",
+        help="Request a FORMAL scientific export. Refused (non-zero exit, no artifact) unless the project's authoritative release is eligible.",
+    )
 
     p_validate = sub.add_parser("validate", help="Replay the event log and re-verify the reproduction bundle checksums.")
     p_validate.add_argument("--project", required=True)
@@ -60,6 +70,20 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "export":
+        if args.formal:
+            # Gate 4 formal-export door: refuse (non-zero exit, no artifact)
+            # unless the authoritative release is eligible.
+            try:
+                manifest = build_reproduction_bundle(project, formal=True)
+            except FormalExportRefused as exc:
+                reasons = ", ".join(exc.release.get("reasons", [])) or "INELIGIBLE"
+                print(f"❌ FORMAL EXPORT REFUSED — release is {exc.release.get('release_status')} ({reasons}).")
+                print("   No formal export artifact was produced. Use `export` (without --formal) for a DEMONSTRATION_ONLY bundle.")
+                return 1
+            print(f"✅ FORMAL export: {project / manifest['bundle_dir']}")
+            print(f"  files: {len(manifest['files'])}  ·  id: {manifest['reproduction_bundle_id']}")
+            print(f"  MODE: {manifest.get('execution_mode')}  ·  release_status: {manifest.get('release_status')}")
+            return 0
         manifest = build_reproduction_bundle(project)
         print(f"Reproduction bundle: {project / manifest['bundle_dir']}")
         print(f"  files: {len(manifest['files'])}  ·  id: {manifest['reproduction_bundle_id']}")
