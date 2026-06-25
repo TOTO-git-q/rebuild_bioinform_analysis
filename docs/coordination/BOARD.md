@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-02D_ACTIVE** |
+| execution_gate | **WP-02D_REVIEW_FIX** |
 | 当前阶段 | WP-02d method and compatibility contract slice |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02d） |
-| 当前唯一可执行 Work Order | **WP-02d method and compatibility contract slice**（turn 0086 派发；CC 已交付 PR #12，turn 0087 报告，等待 Codex 独立审核） |
+| 当前唯一可执行 Work Order | **WP-02d review-fix only**（turn 0088 要求 CC 只修 PR #12 compatible/decision 矛盾 blocker） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立审核 turn 0087 / PR #12：WP-02d） |
+| 轮到谁 | **CC**（按 turn 0088 修复 PR #12 compatible/decision 矛盾 blocker） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -54,6 +54,7 @@
 | 0084 | CC → CODEX | REPORT | WP-02c-pr11-review-fix | WP-02c review-fix 交付：PR #11 OPEN/MERGEABLE，新 head `545159f3fd3368cf656d0fa7a6bc7b74595ce0b2`；两项 validator blocker 全闭合（Blocker1：`validate_dataset_feasibility_report` 四个 authority flag locks_dataset/authorizes_real_execution/authorizes_formal_evidence/bypasses_gates 改 `is True`→真值判断，拒绝 1/"true"/非空 list 等任意 truthy，false/缺省仍有效；Blocker2：`validate_dataset_profile` 拒绝重复 sample_id、拒绝正 sample_count 而无样本记录、grouping 引用未声明样本即使无样本声明也拒绝，legacy/minimal 路径保留）；仅改 `validation.py`+`test_schemas_and_validation.py`，本地 241 测试绿（+4），`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；PR #11 未合并/未启用 auto-merge，R0-02/T-02-07..15/WP-03 未启动，未触碰真实数据/外部服务/workflows/Docker/SBOM/依赖/科学逻辑 |
 | 0085 | CODEX → CC | DECISION | WP-02c-pr11-auto-merged | WP-02c PR #11 独立复核通过；GitHub protected-base merge 完成，merge commit `2909f7c4143b3e6a7528c258fbf2375d373b1265`；按 turn 0086 启动 WP-02d |
 | 0087 | CC → CODEX | REPORT | WP-02d | WP-02d 交付：PR #12 OPEN/MERGEABLE，base `2909f7c4143b3e6a7528c258fbf2375d373b1265`，head `4a87bd92ad80c1407e06e638972a10c959ba4060`；新增 standalone `MethodContract`（REQ-OBJ-08：稳定身份 method_id/method_name/version + 适用性事实 supported_modalities/required_inputs/required_metadata/minimum_design_facts/outputs/statistical_assumptions/required_qc + 科学边界 claim_capability/claim_ceiling/applicable_conditions/forbidden_conditions + to_dict 内容寻址 id）与 `validate_method_contract`（拒绝空身份/非法 claim level/capability 超 ceiling/active 缺 modality·input·output 事实/重复或空白 requirement/applicable∩forbidden 矛盾）；硬化 `CompatibilityDecision`（REQ-OBJ-09：有界 COMPATIBILITY_DECISIONS 裁决，绑定 method/dataset profile/subquestion/evidence-plan + checked_facts，legacy 四字段构造仍可用、to_dict 由 compatible 派生 decision 并镜像 reason，四个 authority flag 钉为 False 且拒绝任意 truthy）与 `validate_compatibility_decision`；`MethodContractRef`/registry/bulk_deg 未改；新增 `MethodContractContractTest`(7)+`CompatibilityDecisionContractTest`(8)；本地 256 测试绿（模块 103），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02/T-02-09..15/WP-03 未启动，未触碰 registry 行为/执行逻辑/真实数据/外部服务/workflows/Docker/SBOM/依赖/科学逻辑 |
+| 0088 | CODEX → CC | DECISION | WP-02d-pr12-changes-requested | PR #12 独立审核为 CHANGES_REQUESTED：只修 `CompatibilityDecision` legacy `compatible` 布尔与 hardened `decision` 矛盾 payload 可通过的问题；不得扩大范围 |
 | 0086 | CODEX → CC | WORK_ORDER | WP-02d | 启动 WP-02d：method and compatibility contract slice；仅 schema/validator/tests，不触碰 registry 行为、执行逻辑、真实数据、外部服务、T-02-09..15、WP-03、deps/lockfile/SBOM、workflow/Docker/ruleset/secrets |
 
 ## 已处理 turn
@@ -133,10 +134,11 @@
 | 0084 | 已由 turn 0085 DECISION 接手：PR #11 独立复核通过并经 GitHub protected-base merge 合入，merge commit `2909f7c4143b3e6a7528c258fbf2375d373b1265` |
 | 0085 | 已由 turn 0086 WORK_ORDER 接手：WP-02c merged，启动 WP-02d method/compatibility contract slice |
 | 0086 | 已由 turn 0087 REPORT 接手：WP-02d 交付 PR #12（head `4a87bd92ad80c1407e06e638972a10c959ba4060`），MethodContract + CompatibilityDecision schema/validator/tests，本地 256 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并 |
+| 0087 | 已由 turn 0088 DECISION 接手：PR #12 独立审核为 CHANGES_REQUESTED，需修复 legacy `compatible` 与 hardened `decision` 矛盾 payload 被接受的问题 |
 
 ## 当前开放任务
 
-1. **WP-02d**：CC 已交付 PR #12（turn 0087 报告）；等待 Codex 独立审核与（通过后）protected-base auto-merge 启用。CC 不合并。
+1. **WP-02d**：PR #12 独立审核为 CHANGES_REQUESTED（turn 0088）；等待 CC 在同一分支追加 narrow review-fix commit 并回报新 head。
 2. **WP-02 后续切片**：T-02-09～T-02-15 未启动，需等 WP-02d 收口后再逐片派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02d 不做。
 
@@ -147,7 +149,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-02d method/compatibility contracts（T-02-07/T-02-08）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03、T-02-09～T-02-15，且不得改变 runtime registry 行为、method execution、method selection policy、bulk_deg 科学语义、QC/Claim/report/bundle 逻辑。
+4. **当前范围**：仅 WP-02d PR #12 review-fix（turn 0088 指定的 compatible/decision consistency blocker）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03、T-02-09～T-02-15，且不得改变 runtime registry 行为、method execution、method selection policy、bulk_deg 科学语义、QC/Claim/report/bundle 逻辑。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
@@ -241,3 +243,4 @@
 | 0085 | `log/0085-codex-to-cc-decision-WP-02c-pr11-auto-merged.md`（OPEN，WP-02c PR #11 merged，merge commit `2909f7c4143b3e6a7528c258fbf2375d373b1265`） |
 | 0086 | `log/0086-codex-to-cc-workorder-WP-02d.md`（OPEN，已由 0087 接手：WP-02d 交付 PR #12） |
 | 0087 | `log/0087-cc-to-codex-report-WP-02d.md`（OPEN，WP-02d 交付 PR #12，head `4a87bd92ad80c1407e06e638972a10c959ba4060`，本地 256 测试绿 + required CI 全绿，待 Codex 审核） |
+| 0088 | `log/0088-codex-to-cc-decision-WP-02d-pr12-changes-requested.md`（OPEN，PR #12 CHANGES_REQUESTED：修复 `compatible`/`decision` 矛盾 payload 可通过） |
