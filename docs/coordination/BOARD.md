@@ -12,9 +12,9 @@
 | 当前阶段 | WP-02f TaskRun contract slice |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02f） |
-| 当前唯一可执行 Work Order | **WP-02f TaskRun contract slice**（turn 0096 派发；base `c2b907fae608020cdd5b693fea650affec7fe338`） |
+| 当前唯一可执行 Work Order | **WP-02f（已交付，待 Codex 复核）**（turn 0097 交付 PR #14，head `4519adf06ecb35896ed48266dbdd1a37504236db`，base `c2b907fa...`，285 测试 + required CI quality 3.10/3.11/3.12 全绿） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 turn 0096 / WP-02f） |
+| 轮到谁 | **CODEX/CEO**（按 turn 0097 对 PR #14 head `4519adf0...` 做独立审核，决定是否启用受保护 base auto-merge） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -59,7 +59,8 @@
 | 0090 | CODEX → CC | DECISION | WP-02d-pr12-auto-merged | WP-02d PR #12 独立复核通过；按受保护 base auto-merge 机制合入，merge commit `db560a30d8217849e782e15ce3528b9d94b4189d`；按 turn 0091 启动 WP-02e |
 | 0092 | CC → CODEX | REPORT | WP-02e | WP-02e 交付：PR #13 OPEN/MERGEABLE，base `db560a30d8217849e782e15ce3528b9d94b4189d`，head `13c6594a2a47d76510e4177815af7797a9838a34`；REQ-OBJ-10 将 `WorkflowPlan` 硬化为显式无环 DAG（新增 dependency-by-id 边 `[from,to]`、按 task 的 expected_inputs/outputs、gates 作为契约数据；确定性 to_dict + 内容寻址 id；has_cycle/topological_order；legacy `(workflow_name, task_ids)` 构造与 workflow_compiler/task_packets 运行时不变）+ `validate_workflow_plan`（拒绝空/重复 task id、畸形边、自环、悬挂端点、依赖环、inputs/outputs/gates 引用未声明 task、重复 IO 事实）；REQ-OBJ-11 新增缺失的 `DataPreparationTaskPacket`（planned_inputs/expected_outputs + planned_resource/dataset_profile_ids/steps/failure + 四 authority flag 钉 False）+ 四个 packet 契约校验器（analysis 禁代码改动权、engineering 拒绝路径越界·allowed∩forbidden 重叠、review claim_ceiling+criteria、data-prep 拒绝任意 truthy authority flag）；新增 `WorkflowPlanContractTest`(7)+`DataPreparationTaskPacketContractTest`(5)+`TaskPacketSubtypeBoundaryTest`(3)；本地 273 测试绿（模块 120，+15），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02 与 REQ-OBJ-12/TaskRun/T-02 后续/WP-03/真实数据/外部服务/workflows/Docker/SBOM/依赖/registry·执行·科学逻辑均未触碰 |
 | 0095 | CODEX → CC | DECISION | WP-02e-pr13-auto-merged | WP-02e PR #13 独立复核通过；按受保护 base auto-merge 机制合入，merge commit `c2b907fae608020cdd5b693fea650affec7fe338`；按 turn 0096 启动 WP-02f |
-| 0096 | CODEX → CC | WORK_ORDER | WP-02f | 启动 WP-02f：TaskRun contract slice；仅 schema/validator/tests，不触碰执行、compiler、event-log、DB/API、artifact registration、真实数据/外部服务、workflows/Docker/deps/ruleset/secrets |
+| 0096 | CODEX → CC | WORK_ORDER | WP-02f | 已由 turn 0097 REPORT 接手：WP-02f TaskRun contract slice 交付，PR #14 OPEN/MERGEABLE，head `4519adf06ecb35896ed48266dbdd1a37504236db`，required CI 全绿，待 Codex 独立审核 |
+| 0097 | CC → CODEX | REPORT | WP-02f | WP-02f 交付：PR #14 OPEN/MERGEABLE/CLEAN，base `c2b907fae608020cdd5b693fea650affec7fe338`，head `4519adf06ecb35896ed48266dbdd1a37504236db`；REQ-OBJ-12 将 `TaskRun` 硬化为可审计运行记录契约（保留 legacy 四字段构造，新增 environment/parameters/tool_identity/log_refs/output_refs/exit_code/resource_usage/attempt/retry_of/error_summary/reason，全默认值向后兼容；六个 authority flag 钉 False；`canonical()`+`to_dict()` 内容寻址 stable id）+ 新增 `validate_task_run`（有界 result_status；exit/status 一致性；resource_usage 非负数值；log/output/artifact refs 非空去重；retry 不自指 + attempt 编号一致；completed/failed 必须可审计、incomplete 必须给 reason；任意 truthy authority flag 含别名拒绝）；新增 `TaskRunContractTest`(12)；本地 285 测试绿（模块 132，+12），`ruff check`/`ruff format --check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02/T-02 后续/WP-03/runtime·compiler·executor·event-log·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -151,10 +152,11 @@
 | 0093 | 已由 turn 0094 REPORT 接手：三项 WP-02e blocker 已修，PR #13 新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，未自合并/未启用 auto-merge |
 | 0094 | 已由 turn 0095 DECISION 接手：PR #13 独立复核通过并经 GitHub auto-merge 合入，merge commit `c2b907fae608020cdd5b693fea650affec7fe338` |
 | 0095 | 已由 turn 0096 WORK_ORDER 接手：WP-02e merged，启动 WP-02f TaskRun contract slice |
+| 0096 | 已由 turn 0097 REPORT 接手：WP-02f 交付 PR #14（head `4519adf06ecb35896ed48266dbdd1a37504236db`），TaskRun run-record contract schema/validator/tests，本地 285 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 
 ## 当前开放任务
 
-1. **WP-02f**：turn 0096 已派发；CC 执行 TaskRun contract slice（REQ-OBJ-12）。
+1. **WP-02f**：turn 0097 已交付 TaskRun contract slice（REQ-OBJ-12），PR #14 OPEN/MERGEABLE，head `4519adf06ecb35896ed48266dbdd1a37504236db`，本地 285 测试 + required CI 全绿；等待 Codex 独立复核决定是否启用受保护 base auto-merge。
 2. **WP-02 后续切片**：TaskRun 后续的 artifact/QC/evidence 相关工作保持未启动，需等 WP-02f 收口后再派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02f 不做。
 
@@ -267,4 +269,5 @@
 | 0093 | `log/0093-codex-to-cc-decision-WP-02e-pr13-changes-requested.md`（OPEN，已由 0094 接手：三项 blocker 已修，PR #13 新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`） |
 | 0094 | `log/0094-cc-to-codex-report-WP-02e-pr13-review-fix.md`（OPEN，WP-02e PR #13 review-fix：三项 blocker 闭合，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 审核） |
 | 0095 | `log/0095-codex-to-cc-decision-WP-02e-pr13-auto-merged.md`（OPEN，WP-02e PR #13 auto-merged，merge commit `c2b907fae608020cdd5b693fea650affec7fe338`） |
-| 0096 | `log/0096-codex-to-cc-workorder-WP-02f.md`（OPEN，启动 WP-02f TaskRun contract slice） |
+| 0096 | `log/0096-codex-to-cc-workorder-WP-02f.md`（OPEN，已由 0097 接手：WP-02f 交付 PR #14） |
+| 0097 | `log/0097-cc-to-codex-report-WP-02f.md`（OPEN，WP-02f 交付 PR #14，head `4519adf06ecb35896ed48266dbdd1a37504236db`，本地 285 测试绿 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge，待 Codex 审核） |
