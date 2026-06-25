@@ -40,6 +40,34 @@ def init_project_state(project_dir: str | Path, user_question: str, *, execution
     return state
 
 
+def record_legacy_migration(project_dir: str | Path, policy: dict[str, Any]) -> dict[str, Any]:
+    """One-time conservative migration of a pre-R0-01 project (Gate 6).
+
+    Binds the freshly built DEMO ``policy`` to the existing ProjectState: forces
+    ``execution_mode=DEMO`` (a legacy project can never be trusted as REAL),
+    points ``project_policy_ref`` at the new policy, and stamps the audit marker
+    ``migrated_from_legacy`` (mirrors ``provenance.LEGACY_MIGRATION_MARKER``).
+    The migration is recorded as an explicit event so it is never silent.
+    """
+    state = load_project_state(project_dir)
+    state["execution_mode"] = "DEMO"
+    state["project_policy_ref"] = policy["project_policy_id"]
+    state["migrated_from_legacy"] = True
+    _write_state(project_dir, state)
+    event = build_event(
+        project_id=state["project_id"],
+        event_type="LEGACY_PROJECT_MIGRATED",
+        actor="system",
+        previous_stage=state["current_stage"],
+        next_stage=state["current_stage"],
+        object_refs=[{"object_type": "ProjectPolicy", "object_id": policy["project_policy_id"]}],
+        message="Migrated legacy (pre-R0-01) project to a conservative DEMO ProjectPolicy.",
+        payload={"execution_mode": "DEMO", "project_policy_ref": policy["project_policy_id"]},
+    )
+    append_event(project_dir, event)
+    return state
+
+
 def append_event(project_dir: str | Path, event: dict[str, Any]) -> dict[str, Any]:
     required = ["event_id", "project_id", "event_type", "actor", "created_at", "previous_stage", "next_stage", "object_refs", "message", "payload_hash"]
     missing = [field for field in required if field not in event]

@@ -257,6 +257,49 @@ def normalize_legacy_provenance(obj: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+# --- Gate 6 (R0-01 review-fix): explicit behavior for legacy projects -------
+
+# Marker recorded on a ProjectState after a one-time legacy migration, so the
+# migration is auditable and never silently re-applied.
+LEGACY_MIGRATION_MARKER = "migrated_from_legacy"
+
+
+def classify_project_policy_state(policy: dict[str, Any], state: dict[str, Any]) -> str:
+    """Decide how to treat a project whose ProjectPolicy is *absent*, instead of
+    bare-raising a generic integrity failure on every policy-less project.
+
+    Returns one of:
+
+    - ``"CURRENT"`` — a ProjectPolicy exists; the normal integrity gate runs.
+      A *present but tampered* policy still fails :func:`verify_project_policy_integrity`
+      and is rejected; this classification never weakens that path.
+    - ``"LEGACY_MIGRATABLE"`` — no policy **and** ``ProjectState`` carries no
+      policy binding: a genuinely pre-R0-01 project.  Safe to migrate
+      *conservatively* to a DEMO policy (its data inherits LEGACY_UNKNOWN /
+      UNVERIFIED via :func:`normalize_legacy_provenance`).
+    - ``"MIGRATION_REQUIRED"`` — no policy but ``ProjectState`` *references* one
+      (``project_policy_ref`` set, policy file gone): the binding was lost.
+      Auto-migrating could silently relabel a once-REAL project to DEMO, so this
+      is surfaced explicitly and **never** auto-migrated.
+    """
+    if policy:
+        return "CURRENT"
+    if state.get("project_policy_ref"):
+        return "MIGRATION_REQUIRED"
+    return "LEGACY_MIGRATABLE"
+
+
+def migrate_legacy_project_policy(project_id: str) -> dict[str, Any]:
+    """Build the conservative DEMO ProjectPolicy for a one-time legacy migration.
+
+    A project whose provenance predates R0-01 cannot be trusted to back
+    scientific output, so it is *always* migrated to DEMO — never REAL.  The
+    returned policy is a normal immutable ProjectPolicy and therefore passes
+    :func:`verify_project_policy_integrity` once bound to the state.
+    """
+    return build_project_policy(project_id, "DEMO")
+
+
 # --- ScientificEligibilityDecision (immutable, always recomputed) -----------
 
 def _eligibility_reason_codes(

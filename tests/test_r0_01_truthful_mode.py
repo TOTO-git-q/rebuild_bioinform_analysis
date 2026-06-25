@@ -11,10 +11,13 @@ from contextlib import redirect_stdout
 from pathlib import Path
 
 from auto_bioinfo.core.provenance import (
+    LEGACY_MIGRATION_MARKER,
     authoritative_release,
+    classify_project_policy_state,
     decision_is_authoritatively_eligible,
     evaluate_scientific_eligibility,
     is_formally_exportable,
+    migrate_legacy_project_policy,
     normalize_legacy_provenance,
     recompute_eligibility_for,
     validate_policy_state_consistency,
@@ -25,7 +28,7 @@ from auto_bioinfo.core.provenance import (
 )
 from auto_bioinfo.core.provenance import build_project_policy
 from auto_bioinfo.interfaces.cli import main
-from auto_bioinfo.pipeline import Pipeline, PipelineError
+from auto_bioinfo.pipeline import LegacyMigrationRequired, Pipeline, PipelineError
 from auto_bioinfo.report import build_final_report
 from auto_bioinfo.reproduction.bundle import (
     FormalExportRefused,
@@ -419,6 +422,101 @@ class ProjectPolicyIntegrityBypassTest(unittest.TestCase):
             state_path.write_text(json.dumps(state))
             with self.assertRaises(PipelineError):
                 Pipeline(resources=fixture_adapter()).run(proj)
+
+
+class LegacyProjectGateBypassTest(unittest.TestCase):
+    """Gate 6 (R0-01 review-fix): a project that predates the ProjectPolicy gets
+    *explicit* behavior — a one-time conservative migration to DEMO, or a named
+    MIGRATION_REQUIRED — never a bare PipelineError, and never auto-promoted to
+    REAL."""
+
+    def test_classify_current_when_policy_present(self):
+        self.assertEqual(classify_project_policy_state({"execution_mode": "DEMO"}, {}), "CURRENT")
+
+    def test_classify_legacy_migratable_when_no_policy_no_binding(self):
+        self.assertEqual(classify_project_policy_state({}, {"project_id": "p"}), "LEGACY_MIGRATABLE")
+
+    def test_classify_migration_required_when_ref_is_dangling(self):
+        self.assertEqual(classify_project_policy_state({}, {"project_policy_ref": "pp_old"}), "MIGRATION_REQUIRED")
+
+    def test_migrate_builds_demo_policy(self):
+        policy = migrate_legacy_project_policy("legacy_proj")
+        self.assertEqual(policy["execution_mode"], "DEMO")
+        self.assertEqual(policy["project_id"], "legacy_proj")
+        # The migrated policy is a normal immutable policy (passes integrity once bound).
+        state = {"project_id": "legacy_proj", "execution_mode": "DEMO", "project_policy_ref": policy["project_policy_id"]}
+        self.assertEqual(verify_project_policy_integrity(policy, state), [])
+
+    def test_legacy_project_migrated_to_demo_without_raising(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            policy_path = proj / "state" / "objects" / "project_policy.json"
+            state_path = proj / "state" / "project_state.json"
+            # Simulate a pre-R0-01 project: no policy file, no policy binding, and
+            # (worst case) the legacy state even claimed to be REAL.
+            policy_path.unlink()
+            state = json.loads(state_path.read_text())
+            state["execution_mode"] = "REAL"
+            state.pop("project_policy_ref", None)
+            state_path.write_text(json.dumps(state))
+
+            result = Pipeline(resources=fixture_adapter()).run(proj)
+
+            # Migrated, not raised: a DEMO policy was recreated and bound.
+            self.assertTrue(policy_path.exists())
+            migrated_policy = json.loads(policy_path.read_text())
+            self.assertEqual(migrated_policy["execution_mode"], "DEMO")
+            migrated_state = json.loads(state_path.read_text())
+            # Never promoted: the once-"REAL" legacy state is forced to DEMO.
+            self.assertEqual(migrated_state["execution_mode"], "DEMO")
+            self.assertTrue(migrated_state.get(LEGACY_MIGRATION_MARKER))
+            self.assertEqual(migrated_state["project_policy_ref"], migrated_policy["project_policy_id"])
+            # Output is demonstration-only and the integrity gate passes (no raise).
+            self.assertEqual(result["release_status"], "DEMONSTRATION_ONLY")
+            self.assertEqual(result["execution_mode"], "DEMO")
+            # The migration is audited, never silent.
+            self.assertIn("LEGACY_PROJECT_MIGRATED", (proj / "state" / "events.jsonl").read_text())
+
+    def test_missing_policy_with_dangling_ref_requires_explicit_migration(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            policy_path = proj / "state" / "objects" / "project_policy.json"
+            # The policy file is gone but the state still references it: a lost
+            # binding must NOT be silently relabeled to DEMO.
+            policy_path.unlink()
+            with self.assertRaises(LegacyMigrationRequired) as ctx:
+                Pipeline(resources=fixture_adapter()).run(proj)
+            self.assertEqual(ctx.exception.reason, "MIGRATION_REQUIRED")
+            # Not silently migrated: no policy was recreated.
+            self.assertFalse(policy_path.exists())
+
+    def test_migration_is_one_time_and_resumes_clean(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            policy_path = proj / "state" / "objects" / "project_policy.json"
+            state_path = proj / "state" / "project_state.json"
+            policy_path.unlink()
+            state = json.loads(state_path.read_text())
+            state.pop("project_policy_ref", None)
+            state_path.write_text(json.dumps(state))
+
+            Pipeline(resources=fixture_adapter()).run(proj)  # one-time migration
+            first_policy = json.loads(policy_path.read_text())
+            # The migrated project is now CURRENT, not migratable again.
+            self.assertEqual(
+                classify_project_policy_state(first_policy, json.loads(state_path.read_text())),
+                "CURRENT",
+            )
+            result = Pipeline(resources=fixture_adapter()).run(proj)
+            self.assertEqual(result["release_status"], "DEMONSTRATION_ONLY")
+            # No re-migration churn: the policy id is stable across the resume.
+            self.assertEqual(
+                json.loads(policy_path.read_text())["project_policy_id"],
+                first_policy["project_policy_id"],
+            )
 
 
 class EligibilityRuleTest(unittest.TestCase):

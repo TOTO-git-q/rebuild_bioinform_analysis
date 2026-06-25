@@ -28,14 +28,16 @@ from .core.ids import make_stable_id
 from .core.provenance import (
     authoritative_release,
     build_project_policy,
+    classify_project_policy_state,
     evaluate_scientific_eligibility,
     is_eligible,
+    migrate_legacy_project_policy,
     validate_provenance,
     verify_project_policy_integrity,
     validate_real_mode_dataset,
     validate_real_mode_lock,
 )
-from .core.store import init_project_state, load_project_state, transition_state
+from .core.store import init_project_state, load_project_state, record_legacy_migration, transition_state
 from .core.task_packets import build_analysis_task_packet, build_review_task_packet, validate_task_packets
 from .core.validation import validate_no_unknown_verified_dataset
 from .evidence.synthesis import build_evidence_item, synthesize_claims
@@ -59,6 +61,18 @@ class PipelineError(RuntimeError):
     """Raised on an unrecoverable, non-scientific failure (bad inputs/config)."""
 
 
+class LegacyMigrationRequired(PipelineError):
+    """Gate 6 (R0-01 review-fix): a policy-less project whose ProjectState still
+    *references* a (now missing) ProjectPolicy.
+
+    This is the explicit, named alternative to bare-raising: auto-migrating such
+    a project to DEMO could silently relabel a once-REAL project, so the operator
+    must restore the policy or re-initialize.  ``.reason`` carries a machine
+    code; the message carries the actionable remediation."""
+
+    reason = "MIGRATION_REQUIRED"
+
+
 class Pipeline:
     def __init__(self, *, planner: Any = None, resources: Any = None) -> None:
         self.planner = planner or OfflineDeterministicPlanner()
@@ -76,10 +90,26 @@ class Pipeline:
             policy = build_project_policy(project_dir.name, execution_mode)
             write_object(project_dir, "project_policy", policy)
             init_project_state(project_dir, question, execution_mode=execution_mode, project_policy_ref=policy["project_policy_id"])
+        # Gate 6: a project may predate R0-01 and have no ProjectPolicy at all.
+        # Classify it explicitly instead of bare-raising an integrity failure.
+        policy = read_object(project_dir, "project_policy", {})
+        state = load_project_state(project_dir)
+        classification = classify_project_policy_state(policy, state)
+        if classification == "MIGRATION_REQUIRED":
+            raise LegacyMigrationRequired(
+                f"project {project_dir.name!r} has no ProjectPolicy but ProjectState "
+                f"references project_policy_ref={state.get('project_policy_ref')!r}; "
+                "restore the ProjectPolicy or re-initialize the project — refusing to "
+                "auto-relabel a possibly-REAL project as DEMO."
+            )
+        if classification == "LEGACY_MIGRATABLE":
+            # One-time conservative migration: a pre-R0-01 project becomes DEMO.
+            policy = migrate_legacy_project_policy(project_dir.name)
+            write_object(project_dir, "project_policy", policy)
+            state = record_legacy_migration(project_dir, policy)
         # The ProjectPolicy is immutable: recompute its integrity (hash/id) and
         # require ProjectState to agree, so editing either file is detected.
-        policy = read_object(project_dir, "project_policy", {})
-        integrity = verify_project_policy_integrity(policy, load_project_state(project_dir))
+        integrity = verify_project_policy_integrity(policy, state)
         if integrity:
             raise PipelineError(f"project policy integrity failure: {integrity}")
 

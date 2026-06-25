@@ -83,9 +83,38 @@
 | 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | **DONE（本步）** | `provenance.verify_project_policy_integrity`；测试见下 |
 | 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | **DONE（本步）** | `cli export --formal` / `bundle.build_reproduction_bundle(formal=True)`；测试见下 |
 | 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | **DONE（本步）** | `provenance.validate_real_mode_lock` / `pipeline._lock_datasets`；测试见下 |
-| 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | TODO | — |
+| 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | **DONE（本步）** | `provenance.classify_project_policy_state` / `migrate_legacy_project_policy` / `pipeline.LegacyMigrationRequired` / `store.record_legacy_migration`；测试见下 |
 | 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
 | 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 6）真实结果
+
+需求（turn 0007 闸门 6）：legacy（早于 R0-01、无 `ProjectPolicy`）项目须有**明确行为**——要么一次性**保守迁移**为 DEMO（数据继承 LEGACY_UNKNOWN / UNVERIFIED），要么明确标为 `MIGRATION_REQUIRED`；**不得**对每个无 policy 的项目裸抛通用 `PipelineError`，也**不得**把疑似旧 REAL 项目静默重贴成 DEMO 或反向升级成 REAL。
+
+requirement → 代码 → 测试：
+- `auto_bioinfo/core/provenance.py`
+  - 新增纯函数 `classify_project_policy_state(policy, state)` → `"CURRENT"` / `"LEGACY_MIGRATABLE"` / `"MIGRATION_REQUIRED"`：①policy 存在 → `CURRENT`（走原完整性门，**present-but-tampered 仍照旧被拒**，本分类不削弱该路径）；②无 policy 且 state 无 `project_policy_ref` 绑定 → `LEGACY_MIGRATABLE`（真正的 pre-R0-01 项目，可保守迁移）；③无 policy 但 state **仍引用** `project_policy_ref`（绑定丢失/policy 文件被删）→ `MIGRATION_REQUIRED`（自动迁移可能把曾经的 REAL 静默贴成 DEMO，故显式上抛、绝不自动迁移）。
+  - 新增 `migrate_legacy_project_policy(project_id)`：始终构建 **DEMO** ProjectPolicy（legacy 项目永不可信为 REAL）；返回的是正常不可变 policy，绑定后即过 `verify_project_policy_integrity`。新增审计标记常量 `LEGACY_MIGRATION_MARKER = "migrated_from_legacy"`。
+- `auto_bioinfo/core/store.py`
+  - 新增 `record_legacy_migration(project_dir, policy)`：把新建 DEMO policy 绑定到既有 state——强制 `execution_mode=DEMO`、`project_policy_ref` 指向新 policy、打 `migrated_from_legacy=True` 审计标记，并 `append_event("LEGACY_PROJECT_MIGRATED")` 记一条显式事件（迁移永不静默）。
+- `auto_bioinfo/pipeline.py`
+  - 新增异常 `LegacyMigrationRequired(PipelineError)`（`.reason="MIGRATION_REQUIRED"`）：作为「裸抛」的具名、可操作替代——携带"恢复 ProjectPolicy 或重新初始化"的修复指引。
+  - `run()` 读取 policy/state 后先 `classify_project_policy_state`：`MIGRATION_REQUIRED` → 抛 `LegacyMigrationRequired`（非裸 `PipelineError`，不重建 policy）；`LEGACY_MIGRATABLE` → `migrate_legacy_project_policy` + `write_object` + `record_legacy_migration` 一次性迁移后继续；`CURRENT` → 照原 `verify_project_policy_integrity`（tampered 仍抛 `PipelineError`，**闸门 3 行为不变**）。
+
+关键安全属性：①迁移**单向且保守**——legacy 即便自称 REAL 也被强制 DEMO，绝不升级；②**幂等**——迁移后 policy 落盘，二次 `run` 归类 `CURRENT`，不再重复迁移；③**绑定丢失 ≠ legacy**——`project_policy_ref` 悬空（policy 被删）判 `MIGRATION_REQUIRED` 显式上抛，不静默重贴，避免把曾经的 REAL 项目降级洗白；④present-but-tampered policy 仍由闸门 3 完整性门拦截（本门只在 policy **缺失**时分流）。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::LegacyProjectGateBypassTest`，7 条全过）：
+1. `test_classify_current_when_policy_present` — policy 存在 → `CURRENT` ✅
+2. `test_classify_legacy_migratable_when_no_policy_no_binding` — 无 policy 无绑定 → `LEGACY_MIGRATABLE` ✅
+3. `test_classify_migration_required_when_ref_is_dangling` — 无 policy 但 ref 悬空 → `MIGRATION_REQUIRED` ✅
+4. `test_migrate_builds_demo_policy` — 迁移产出 DEMO policy，绑定后过完整性门 ✅
+5. `test_legacy_project_migrated_to_demo_without_raising` — 端到端：删 policy + 去 ref + 把 state 改成自称 REAL，再 `run` → **不抛**、重建 DEMO policy、state 被强制 DEMO（不升级 REAL）、打 `migrated_from_legacy` 标记、release `DEMONSTRATION_ONLY`、`events.jsonl` 含 `LEGACY_PROJECT_MIGRATED` ✅
+6. `test_missing_policy_with_dangling_ref_requires_explicit_migration` — 端到端：删 policy 但保留 ref → 抛 `LegacyMigrationRequired`（`.reason="MIGRATION_REQUIRED"`）、不重建 policy（不静默迁移）✅
+7. `test_migration_is_one_time_and_resumes_clean` — 迁移后二次 `run` 归类 `CURRENT`、不再重复迁移、policy id 跨 resume 稳定 ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 86 tests, OK**（79 基线 + 7 闸门6，全离线确定性，约 0.72s）。
+
+> 闸门进度：已完成闸门 1、2、3、4、5、6 → **6/8**。下一步闸门 7：`validate_provenance` 真正结构化核验（不止 accession 前缀匹配）。
 
 ## 本步（闸门 5）真实结果
 
