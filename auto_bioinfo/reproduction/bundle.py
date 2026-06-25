@@ -54,6 +54,8 @@ def compute_project_release(project_dir: str | Path) -> dict[str, Any]:
         policy=policy,
         claims=load_claims(project_dir),
         evidence_items=load_evidence_items(project_dir),
+        artifact=read_object(project_dir, "registered_artifact", {}),
+        dataset_profile=read_object(project_dir, "dataset_profile", {}),
     )
 
 
@@ -92,6 +94,8 @@ def build_reproduction_bundle(project_dir: str | Path, *, formal: bool = False) 
         policy=policy,
         claims=load_claims(project_dir),
         evidence_items=load_evidence_items(project_dir),
+        artifact=artifact,
+        dataset_profile=read_object(project_dir, "dataset_profile", {}),
     )
     eligible = release["scientific_output_eligible"]
     release_status = release["release_status"]

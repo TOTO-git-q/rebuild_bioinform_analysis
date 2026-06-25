@@ -169,6 +169,8 @@ class Pipeline:
             policy=read_object(project_dir, "project_policy", {}),
             claims=claims,
             evidence_items=evidence_items,
+            artifact=read_object(project_dir, "registered_artifact", {}),
+            dataset_profile=read_object(project_dir, "dataset_profile", {}),
         )
         return {
             "project_id": state["project_id"],

@@ -41,6 +41,8 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
         policy=policy,
         claims=claims,
         evidence_items=evidence,
+        artifact=read_object(project_dir, "registered_artifact", {}),
+        dataset_profile=profile,
     )
     eligible = release["scientific_output_eligible"]
     release_status = release["release_status"]

@@ -807,6 +807,61 @@ class DecisionIntegrityDownstreamRefusalTest(unittest.TestCase):
             self._tamper_decision(proj, lambda dec: dec.update({"evaluated_input_hashes": ["forged_hash"]}))
             self._assert_formal_export_refused(proj)
 
+    def test_genuine_eligible_real_project_still_formally_exports(self):
+        # Regression for the Blocker 2 fix: the expected evaluated_input_refs/hashes
+        # the gate now derives from the live registered_artifact + dataset_profile
+        # must match what _synthesize_evidence bound the decision to — otherwise a
+        # genuine project would be wrongly demoted.
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            self.assertTrue(compute_project_release(proj)["scientific_output_eligible"])
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["export", "--project", str(proj), "--formal"])
+            self.assertEqual(code, 0)
+            self.assertIn("FORMAL export", buf.getvalue())
+
+    def test_formal_export_refused_when_decision_refs_forged_self_consistently(self):
+        # The adversarial probe from turn 0031: forge a fully self-consistent
+        # ScientificEligibilityDecision — rewrite evaluated_input_refs/hashes to
+        # values that were never the real artifact/profile, recompute the decision
+        # id from the forged facts (verdict stays ELIGIBLE), and sync the Claim /
+        # EvidenceItem back-references to the forged id.  Self-consistency alone
+        # passes verify_decision_integrity; only matching the forged refs/hashes
+        # against the *live* persisted artifact + dataset_profile catches it.
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            path = proj / "state" / "objects" / "scientific_eligibility_decision.json"
+            genuine = json.loads(path.read_text())
+            forged = evaluate_scientific_eligibility(
+                execution_mode=genuine["execution_mode"],
+                source_class=genuine["source_class"],
+                retrieval_mode=genuine["retrieval_mode"],
+                verification_level=genuine["verification_level"],
+                qc_status=genuine["qc_status"],
+                evaluated_input_refs=["forged_artifact_id", "forged_profile_id"],
+                evaluated_input_hashes=["forged_checksum"],
+                policy_id=genuine["policy_id"],
+                policy_version=genuine["policy_version"],
+            )
+            # The forged decision is genuinely ELIGIBLE and internally self-consistent:
+            # the weak (self-only) integrity check has nothing to flag.
+            self.assertEqual(forged["decision"], "ELIGIBLE")
+            self.assertNotEqual(
+                forged["scientific_eligibility_decision_id"],
+                genuine["scientific_eligibility_decision_id"],
+            )
+            self.assertEqual(verify_decision_integrity(forged), [])
+            path.write_text(json.dumps(forged))
+            forged_id = forged["scientific_eligibility_decision_id"]
+            _rewrite_jsonl(proj / "state" / "claims.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": forged_id}))
+            _rewrite_jsonl(proj / "state" / "evidence_items.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": forged_id}))
+            # Downstream gate must demote (not just the helper) and refuse formal export.
+            release = compute_project_release(proj)
+            self.assertFalse(release["scientific_output_eligible"])
+            self.assertIn("decision evaluated_input_refs do not match the evaluated objects", release["reasons"])
+            self._assert_formal_export_refused(proj)
+
 
 class LockedManifestResumeChecksumGateTest(unittest.TestCase):
     """Blocker 3 (R0-01 review-fix): once a dataset is locked, a resume must

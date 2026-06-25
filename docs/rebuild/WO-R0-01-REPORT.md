@@ -321,3 +321,35 @@ requirement → 代码 → 测试：
 - `git diff --check` → 干净（无空白/冲突标记）。
 - ruff：改动文件中 `provenance.py`、`_helpers.py` 全过;`pipeline.py`(F401 `is_eligible` 未用 + I001)与 `test_r0_01_truthful_mode.py`(I001)的告警**与 HEAD 基线逐字相同,为既存问题,非本轮引入**,按"不扩大范围"未顺手修。验收门为 unittest 套件。
 - 未开始 R0-02;未自合并;未新增 `.github/workflows/`。
+
+## PR #1 review-fix (turn 0031 → REPORT，第 2 轮：只修 Blocker 2)
+
+承 turn 0031（PR #1 新 head `c2d5556` 独立复核 = CHANGES_REQUESTED；Blocker 1/3 基本闭合，仅 Blocker 2 未闭合）。本轮**只修 Blocker 2**，不扩大范围。
+
+### Blocker 2 — formal release gate 未在生产路径核对 decision 与真实下游对象一致（forged self-consistent decision 绕过）
+- 根因：`authoritative_release` 调 `verify_decision_integrity(decision, policy=...)` 时**未传** `expected_input_refs` / `expected_input_hashes`，只验决策**自洽性**。攻击者在真实 eligible REAL 项目里伪造一个内部自洽的 `ScientificEligibilityDecision`（改 `evaluated_input_refs`/`evaluated_input_hashes` 为 forged 值 → 用 forged facts **重算 decision id** → verdict 仍 ELIGIBLE），并把 Claim/Evidence 引用同步到 forged id，即可让 `compute_project_release` 返回 `eligible=True`、`export --formal` 返回 0。原 Blocker 2 测试只覆盖「改 hashes 但不重算 id」的弱 tamper。
+- 修复（`auto_bioinfo/core/provenance.py`）：
+  1. 新增纯函数 `expected_decision_inputs(artifact, dataset_profile)`，从**真实已持久化的** `registered_artifact`（`artifact_id` / `checksum_sha256`）与 `dataset_profile`（`dataset_profile_id`）派生期望的 `evaluated_input_refs` / `evaluated_input_hashes`——与 `Pipeline._synthesize_evidence` 创建 decision 时绑定的输入逐字一致。
+  2. `authoritative_release` 新增 `artifact` / `dataset_profile` 形参；当任一给出时派生 expected refs/hashes 并传入 `verify_decision_integrity` / `decision_is_authoritatively_eligible`。于是 decision 的 stored refs/hashes 必须匹配**活的下游对象**，而非只与自身自洽——forged-but-self-consistent decision 因与真实 artifact/profile 不符而被 demote。
+- 共享 gate 全面生效（四输出面均传入活对象）：
+  - `pipeline.py::Pipeline.inspect`
+  - `report.py::build_final_report`
+  - `reproduction/bundle.py::compute_project_release`（即 CLI `export --formal` 的前置 gate）
+  - `reproduction/bundle.py::build_reproduction_bundle`
+- 新增测试 `tests/test_r0_01_truthful_mode.py::DecisionIntegrityDownstreamRefusalTest`（本轮 +2 条，走真实下游 `compute_project_release` + CLI `export --formal`，非仅 helper）：
+  1. `test_genuine_eligible_real_project_still_formally_exports`（回归：派生的 expected refs/hashes 与创建路径一致，真实项目不被误伤）
+  2. `test_formal_export_refused_when_decision_refs_forged_self_consistently`（turn 0031 对抗探针：forged 自洽 decision + 同步 Claim/Evidence → `compute_project_release` demote 且 reasons 含 `decision evaluated_input_refs do not match the evaluated objects`，`export --formal` 返回非零并打印 `FORMAL EXPORT REFUSED`）
+- 对抗有效性证明：临时将 `authoritative_release` 的 expected 派生禁用（模拟旧 gate）后，`test_formal_export_refused_when_decision_refs_forged_self_consistently` **失败**（returncode 1）；恢复修复后通过——证明该测试真正捕获绕过，而非恒真。
+
+### 本轮修改文件
+- `auto_bioinfo/core/provenance.py`（`expected_decision_inputs` + `authoritative_release` 接 `artifact`/`dataset_profile`）
+- `auto_bioinfo/pipeline.py`（`inspect` 传入活对象）
+- `auto_bioinfo/report.py`（`build_final_report` 传入活对象）
+- `auto_bioinfo/reproduction/bundle.py`（`compute_project_release` + `build_reproduction_bundle` 传入活对象）
+- `tests/test_r0_01_truthful_mode.py`（+2 测试）
+- `docs/rebuild/WO-R0-01-REPORT.md`（本节）
+
+### 本轮真实结果
+- `python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 113 tests, OK**（111 上一轮基线 + 2 本轮，全离线确定性，约 0.59s，退出码 0）。
+- `git diff --check` → 干净（无空白/冲突标记）。
+- 未开始 R0-02；未自合并；未新增 `.github/workflows/`；未碰 bulk_deg 算法 / coordination / ruleset / secrets；未做目录级重构。

@@ -640,6 +640,29 @@ def is_formally_exportable(obj: dict[str, Any]) -> bool:
     return bool(obj.get("scientific_output_eligible")) and obj.get("release_status") == RESEARCH_PRELIMINARY
 
 
+def expected_decision_inputs(
+    artifact: dict[str, Any] | None,
+    dataset_profile: dict[str, Any] | None,
+) -> tuple[list[str], list[str]]:
+    """The ``evaluated_input_refs`` / ``evaluated_input_hashes`` a genuine decision
+    *must* carry, derived from the real persisted ``registered_artifact`` and
+    ``dataset_profile`` — the exact facts :meth:`Pipeline._synthesize_evidence`
+    bound the decision to when it created it.
+
+    The authoritative gate passes these as the *expected* values so a forged but
+    internally self-consistent decision (refs/hashes rewritten and the decision id
+    recomputed to match) is still rejected: the decision's stored refs/hashes are
+    compared against the live downstream objects, not merely against themselves.
+    Keep this in lock-step with the ``evaluated_input_*`` arguments in
+    :meth:`Pipeline._synthesize_evidence`.
+    """
+    artifact = artifact or {}
+    dataset_profile = dataset_profile or {}
+    refs = [artifact.get("artifact_id", ""), dataset_profile.get("dataset_profile_id", "")]
+    hashes = [artifact.get("checksum_sha256", "")]
+    return refs, hashes
+
+
 # --- Authoritative eligibility gate (Gate 1 of R0-01 review-fix) -------------
 
 def authoritative_release(
@@ -648,6 +671,8 @@ def authoritative_release(
     policy: dict[str, Any] | None = None,
     claims: list[dict[str, Any]] | None = None,
     evidence_items: list[dict[str, Any]] | None = None,
+    artifact: dict[str, Any] | None = None,
+    dataset_profile: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """The single authoritative eligibility gate shared by every output surface
     (``inspect`` / ``report`` / ``bundle`` / CLI formal export).
@@ -662,6 +687,13 @@ def authoritative_release(
     3. Any ``Claim`` / ``EvidenceItem`` that *claims* eligibility must reference
        this exact authoritative decision id; one pointing at a foreign decision
        forces ``DEMONSTRATION_ONLY``.
+    4. When the live ``artifact`` (registered_artifact) and ``dataset_profile``
+       are supplied, the decision's ``evaluated_input_refs`` / ``hashes`` must
+       match the values *derived from those real persisted objects*
+       (:func:`expected_decision_inputs`).  This closes the forged-but-self-
+       consistent decision bypass (Blocker 2): rewriting the evaluated inputs and
+       recomputing the decision id no longer suffices, because the gate checks the
+       decision against the live downstream objects, not just against itself.
 
     Crucially, the cached ``scientific_output_eligible`` flag on a Claim or
     EvidenceItem is **never** trusted as authorisation — it is a display cache
@@ -676,8 +708,25 @@ def authoritative_release(
             "reasons": ["NO_ELIGIBILITY_DECISION"],
         }
 
-    reasons: list[str] = list(verify_decision_integrity(decision, policy=policy))
-    eligible = decision_is_authoritatively_eligible(decision, policy=policy)
+    expected_refs: list[str] | None = None
+    expected_hashes: list[str] | None = None
+    if artifact is not None or dataset_profile is not None:
+        expected_refs, expected_hashes = expected_decision_inputs(artifact, dataset_profile)
+
+    reasons: list[str] = list(
+        verify_decision_integrity(
+            decision,
+            policy=policy,
+            expected_input_refs=expected_refs,
+            expected_input_hashes=expected_hashes,
+        )
+    )
+    eligible = decision_is_authoritatively_eligible(
+        decision,
+        policy=policy,
+        expected_input_refs=expected_refs,
+        expected_input_hashes=expected_hashes,
+    )
 
     # When (and only when) the decision is authoritatively ELIGIBLE, a formal
     # release is on the table — so *every* Claim/EvidenceItem must reference this
