@@ -7,6 +7,12 @@
 # no network, no database, no paid service, no external LLM.
 name: ci
 
+# Least-privilege GITHUB_TOKEN: the suite is read-only (offline lint / format /
+# type-check / test / coverage) and never writes to the repo, so the workflow
+# only needs read access to the checked-out contents (WP-01 CI review fix).
+permissions:
+  contents: read
+
 on:
   push:
   pull_request:
