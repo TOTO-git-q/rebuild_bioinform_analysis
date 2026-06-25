@@ -4,14 +4,18 @@ from auto_bioinfo.core import common, validation
 from auto_bioinfo.core.common import Actor, ExternalIdentifier, SchemaValidationError, dataclass_json_schema
 from auto_bioinfo.core.ids import make_stable_id
 from auto_bioinfo.core.schemas import (
+    ALIGNMENT_DECISIONS,
     CLAIM_LEVELS,
     COMPATIBILITY_DECISIONS,
     FEASIBILITY_DECISIONS,
+    REPRODUCIBILITY_LEVELS,
+    REPRODUCTION_STATUSES,
     AmbiguityReport,
     AnalysisTaskPacket,
     ApprovalDecision,
     ApprovalRequest,
     ArtifactManifest,
+    Claim,
     CompatibilityDecision,
     DataPreparationTaskPacket,
     DatasetFeasibilityReport,
@@ -21,6 +25,7 @@ from auto_bioinfo.core.schemas import (
     EvidenceGap,
     EvidenceItem,
     EvidencePlan,
+    FinalReportManifest,
     MethodContract,
     MethodContractRef,
     OntologyMapping,
@@ -28,6 +33,8 @@ from auto_bioinfo.core.schemas import (
     Project,
     ProjectPolicy,
     QCReport,
+    QuestionAlignmentReport,
+    ReproductionBundleManifest,
     ResearchSpec,
     ResourceCandidate,
     ReviewTaskPacket,
@@ -1788,6 +1795,301 @@ class EvidenceItemContractTest(unittest.TestCase):
         for flag in flags:
             clean[flag] = False
         self.assertEqual(validation.validate_evidence_item(clean), [])
+
+
+# --- WP-02h / T-02-15: Claim bounded statement contract ----------------------
+
+
+class ClaimContractTest(unittest.TestCase):
+    """WP-02h / T-02-15: Claim bounded statement record (REQ-OBJ-16)."""
+
+    def _claim(self, **kw):
+        base = dict(
+            claim_id="claim_1",
+            text="At the RNA level, 120 genes show association-level differential expression for the contrast.",
+            claim_level="association",
+            evidence_item_refs=["evidence_item_1"],
+            supports_subquestion_ids=["subquestion_1"],
+            scope={"species": ["human"], "tissue": ["liver"], "condition": ["A_vs_B"]},
+            limitations=["Single dataset; not independently replicated."],
+            claim_ceiling="association",
+        )
+        base.update(kw)
+        return Claim(**base)
+
+    def test_well_formed_claim_validates_with_stable_id(self):
+        data = self._claim(claim_id="").to_dict()
+        self.assertTrue(data["claim_id"].startswith("claim_"))
+        self.assertEqual(validation.validate_claim(data), [])
+        # content-addressed: same statement facts -> same id, a different statement -> a new id
+        again = self._claim(claim_id="").to_dict()
+        self.assertEqual(data["claim_id"], again["claim_id"])
+        changed = self._claim(claim_id="", text="A different statement entirely.").to_dict()
+        self.assertNotEqual(data["claim_id"], changed["claim_id"])
+
+    def test_legacy_construction_is_backward_compatible(self):
+        # the original seven-field positional construction still builds and the
+        # hardened defaults are filled in (ceiling defaults to association).
+        legacy = Claim("claim_x", "text", "association", ["evidence_item_1"], ["subquestion_1"], {"species": ["human"]}, [])
+        data = legacy.to_dict()
+        self.assertEqual(data["claim_ceiling"], "association")
+        self.assertEqual(data["opposing_evidence_refs"], [])
+        self.assertEqual(validation.validate_claim(data), [])
+
+    def test_blank_identity_or_text_or_level_rejected(self):
+        self.assertTrue(any("text" in e for e in validation.validate_claim(self._claim(text="   ").to_dict())))
+        self.assertTrue(any("claim_level" in e for e in validation.validate_claim(self._claim(claim_level="omniscient").to_dict())))
+        # a non-identifier claim id is rejected
+        self.assertTrue(any("claim_id" in e for e in validation.validate_claim(self._claim(claim_id="Not An Id").to_dict())))
+
+    def test_claim_level_above_ceiling_rejected(self):
+        over = self._claim(claim_level="causal_support", claim_ceiling="association").to_dict()
+        self.assertTrue(any("exceeds claim_ceiling" in e for e in validation.validate_claim(over)))
+        # an external max_allowed ceiling is also enforced
+        ok_self = self._claim(claim_level="association", claim_ceiling="causal_support").to_dict()
+        self.assertTrue(any("exceeds allowed ceiling" in e for e in validation.validate_claim(ok_self, max_allowed="descriptive")))
+        self.assertEqual(validation.validate_claim(ok_self, max_allowed="causal_support"), [])
+
+    def test_unsupported_claim_rejected(self):
+        # a claim with no supporting evidence refs is unsupported
+        no_evidence = self._claim(evidence_item_refs=[]).to_dict()
+        self.assertTrue(any("supporting evidence" in e for e in validation.validate_claim(no_evidence)))
+
+    def test_missing_scope_rejected(self):
+        empty_scope = self._claim(scope={}).to_dict()
+        self.assertTrue(any("scope" in e for e in validation.validate_claim(empty_scope)))
+        blank_axes = self._claim(scope={"species": [], "tissue": ["  "]}).to_dict()
+        self.assertTrue(any("scope" in e for e in validation.validate_claim(blank_axes)))
+
+    def test_contradictory_support_and_opposing_evidence_rejected(self):
+        contradictory = self._claim(
+            evidence_item_refs=["evidence_item_1"],
+            opposing_evidence_refs=["evidence_item_1"],
+        ).to_dict()
+        self.assertTrue(any("both supporting and opposing" in e for e in validation.validate_claim(contradictory)))
+        # distinct supporting/opposing refs are fine
+        ok = self._claim(
+            evidence_item_refs=["evidence_item_1"],
+            opposing_evidence_refs=["evidence_item_2"],
+        ).to_dict()
+        self.assertEqual(validation.validate_claim(ok), [])
+
+    def test_duplicate_evidence_refs_rejected(self):
+        dup = self._claim(evidence_item_refs=["evidence_item_1", "evidence_item_1"]).to_dict()
+        self.assertTrue(any("evidence_item_refs" in e and "duplicate" in e for e in validation.validate_claim(dup)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = (
+            "raises_claim_level",
+            "claim_level_raised",
+            "bypasses_qc",
+            "bypasses_gates",
+            "creates_evidence",
+            "creates_formal_evidence",
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+            "authorizes_real_execution",
+        )
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._claim().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_claim(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._claim().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_claim(clean), [])
+
+
+# --- WP-02h / T-02-16: QuestionAlignmentReport & FinalReportManifest ----------
+
+
+class QuestionAlignmentReportContractTest(unittest.TestCase):
+    """WP-02h / T-02-16: QuestionAlignmentReport alignment record (REQ-OBJ-17)."""
+
+    def _report(self, **kw):
+        base = dict(
+            report_id="question_alignment_report_1",
+            final_decision="approve",
+            unsupported_claims=[],
+            research_spec_id="research_spec_1",
+            project_id="proj_demo",
+        )
+        base.update(kw)
+        return QuestionAlignmentReport(**base)
+
+    def test_clean_approve_validates(self):
+        data = self._report().to_dict()
+        self.assertEqual(validation.validate_question_alignment_report(data), [])
+
+    def test_decision_vocabulary_is_bounded(self):
+        self.assertEqual(set(ALIGNMENT_DECISIONS), {"approve", "needs_review", "reject"})
+        bad = self._report(final_decision="definitely").to_dict()
+        self.assertTrue(any("final_decision" in e for e in validation.validate_question_alignment_report(bad)))
+
+    def test_approve_over_open_findings_rejected(self):
+        # an approve decision may not stand while any alignment finding is open
+        for field_name, value in (
+            ("unsupported_claims", [{"claim_id": "claim_1", "reason": "no evidence"}]),
+            ("scope_drift_findings", [{"claim_id": "claim_1", "reason": "tissue drift"}]),
+            ("overclaim_findings", [{"claim_id": "claim_1", "reason": "above ceiling"}]),
+            ("omitted_evidence", [{"evidence_item_id": "evidence_item_1", "reason": "negative result dropped"}]),
+            ("traceability_gaps", [{"claim_id": "claim_1", "reason": "no sub-question"}]),
+            ("blocker_facts", ["QC failed on the only supporting artifact"]),
+        ):
+            data = self._report(final_decision="approve", **{field_name: value}).to_dict()
+            errors = validation.validate_question_alignment_report(data)
+            self.assertTrue(any("cannot approve while alignment findings remain open" in e for e in errors), f"{field_name} should block approve")
+            # the same findings under a non-passing decision are fine
+            non_pass = self._report(final_decision="reject", **{field_name: value}).to_dict()
+            self.assertEqual(validation.validate_question_alignment_report(non_pass), [])
+
+    def test_blocker_facts_must_be_clean_strings(self):
+        blank = self._report(final_decision="reject", blocker_facts=["  "]).to_dict()
+        self.assertTrue(any("blocker_facts" in e for e in validation.validate_question_alignment_report(blank)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = ("authorizes_export", "authorizes_publishing", "publishes", "raises_claim_level", "claim_level_raised", "bypasses_gates")
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._report().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_question_alignment_report(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._report().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_question_alignment_report(clean), [])
+
+
+class FinalReportManifestContractTest(unittest.TestCase):
+    """WP-02h / T-02-16: FinalReportManifest report/claim traceability."""
+
+    def _manifest(self, **kw):
+        base = dict(
+            final_report_id="final_report_1",
+            report_path="state/final_report.md",
+            claim_ids=["claim_1", "claim_2"],
+            alignment_report_id="question_alignment_report_1",
+        )
+        base.update(kw)
+        return FinalReportManifest(**base)
+
+    def test_well_formed_manifest_validates(self):
+        self.assertEqual(validation.validate_final_report_manifest(self._manifest().to_dict()), [])
+
+    def test_blank_path_or_duplicate_claims_rejected(self):
+        blank_path = self._manifest(report_path="  ").to_dict()
+        self.assertTrue(any("report_path" in e for e in validation.validate_final_report_manifest(blank_path)))
+        dup = self._manifest(claim_ids=["claim_1", "claim_1"]).to_dict()
+        self.assertTrue(any("claim_ids" in e and "duplicate" in e for e in validation.validate_final_report_manifest(dup)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = ("generates_report", "authorizes_export", "authorizes_publishing", "publishes", "bypasses_gates")
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._manifest().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_final_report_manifest(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._manifest().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_final_report_manifest(clean), [])
+
+
+# --- WP-02h / T-02-17: ReproductionBundleManifest ----------------------------
+
+
+class ReproductionBundleManifestContractTest(unittest.TestCase):
+    """WP-02h / T-02-17: ReproductionBundleManifest manifest contract (REQ-OBJ-18)."""
+
+    def _manifest(self, **kw):
+        base = dict(
+            bundle_id="reproduction_bundle_1",
+            project_id="proj_demo",
+            files=[
+                {"path": "scripts/run.py", "checksum_sha256": _VALID_SHA256, "role": "entrypoint"},
+                {"path": "data/counts.tsv", "role": "input"},
+            ],
+            run_order=["scripts/run.py"],
+            environment_facts={"python": "3.11", "container": "none"},
+            expected_outputs=[{"name": "deg_results.csv"}],
+            comparison_rules=[{"expected_output": "deg_results.csv", "rule": "exact_checksum"}],
+            reproducibility_level="numerical",
+            reproduction_status="pending",
+        )
+        base.update(kw)
+        return ReproductionBundleManifest(**base)
+
+    def test_well_formed_manifest_validates_with_stable_id(self):
+        data = self._manifest(bundle_id="").to_dict()
+        self.assertTrue(data["bundle_id"].startswith("reproduction_bundle_"))
+        self.assertEqual(validation.validate_reproduction_bundle_manifest(data), [])
+        # content-addressed over project + files + run order
+        again = self._manifest(bundle_id="").to_dict()
+        self.assertEqual(data["bundle_id"], again["bundle_id"])
+
+    def test_missing_or_duplicate_files_rejected(self):
+        no_files = self._manifest(files=[], run_order=[]).to_dict()
+        self.assertTrue(any("at least one file fact" in e for e in validation.validate_reproduction_bundle_manifest(no_files)))
+        blank_path = self._manifest(files=[{"role": "input"}], run_order=[]).to_dict()
+        self.assertTrue(any("missing required file path" in e for e in validation.validate_reproduction_bundle_manifest(blank_path)))
+        dup = self._manifest(
+            files=[{"path": "scripts/run.py"}, {"path": "scripts/run.py"}],
+            run_order=["scripts/run.py"],
+        ).to_dict()
+        self.assertTrue(any("duplicate file path" in e for e in validation.validate_reproduction_bundle_manifest(dup)))
+
+    def test_invalid_run_order_rejected(self):
+        # a run-order step that is not a declared file is an invalid run order
+        unknown = self._manifest(run_order=["scripts/ghost.py"]).to_dict()
+        self.assertTrue(any("invalid run order" in e for e in validation.validate_reproduction_bundle_manifest(unknown)))
+        dup = self._manifest(run_order=["scripts/run.py", "scripts/run.py"]).to_dict()
+        self.assertTrue(any("run_order" in e and "duplicate" in e for e in validation.validate_reproduction_bundle_manifest(dup)))
+
+    def test_undeclared_expected_output_in_comparison_rule_rejected(self):
+        undeclared = self._manifest(comparison_rules=[{"expected_output": "ghost.csv", "rule": "exact"}]).to_dict()
+        self.assertTrue(any("undeclared expected output" in e for e in validation.validate_reproduction_bundle_manifest(undeclared)))
+        # a comparison rule that names no output at all is rejected
+        no_target = self._manifest(comparison_rules=[{"rule": "exact"}]).to_dict()
+        self.assertTrue(any("must name the expected output" in e for e in validation.validate_reproduction_bundle_manifest(no_target)))
+        # a blank-named expected output is rejected
+        blank_output = self._manifest(expected_outputs=[{"name": "  "}], comparison_rules=[]).to_dict()
+        self.assertTrue(any("non-blank name" in e for e in validation.validate_reproduction_bundle_manifest(blank_output)))
+
+    def test_invalid_level_or_status_rejected(self):
+        self.assertEqual(set(REPRODUCIBILITY_LEVELS), {"bitwise", "numerical", "statistical", "qualitative", "unspecified"})
+        self.assertEqual(set(REPRODUCTION_STATUSES), {"pending", "reproduced", "partially_reproduced", "not_reproduced", "failed"})
+        bad_level = self._manifest(reproducibility_level="telepathic").to_dict()
+        self.assertTrue(any("reproducibility_level" in e for e in validation.validate_reproduction_bundle_manifest(bad_level)))
+        bad_status = self._manifest(reproduction_status="magic").to_dict()
+        self.assertTrue(any("reproduction_status" in e for e in validation.validate_reproduction_bundle_manifest(bad_status)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = (
+            "materializes_bundle",
+            "materializes",
+            "exports_bundle",
+            "exports",
+            "publishes",
+            "authorizes_publishing",
+            "authorizes_real_execution",
+            "real_execution_authorized",
+            "locks_dataset",
+            "dataset_locked",
+            "creates_formal_evidence",
+            "creates_evidence",
+            "bypasses_gates",
+        )
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._manifest().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_reproduction_bundle_manifest(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._manifest().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_reproduction_bundle_manifest(clean), [])
 
 
 if __name__ == "__main__":
