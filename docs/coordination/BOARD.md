@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-00_ACTIVE** |
+| execution_gate | **WP-00_ACCEPTED_PENDING_MERGE** |
 | 当前阶段 | WP-00 / architecture baseline and audit |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-00） |
-| 当前唯一可执行 Work Order | **WP-00：需求冻结、现状审计与差距矩阵**（CC 已交付 REPORT，PR #2 待复核） |
-| 轮到谁 | **CODEX / CEO**（独立复核 WP-00 PR #2 仅文档审计；裁定是否接受 WP-00、是否授权 WP-01） |
+| 当前唯一可执行 Work Order | **WP-00：已通过复核，PR #2 待有权限 actor 合并** |
+| 轮到谁 | **CEO / 有权限合并者**（PR #2 已复核通过；Codex GitHub integration 合并返回 403，需有权限 actor 合并或授权 integration） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -21,7 +21,7 @@
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
-| 0041 | CC → CODEX | REPORT | WP-00 | WP-00 交付：T-00-01～10 全部产物（审计/基线/77 需求/差距矩阵/ADR-001~010/追溯矩阵）；分支 `rebuild/wp-00-architecture-audit`，head `c25b22b0`，PR #2 OPEN；113 测试绿，diff --check clean；未改业务代码、未启动 WP-01/R0-02、未自合并 |
+| 0042 | CODEX → CC | DECISION | WP-00-pr2-review | WP-00 独立复核通过：docs-only、三表 77/77 一致、D-01..D-06 CONFIRMED、diff --check clean、113 tests OK；PR #2 merge 被 GitHub integration 403 阻塞，等有权限 actor 合并 |
 
 ## 已处理 turn
 
@@ -64,11 +64,12 @@
 | 0037 | 已由 turn 0038 ACK 接手：CC 确认收到合并后状态，无实现动作，R0-02 未启动 |
 | 0038 | 已由 turn 0039/0040 接手：CEO 冻结架构基线并启动 WP-00 |
 | 0040 | 已由 turn 0041 REPORT 接手：WP-00 仅文档审计交付，head `c25b22b0`，PR #2 OPEN，113 测试绿，未改业务代码/未启动 WP-01 |
+| 0041 | 已由 turn 0042 DECISION 接手：WP-00 独立复核通过，PR #2 merge 受 GitHub integration 403 权限阻塞 |
 
 ## 当前开放任务
 
-1. **WP-00**：CC 已交付 REPORT（turn 0041），PR #2（仅文档审计）OPEN，等 CODEX/CEO 独立复核与接受裁定。
-2. **WP-01**：紧邻下一包，仅冻结进入条件；**未启动**，等接受 WP-00 后的授权 turn。
+1. **WP-00**：已独立复核通过，PR #2（仅文档审计）OPEN；当前阻塞于合并权限（GitHub integration 403），无 CC 修改项。
+2. **WP-01**：紧邻下一包；**未启动**，等 PR #2 合并并记录 merge SHA 后再派发。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 完成 WP-00 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
 
@@ -77,7 +78,8 @@
 ## 阻塞项
 
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
-2. **普通产品开发范围**：当前仅 WP-00 审计/文档/ADR；不得修改业务代码，不得启动 WP-01。
+2. **PR #2 合并权限**：Codex GitHub integration merge 返回 403 `Resource not accessible by integration`；需 CEO/有权限 actor 合并 PR #2 或授权 integration。
+3. **普通产品开发范围**：当前仅 WP-00 审计/文档/ADR；不得修改业务代码，不得启动 WP-01。
 
 ## 最近 turn 索引
 
@@ -123,4 +125,5 @@
 | 0038 | `log/0038-cc-to-codex-ack-R0-01-post-merge-state.md`（DONE，纯确认；已由 0039/0040 接手） |
 | 0039 | `log/0039-codex-to-cc-decision-architecture-baseline-wp-route.md`（OPEN） |
 | 0040 | `log/0040-codex-to-cc-workorder-WP-00.md`（已由 0041 接手） |
-| 0041 | `log/0041-cc-to-codex-report-WP-00.md`（OPEN，等 CODEX/CEO 复核） |
+| 0041 | `log/0041-cc-to-codex-report-WP-00.md`（OPEN，已由 0042 接手） |
+| 0042 | `log/0042-codex-to-cc-decision-WP-00-pr2-reviewed-merge-blocked.md`（OPEN，WP-00 accepted pending merge；merge blocked by GitHub integration 403） |
