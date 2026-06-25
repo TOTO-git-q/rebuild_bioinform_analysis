@@ -1,0 +1,64 @@
+component_id,category,name,location,status,evidence,notes
+CMP-SCHEMA-01,schema,ResearchSpec,auto_bioinfo/core/schemas.py:29,EXISTING,dataclass with requirement-spec fields + open_questions,never invents un-stated facts
+CMP-SCHEMA-02,schema,SubQuestion,auto_bioinfo/core/schemas.py:67,PARTIAL,dataclass,lacks required_evidence_types/success_criteria/priority fields from spec 5.2
+CMP-SCHEMA-03,schema,ScopeBundle,auto_bioinfo/core/schemas.py:84,EXISTING,dataclass,species/tissues/conditions
+CMP-SCHEMA-04,schema,EvidencePlan,auto_bioinfo/core/schemas.py:97,PARTIAL,dataclass,lacks minimum_replication/validation_strategy/stop_conditions from spec 5.3
+CMP-SCHEMA-05,schema,ResourceCandidate,auto_bioinfo/core/schemas.py:109,EXISTING,dataclass with verified/source_status,
+CMP-SCHEMA-06,schema,DatasetProfile,auto_bioinfo/core/schemas.py:123,PARTIAL,dataclass,lacks full metadata field set from spec 5.5/stage6
+CMP-SCHEMA-07,schema,DatasetFeasibilityReport,—,MISSING,not in schemas.py,spec 5.6/stage7 decision object ACCEPT/REJECT/... not modeled as object
+CMP-SCHEMA-08,schema,DatasetManifest,auto_bioinfo/core/schemas.py:302,EXISTING,locked+versioned dataclass,immutable-once-locked per ADR-0003
+CMP-SCHEMA-09,schema,MethodContract,auto_bioinfo/methods/bulk_deg.py(contract()),PARTIAL,contract dict returned by method,full field set lives in method not a standalone schema; MethodContractRef only in core
+CMP-SCHEMA-10,schema,CompatibilityDecision,auto_bioinfo/core/schemas.py:159 + methods/registry.py:31,EXISTING,dataclass + deterministic decision,
+CMP-SCHEMA-11,schema,WorkflowPlan,auto_bioinfo/core/schemas.py:172,PARTIAL,task_ids list only,no dependency edges / not a true DAG (known gap)
+CMP-SCHEMA-12,schema,AnalysisTaskPacket,auto_bioinfo/core/schemas.py:183,PARTIAL,dataclass,DataPreparationTaskPacket subtype from spec 5.11 missing
+CMP-SCHEMA-13,schema,EngineeringTaskPacket,auto_bioinfo/core/schemas.py:197,EXISTING,allowed/forbidden paths + test_commands,
+CMP-SCHEMA-14,schema,ReviewTaskPacket,auto_bioinfo/core/schemas.py:210,EXISTING,dataclass,
+CMP-SCHEMA-15,schema,TaskRun,auto_bioinfo/core/schemas.py:222,PARTIAL,dataclass,lacks resource-usage/stdout/stderr/retry fields from spec 5.12
+CMP-SCHEMA-16,schema,ArtifactManifest,auto_bioinfo/core/schemas.py:234,EXISTING,checksum+exists+is_placeholder+qc_status,content-addressed identity
+CMP-SCHEMA-17,schema,QCReport,auto_bioinfo/core/schemas.py:249,EXISTING,four-layer checks list,
+CMP-SCHEMA-18,schema,EvidenceItem,auto_bioinfo/core/schemas.py:271,EXISTING,full spec-14 field set incl allowed_claim_level,
+CMP-SCHEMA-19,schema,Claim,auto_bioinfo/core/schemas.py:327,EXISTING,claim_level+evidence_refs+scope+limitations,
+CMP-SCHEMA-20,schema,QuestionAlignmentReport,auto_bioinfo/core/schemas.py:342,EXISTING,final_decision+unsupported_claims,
+CMP-SCHEMA-21,schema,FinalReportManifest,auto_bioinfo/core/schemas.py:353,EXISTING,dataclass,
+CMP-SCHEMA-22,schema,ReproductionBundleManifest,auto_bioinfo/reproduction/bundle.py,EXISTING,built at runtime,manifest dict not a dataclass in schemas.py
+CMP-SCHEMA-23,schema,ProjectEvent,auto_bioinfo/core/schemas.py:364,EXISTING,dataclass,
+CMP-SCHEMA-24,schema,ProjectState,auto_bioinfo/core/schemas.py:376,EXISTING,projection dataclass,
+CMP-SCHEMA-25,schema,OriginalRequest/ProjectPolicy,—,MISSING,not modeled as distinct objects,spec stage0 5.x; question stored on state but no Policy object/approval-level object
+CMP-SCHEMA-26,schema,AmbiguityReport,—,MISSING,not modeled,spec stage1 output; ambiguity captured only as open_questions in ResearchSpec
+CMP-SCHEMA-27,schema,OntologyMapping/ScopeWarnings,—,MISSING,not modeled,spec stage2 outputs absent
+CMP-SCHEMA-28,schema,QuestionDependencyGraph,—,MISSING,not modeled,spec stage3 output absent
+CMP-STATE-01,state_machine,Project state machine,auto_bioinfo/core/state.py,PARTIAL,15 main stages + safe terminals + LINEAR_NEXT,fewer/renamed stages vs spec section 7 (20-stage list); legal terminals partly differ
+CMP-STORE-01,event_store,Append-only event log + projection,auto_bioinfo/core/store.py,EXISTING,events.jsonl + project_state.json rebuild,JSONL; no concurrency lock (known limitation)
+CMP-STORE-02,database,PostgreSQL event store,ports/__init__.py:EventStorePort,RESERVED,Protocol declared,production adapter not implemented (ADR-0003/0004)
+CMP-STORE-03,ledger,Append-only JSONL ledgers (task_runs/qc/evidence/claims),auto_bioinfo/execution/runs.py,EXISTING,idempotent append by stable id,
+CMP-OBJ-01,object_store,Local filesystem object store,auto_bioinfo/execution/objects.py + core/artifacts.py,EXISTING,checksum-addressed files under project dir,
+CMP-OBJ-02,object_store,S3/MinIO object store,ports/__init__.py:ObjectStorePort,RESERVED,Protocol declared,not implemented
+CMP-PORT-01,port,PlannerPort,auto_bioinfo/ports/__init__.py:22,EXISTING,Protocol; offline adapter default,RESERVED network-LLM adapter
+CMP-PORT-02,port,ResourceDiscoveryPort,auto_bioinfo/ports/__init__.py:45,EXISTING,Protocol; fixture adapter default,RESERVED GEO/EuropePMC adapter
+CMP-PORT-03,port,AnalysisMethodPort,auto_bioinfo/ports/__init__.py:66,EXISTING,Protocol; bulk_deg default,RESERVED containerized/Nextflow adapter
+CMP-PORT-04,port,ObjectStorePort,auto_bioinfo/ports/__init__.py:85,EXISTING,Protocol,RESERVED MinIO adapter
+CMP-PORT-05,port,EventStorePort,auto_bioinfo/ports/__init__.py:101,EXISTING,Protocol,RESERVED Postgres adapter
+CMP-ADAPT-01,adapter,OfflineDeterministicPlanner,auto_bioinfo/adapters/offline_planner.py,PARTIAL,deterministic rule-based; no LLM,offline only by design
+CMP-ADAPT-02,adapter,FixtureResourceAdapter,auto_bioinfo/adapters/fixture_resources.py,PARTIAL,serves committed fixture,no real GEO/network discovery
+CMP-METHOD-01,method,bulk_deg (numpy DEG),auto_bioinfo/methods/bulk_deg.py,EXISTING,Welch t + BH FDR; claim_capability=association,real execution on fixture
+CMP-METHOD-02,method,scRNA/snRNA pseudobulk donor-level,—,MISSING,not implemented,spec stage11/v1-scope; planned WP-13/route
+CMP-METHOD-03,method,differential abundance / gene-set score / enrichment / meta-analysis / surface-secretome,—,MISSING,not implemented,spec stage11/12-scope
+CMP-QC-01,qc,Four-layer QC engine,auto_bioinfo/quality/qc_engine.py,EXISTING,execution/data/statistical/biological checks,structured findings not bare booleans
+CMP-EVID-01,evidence,EvidenceItem build + Claim synthesis,auto_bioinfo/evidence/synthesis.py,EXISTING,ceiling-capped; retains negative results,
+CMP-EVID-02,evidence,Evidence DB query API,—,MISSING,no query service/API,spec section 15 Evidence query API absent
+CMP-AUDIT-01,audit,Alignment auditor,auto_bioinfo/core/alignment_auditor.py,EXISTING,deterministic; ceiling+scope-drift+omission,
+CMP-AGENT-01,agent,7 typed AgentSpecs + handoff protocol,auto_bioinfo/core/agent_specs.py + agent_protocol.py,EXISTING,forbidden_actions + claim ceiling enforcement,JSON-only ref handoffs
+CMP-REPORT-01,report,Constrained report builder,auto_bioinfo/report.py,PARTIAL,markdown+json from claims only,no HTML/PDF (spec stage17)
+CMP-REPRO-01,reproduction,Reproduction bundle build + compare,auto_bioinfo/reproduction/bundle.py,EXISTING,checksums + bitwise/tolerance compare,
+CMP-ORCH-01,orchestrator,Pipeline (run==resume),auto_bioinfo/pipeline.py,EXISTING,guarded stepwise state machine; idempotent,
+CMP-API-01,api,Project/Task/Artifact/Evidence/Claim REST API,—,MISSING,CLI only,spec section 15; planned WP-04
+CMP-CLI-01,cli,bioauto CLI,auto_bioinfo/interfaces/cli.py,EXISTING,run/resume/inspect/export/validate,
+CMP-QUEUE-01,queue,Async worker queue / outbox dispatcher,—,MISSING,synchronous in-process,planned WP-03
+CMP-WORKER-01,worker,Analysis Worker (registered method exec),auto_bioinfo/pipeline.py:_execute,PARTIAL,in-process call to method,not an isolated/sandboxed worker
+CMP-WORKER-02,worker,Engineering Worker (Codex-style patch unit),—,MISSING,schema only (EngineeringTaskPacket),no execution path
+CMP-WORKER-03,worker,Workflow Worker (Nextflow),—,RESERVED,AnalysisMethodPort prod adapter,not implemented
+CMP-SEC-01,security,Project data policy / network allowlist / secret isolation / sensitivity scan,—,MISSING,no policy enforcement layer,spec section 10; planned WP-01/config
+CMP-OBS-01,observability,Structured logging / heartbeat / metrics,—,MISSING,no logging framework,spec section 11; planned WP-01
+CMP-CI-01,ci,CI pipeline,ci/ci.yml,PARTIAL,install->ruff->mypy->offline unittest matrix,NOT in .github/workflows (token lacks workflow scope)
+CMP-TEST-01,tests,Offline deterministic test suite,tests/,EXISTING,113 tests OK measured this branch,
+CMP-DEPLOY-01,deployment,Docker Compose / container images,—,MISSING,none this stage,planned WP-01

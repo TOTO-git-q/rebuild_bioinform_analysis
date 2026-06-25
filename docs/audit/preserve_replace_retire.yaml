@@ -1,0 +1,111 @@
+# preserve_replace_retire.yaml — WP-00 / T-00-05
+#
+# Classify objects in the CURRENT auto_bioinfo rebuild into:
+#   PRESERVE    - keep as-is, it is load-bearing and healthy; do not rewrite
+#   EXTEND      - keep but must grow fields/capability to meet the requirement spec
+#   REPLACE     - swap the offline default for a production adapter behind the same port
+#   RETIRE      - already retired from the predecessor; must NOT be reintroduced
+#   DO_NOT_TOUCH- frozen invariant / safety rail; changing it needs a CEO amendment
+#
+# Every entry carries a reason and a reference. NO deletion is performed in WP-00
+# (audit only). RETIRE entries record predecessor anti-patterns that must stay out.
+
+schema_version: 1
+work_order: WP-00
+base_commit: b3c1311c706e98f45eec9f962a55837a3b0a8095
+
+preserve:
+  - object: "core/ event-sourced domain core (schemas, state, store, events, ids, validation, artifacts, task_packets, workflow_compiler, handoff, agent_specs, agent_protocol, alignment_auditor)"
+    ref: "auto_bioinfo/core/*; ADR-0002"
+    reason: "Clean, self-contained, stdlib/numpy-only domain core reused from predecessor canonical/; carries the safety rails. Do not greenfield-rewrite (D-01)."
+  - object: "Hexagonal ports (5 Protocols)"
+    ref: "auto_bioinfo/ports/__init__.py; ADR-0004"
+    reason: "Dependency-inward seam; production adapters slot in without touching the core. Keep the port shapes stable."
+  - object: "Pipeline orchestrator (run==resume, guarded, idempotent)"
+    ref: "auto_bioinfo/pipeline.py"
+    reason: "Single production entry; stepwise guarded transitions + idempotent writes give resume for free."
+  - object: "Four-layer QC engine"
+    ref: "auto_bioinfo/quality/qc_engine.py; ADR-0005"
+    reason: "Structured findings (not booleans); gate between run and evidence. Healthy."
+  - object: "bulk_deg method + _stats (numpy-only deterministic)"
+    ref: "auto_bioinfo/methods/bulk_deg.py, _stats.py; ADR-0006"
+    reason: "Real executing method, third-party reproducible, claim-capped at association. Keep as the offline reference method."
+  - object: "Reproduction bundle build + compare"
+    ref: "auto_bioinfo/reproduction/bundle.py"
+    reason: "Checksums + bitwise/tolerance comparison satisfy reproducibility acceptance."
+  - object: "Offline deterministic test suite (113 tests)"
+    ref: "tests/*; measured OK this branch"
+    reason: "Offline, deterministic, fast; the regression safety net. Preserve and grow."
+  - object: "7 adopted ADRs"
+    ref: "docs/adr/0001..0007"
+    reason: "Record the rebuild's adopted architecture decisions; WP-00 ADR-001..010 cross-reference, never overwrite them."
+
+extend:
+  - object: "SubQuestion / EvidencePlan / DatasetProfile / TaskRun schemas"
+    ref: "auto_bioinfo/core/schemas.py; req spec 5.2/5.3/5.5/5.12"
+    reason: "Present but missing several required fields (required_evidence_types, success/failure_criteria, minimum_replication, stop_conditions, resource-usage/logs). Extend in WP-02, do not rewrite."
+  - object: "WorkflowPlan -> true Artifact DAG"
+    ref: "auto_bioinfo/core/schemas.py:172; req spec stage 9"
+    reason: "task_ids list only; needs explicit dependency edges + acyclicity check. Known gap; WP-02/compiler."
+  - object: "Project state machine stage set"
+    ref: "auto_bioinfo/core/state.py; req spec section 7"
+    reason: "15 main stages vs spec's ~20; reconcile naming (QUESTION_RESOLVED vs QUESTION_NORMALIZED, add SUBQUESTIONS_DEFINED/RESOURCES_VERIFIED/EXECUTION_AUTHORIZED/ARTIFACTS_REGISTERED) and terminals (PARTIALLY_COMPLETED, REQUIRES_HUMAN_DECISION). Extend, keep event-sourcing invariant."
+  - object: "Constrained report builder (formats)"
+    ref: "auto_bioinfo/report.py; req spec stage 17"
+    reason: "Markdown+JSON only; spec wants HTML/PDF too. Extend output formats; keep claim-only constraint."
+  - object: "Missing domain objects (OriginalRequest/ProjectPolicy, AmbiguityReport, OntologyMapping, QuestionDependencyGraph, DatasetFeasibilityReport)"
+    ref: "req spec stage 0-3, 7"
+    reason: "Not yet modeled; add as new schemas in WP-02. Tracked in gap_matrix."
+
+replace:
+  - object: "OfflineDeterministicPlanner -> network LLM planner"
+    ref: "auto_bioinfo/adapters/offline_planner.py -> PlannerPort"
+    reason: "Replace offline default with provider-agnostic LLM adapter; output still passes schema+ceiling validators. D-05; hard stop before any external send."
+  - object: "FixtureResourceAdapter -> real GEO/EuropePMC discovery"
+    ref: "auto_bioinfo/adapters/fixture_resources.py -> ResourceDiscoveryPort"
+    reason: "Replace fixture with audited real discovery. First real human data is a CEO hard stop (D-02)."
+  - object: "JSONL store -> PostgreSQL event store"
+    ref: "auto_bioinfo/core/store.py -> EventStorePort"
+    reason: "Production event store + outbox + optimistic concurrency; domain unchanged (ADR-0003)."
+  - object: "Local filesystem -> S3/MinIO object store"
+    ref: "ObjectStorePort"
+    reason: "Production object store, content-addressed (ADR-0004)."
+  - object: "In-process method exec -> Nextflow/containerized worker"
+    ref: "AnalysisMethodPort; D-06"
+    reason: "Nextflow as first workflow adapter; same MethodContract."
+
+retire:
+  # Predecessor (targetcompass_lite) anti-patterns already excluded; must NOT return.
+  - object: "webapp.py God class (4282 lines)"
+    ref: "docs/rebuild/MIGRATION_MAP.md §3.4"
+    reason: "UI+import+review+QC+secrets in one Handler. Already not migrated; keep out."
+  - object: "Duplicate state machines (run_state/orchestrator/work_order_dag/task_registry)"
+    ref: "MIGRATION_MAP §3.2"
+    reason: "4-5 parallel status vocabularies. Single core/state.py is authoritative."
+  - object: "'file exists == done' + path-derived artifact identity"
+    ref: "predecessor work_order_dag.py:126/113; MIGRATION_MAP §3.2"
+    reason: "Anti-pattern; replaced by explicit status fields + checksum identity. Never reintroduce."
+  - object: "Synthetic/forged data points (_synthesize_sarcopenia_plan, engineering_closure synthetic attempt)"
+    ref: "MIGRATION_MAP §3.3"
+    reason: "Fabricated data entering the flow. Evidence must come only from real method execution."
+  note: "RETIRE objects are NOT in the current repo; this section is a guard list, not a deletion task. WP-00 deletes nothing."
+
+do_not_touch:
+  - invariant: "Claim ceiling — RNA DEG capped at 'association'"
+    ref: "schemas CLAIM_LEVELS, evidence/synthesis, alignment_auditor, bulk_deg contract; constitution §2.3; ADR-0007"
+    reason: "Frozen claim ceiling; only tightenable. Changing it needs CEO amendment."
+  - invariant: "Evidence gate chain QC->Evidence->Claim->Alignment (un-bypassable)"
+    ref: "ADR-0005; constitution R0-01 truthful mode §2.4"
+    reason: "Un-QC'd / placeholder / unchecksummed artifacts may never become evidence."
+  - invariant: "Event-sourcing append-only + DatasetManifest immutable-once-locked"
+    ref: "ADR-0003; constitution §2.12"
+    reason: "History is never silently edited; corrections add new records/versions."
+  - invariant: "Mock/placeholder dataset rejection (no AUTO_/MOCK_ verified)"
+    ref: "core/validation.py; req spec stage 5 forbidden actions"
+    reason: "No fabricated accessions; verified datasets need real metadata."
+  - invariant: "Conservative-failure terminals over fabricated results"
+    ref: "core/state.py LEGAL_TERMINALS; ADR-0007"
+    reason: "INSUFFICIENT_DATA / METHOD_NOT_APPLICABLE / ... are first-class outcomes."
+  - invariant: "Coordination system, rulesets, secrets, .github/workflows"
+    ref: "constitution; WP-00 work order scope"
+    reason: "Out of WP scope; CC must not modify."

@@ -1,0 +1,84 @@
+# source_manifest.yaml — WP-00 / T-00-01
+#
+# Purpose: freeze the user's original goal, the requirement/source documents,
+# their content hashes and provenance, and establish a stable `spec_id`.
+# Hashes are recomputable: `sha256sum <file>` reproduces the value below.
+#
+# Audit basis: real repository read on branch rebuild/wp-00-architecture-audit,
+# base commit b3c1311c706e98f45eec9f962a55837a3b0a8095. No file was modified.
+
+schema_version: 1
+spec_id: "spec.auto-bioinfo-core/2026-06-25"
+captured_by: CC
+captured_on: 2026-06-25
+work_order: WP-00
+coordination_turn: "0040"
+
+# --- The user's original goal (verbatim intent, not paraphrased product copy) ---
+original_goal: >
+  Build an automated bioinformatics system whose core closed loop turns a
+  natural-language research question into a structured research spec, executable
+  analysis tasks, QC-audited computational evidence, claims bounded by an evidence
+  ceiling, and a deliverable reproduction bundle. Success is defined not by "the AI
+  produced an answer" but by traceability, recorded choices, no over-claiming, third
+  party reproducibility, and the ability to stop conservatively (INSUFFICIENT_DATA /
+  METHOD_NOT_APPLICABLE / ...) instead of fabricating a result. Source of truth for
+  scope is the two requirement documents below; the broader "research intelligence
+  platform" blueprint is explicitly out of scope for this build.
+
+# --- Requirement / source documents (authoritative scope baseline) ---
+sources:
+  - id: SRC-REQ-SPEC
+    role: primary_requirement_baseline
+    path: "自动生信系统核心闭环_详细需求规格_v0.1.md"
+    title: "自动生信系统核心闭环：详细需求规格 v0.1"
+    doc_status: "产品定义与需求基线 (v0.1, 2026-06-23)"
+    sha256: be647b091c34295bee9722319bbdf9c2c2e5e490e383ef1d11cfd69e60c31a47
+    note: >
+      Defines the closed loop, design principles (3.1-3.8), 18 domain objects (5.x),
+      18 pipeline stages (0-18), authoritative state machine (7), agent/tool boundary
+      (8), failure handling (9), security (10), observability (11), v1 scope (12), and
+      the 20-item minimum acceptance criteria (13). This is the requirements catalog
+      source for T-00-06.
+
+  - id: SRC-PLAN
+    role: implementation_plan_baseline
+    path: "自动生信系统_超细颗粒度架构落地实施计划_v1.0.md"
+    title: "自动生信系统 超细颗粒度架构落地实施计划 v1.0"
+    doc_status: "implementation plan (v1.0), 28 work packages WP-00..WP-27"
+    sha256: 6f572b45b90f47e075fe55f52634db204f80e512b65f6db7b2ae66eacba86cd3
+    note: >
+      Source for the WP-00..WP-05 route, WP-00 leaf tasks T-00-01..T-00-10 and the
+      gap_matrix work-package mapping (T-00-07).
+
+  - id: SRC-BLUEPRINT-OUT-OF-SCOPE
+    role: out_of_scope_reference
+    path: "完整科研智能平台_总体蓝图与扩展边界_v0.1（这个不在本次搭建的计划内）.md"
+    title: "完整科研智能平台 总体蓝图与扩展边界 v0.1"
+    doc_status: "reference only — explicitly NOT part of this build (per filename)"
+    sha256: 53a5bde99d8e5aa5749803f2b105b12764cbbdf174ab8b2b54e7d9d9087c6f1d
+    note: "Listed for provenance completeness; its scope is excluded from WP-00..WP-27."
+
+# --- Existing implementation artifacts read as audit evidence (not requirement sources) ---
+existing_implementation_evidence:
+  - path: README.md
+    sha256: 6d8ddcb4d41cfa5ac0e481ec1b88e2d5cc9c7fb75cf468c6353e1b49960bd83a
+  - path: DELIVERY_REPORT.md
+    sha256: 89f950a28464ed691af8f7d4ef36181f963b23a61264db2dc4edbec2e2cbba9d
+  - path: docs/rebuild/EXISTING_SYSTEM_AUDIT.md
+    note: "Phase-0 audit of the PREDECESSOR system targetcompass_lite (not the current rebuild)."
+  - path: docs/rebuild/MIGRATION_MAP.md
+    note: "Per-module reuse/adapter/retire disposition from predecessor to current auto_bioinfo."
+  - path: docs/rebuild/TARGET_ARCHITECTURE.md
+    note: "Target hexagonal architecture of the current rebuild."
+
+# --- Decision baseline this WP must confirm (cross-ref docs/coordination) ---
+architecture_decisions_ref:
+  coordination_baseline: docs/coordination/architecture_baseline.yaml
+  project_baseline: docs/baseline/architecture_baseline.yaml   # produced by T-00-08
+  decisions: [D-01, D-02, D-03, D-04, D-05, D-06]
+
+integrity:
+  recompute_command: "sha256sum <path>"
+  missing_files: none
+  result: "All declared source/requirement files present and hashable; no BLOCKED condition."

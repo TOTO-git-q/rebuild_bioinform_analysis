@@ -1,0 +1,100 @@
+# architecture_baseline.yaml (project side) — WP-00 / T-00-08
+#
+# Pins decisions D-01..D-06 with CONFIRMED status on the project side, mirroring
+# the coordination-side baseline that CEO confirmed in coordination turn 0039
+# (docs/coordination/architecture_baseline.yaml). This project-side copy lives
+# under docs/baseline/ (path choice explained in WP-00-REPORT) so audit/baseline
+# artifacts sit together; it is authoritative for the codebase, the coordination
+# copy remains the governance record of record.
+#
+# Status semantics: CONFIRMED = CEO-confirmed default; formal rebuild work may
+# proceed under it. Open items are listed explicitly and do NOT block WP-00.
+
+schema_version: 1
+status: CONFIRMED
+confirmed_by: CEO
+confirmed_on: 2026-06-25
+mirrors: docs/coordination/architecture_baseline.yaml
+coordination_turns: ["0039", "0040"]
+base_commit: b3c1311c706e98f45eec9f962a55837a3b0a8095
+audit_basis: "read-only audit of current auto_bioinfo; no business code changed"
+
+decisions:
+  D-01:
+    topic: greenfield_vs_existing_repo
+    value: read_only_audit_existing_auto_bioinfo_first_then_decide_reuse_vs_rebuild
+    status: CONFIRMED
+    audit_finding: >
+      Current auto_bioinfo/core is the cleaned canonical control-plane domain core
+      (ADR-0002), healthy and reusable. Decision honored: WP-00 is read-only; no
+      reusable part was rewritten or deleted.
+    realized_in: "auto_bioinfo/core/*, ports/, adapters/, methods/, ADR-0002"
+  D-02:
+    topic: first_real_topic_and_data_source
+    value: public_GEO_first_no_hardcoded_disease
+    status: CONFIRMED
+    hard_stop: "First use of any real human-derived data needs CEO naming before R2/WP-08 area."
+    audit_finding: "Today only a SYNTHETIC committed fixture exists; no disease hardcoded. Real GEO discovery is reserved (ResourceDiscoveryPort)."
+    realized_in: "auto_bioinfo/adapters/fixture_resources.py (offline), ResourceDiscoveryPort (reserved)"
+  D-03:
+    topic: deployment_target
+    value: local_docker_compose_with_HPC_adapter_interface_reserved
+    status: CONFIRMED
+    audit_finding: "No Compose/HPC files yet (planned WP-01); ports keep infra swappable without core change."
+    realized_in: "ports/__init__.py (ObjectStore/EventStore/AnalysisMethod reserved); ADR-0001/0004"
+  D-04:
+    topic: automation_level
+    value: A1
+    status: CONFIRMED
+    audit_finding: "Pipeline runs mechanical steps automatically; A0-A3 gate evaluator + approval objects not yet built (gap REQ-STG-10)."
+    realized_in: "pipeline.py authorize step; full gate evaluator planned WP-13"
+  D-05:
+    topic: LLM_and_network_policy
+    value: provider_agnostic_only_public_non_sensitive_information_may_leave_boundary
+    status: CONFIRMED
+    hard_stop: "Any data/content to an external LLM/service needs a stop before sending."
+    audit_finding: "Planner is offline-deterministic today; network LLM is reserved (PlannerPort). No external calls in the codebase."
+    realized_in: "adapters/offline_planner.py (offline); PlannerPort (reserved); ADR-0004"
+  D-06:
+    topic: primary_workflow_adapter
+    value: Nextflow_first_adapter
+    status: CONFIRMED
+    audit_finding: "No Nextflow integration yet; reserved as AnalysisMethodPort production adapter. Today bulk_deg runs in-process (ADR-0006)."
+    realized_in: "ports/AnalysisMethodPort (reserved); methods/bulk_deg.py (offline default)"
+
+mode:
+  greenfield_or_rebuild: REBUILD_ON_CLEANED_CORE
+  business_code_changes_in_wp00: false
+  reuse_strategy: "preserve clean core (ADR-0002), extend schemas, replace offline adapters with production adapters behind unchanged ports"
+  reference: docs/audit/preserve_replace_retire.yaml
+
+route:
+  current_work_package: WP-00
+  next_adjacent_work_package: WP-01
+  freeze_policy: "Only current WP and immediately-adjacent next WP detailed-frozen at a time."
+  strict_order_ref: docs/coordination/architecture_baseline.yaml#route.strict_order
+
+invariants_frozen:
+  - "claim ceiling (RNA DEG capped at association); only tightenable"
+  - "un-bypassable evidence gate chain QC->Evidence->Claim->Alignment"
+  - "event-sourcing append-only; DatasetManifest immutable once locked"
+  - "no AUTO_/MOCK_ verified datasets; no fabricated accessions"
+  - "conservative-failure terminals over fabricated results"
+
+open_items:
+  - id: OPEN-01
+    item: "ADR numbering coexistence"
+    detail: "Adopted ADRs are docs/adr/0001..0007 (rebuild decisions). WP-00 adds docs/adr/ADR-001..010 (baseline drafts) without overwriting; mapping table in ADR-010. Needs CEO/Codex confirmation of the two-track numbering or a future consolidation."
+    blocks_wp00: false
+  - id: OPEN-02
+    item: "State-machine stage naming reconciliation"
+    detail: "core/state.py (15 stages) vs requirement spec section 7 (~20 stages). Reconcile in WP-03/WP-04, not WP-00."
+    blocks_wp00: false
+  - id: OPEN-03
+    item: "WorkflowPlan is not yet a true DAG"
+    detail: "task_ids list only; dependency edges + acyclicity deferred to WP-12."
+    blocks_wp00: false
+  - id: OPEN-04
+    item: "Project-side vs coordination-side baseline path"
+    detail: "This file is docs/baseline/architecture_baseline.yaml, not repo-root architecture_baseline.yaml as the work order's suggested path; reason stated in WP-00-REPORT (keeps audit/baseline artifacts together, avoids name clash with the coordination copy)."
+    blocks_wp00: false
