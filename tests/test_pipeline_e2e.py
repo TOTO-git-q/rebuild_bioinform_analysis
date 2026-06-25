@@ -25,9 +25,23 @@ class EndToEndTest(unittest.TestCase):
     def test_every_main_stage_visited_in_order(self):
         with tempfile.TemporaryDirectory() as d:
             res = self.run_demo(d)
-            expect = ["INTAKE", "QUESTION_RESOLVED", "SCOPE_RESOLVED", "EVIDENCE_PLANNED", "RESOURCES_DISCOVERED",
-                      "DATASETS_LOCKED", "WORKFLOW_COMPILED", "TASKS_READY", "TASKS_RUNNING", "QC_COMPLETED",
-                      "EVIDENCE_SYNTHESIZED", "ALIGNMENT_AUDITED", "REPORT_READY", "REPRODUCTION_BUNDLE_READY", "COMPLETED"]
+            expect = [
+                "INTAKE",
+                "QUESTION_RESOLVED",
+                "SCOPE_RESOLVED",
+                "EVIDENCE_PLANNED",
+                "RESOURCES_DISCOVERED",
+                "DATASETS_LOCKED",
+                "WORKFLOW_COMPILED",
+                "TASKS_READY",
+                "TASKS_RUNNING",
+                "QC_COMPLETED",
+                "EVIDENCE_SYNTHESIZED",
+                "ALIGNMENT_AUDITED",
+                "REPORT_READY",
+                "REPRODUCTION_BUNDLE_READY",
+                "COMPLETED",
+            ]
             self.assertEqual(res["stage_history"], expect)
 
     def test_claim_traces_to_qc_passed_artifact(self):

@@ -42,23 +42,57 @@ class AlignmentTest(unittest.TestCase):
         sub = {"subquestion_id": "sq1", "question": "?"}
         ev = {"evidence_item_id": "ev1", "artifact_id": "art1", "review_status": "audited"}
         art = {"artifact_id": "art1", "exists": True, "is_placeholder": False, "qc_status": "pass", "expected_by_task_ids": ["t1"]}
-        claim = {"claim_id": "c1", "claim_level": claim_level, "scope": scope, "supports_subquestion_ids": ["sq1"], "evidence_item_refs": ["ev1"], "limitations": []}
+        claim = {
+            "claim_id": "c1",
+            "claim_level": claim_level,
+            "scope": scope,
+            "supports_subquestion_ids": ["sq1"],
+            "evidence_item_refs": ["ev1"],
+            "limitations": [],
+        }
         return rs, [sub], {"species": [], "tissues": ["tissue_x"], "conditions": ["condition_a", "condition_b"]}, [ev], [claim], [art]
 
     def test_approves_well_formed_claim(self):
         rs, subs, scope, ev, claims, art = self._ctx()
-        rep = audit_question_alignment(research_spec=rs, subquestions=subs, scope_bundle=scope, evidence_item_refs=ev, claims=claims, artifact_manifests=art, qc_reports=[], max_claim_level="association")
+        rep = audit_question_alignment(
+            research_spec=rs,
+            subquestions=subs,
+            scope_bundle=scope,
+            evidence_item_refs=ev,
+            claims=claims,
+            artifact_manifests=art,
+            qc_reports=[],
+            max_claim_level="association",
+        )
         self.assertEqual(rep["final_decision"], "approve")
 
     def test_rejects_overclaim(self):
         rs, subs, scope, ev, claims, art = self._ctx(claim_level="causal_support")
-        rep = audit_question_alignment(research_spec=rs, subquestions=subs, scope_bundle=scope, evidence_item_refs=ev, claims=claims, artifact_manifests=art, qc_reports=[], max_claim_level="association")
+        rep = audit_question_alignment(
+            research_spec=rs,
+            subquestions=subs,
+            scope_bundle=scope,
+            evidence_item_refs=ev,
+            claims=claims,
+            artifact_manifests=art,
+            qc_reports=[],
+            max_claim_level="association",
+        )
         self.assertEqual(rep["final_decision"], "reject")
         self.assertTrue(rep["claim_ceiling_violations"])
 
     def test_rejects_scope_drift(self):
         rs, subs, scope, ev, claims, art = self._ctx(scope={"species": ["mouse"], "tissue": ["tissue_z"], "condition": ["condition_a"]})
-        rep = audit_question_alignment(research_spec=rs, subquestions=subs, scope_bundle=scope, evidence_item_refs=ev, claims=claims, artifact_manifests=art, qc_reports=[], max_claim_level="association")
+        rep = audit_question_alignment(
+            research_spec=rs,
+            subquestions=subs,
+            scope_bundle=scope,
+            evidence_item_refs=ev,
+            claims=claims,
+            artifact_manifests=art,
+            qc_reports=[],
+            max_claim_level="association",
+        )
         self.assertEqual(rep["final_decision"], "reject")
 
 

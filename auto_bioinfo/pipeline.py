@@ -15,27 +15,27 @@ to *real* execution, QC, evidence, claims, alignment, reporting and reproduction
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from .adapters.fixture_resources import FixtureResourceAdapter
 from .adapters.offline_planner import OfflineDeterministicPlanner
-from .core.artifacts import build_artifact_manifest, compute_file_sha256, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
-from .core.handoff import build_handoff, write_handoff
 from .core.agent_protocol import validate_agent_handoff
 from .core.alignment_auditor import audit_question_alignment
+from .core.artifacts import build_artifact_manifest, compute_file_sha256, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
+from .core.handoff import build_handoff, write_handoff
 from .core.ids import make_stable_id
 from .core.provenance import (
     authoritative_release,
     build_project_policy,
     classify_project_policy_state,
     evaluate_scientific_eligibility,
-    is_eligible,
     migrate_legacy_project_policy,
     validate_provenance,
-    verify_project_policy_integrity,
     validate_real_mode_dataset,
     validate_real_mode_lock,
+    verify_project_policy_integrity,
 )
 from .core.store import init_project_state, load_project_state, record_legacy_migration, transition_state
 from .core.task_packets import build_analysis_task_packet, build_review_task_packet, validate_task_packets
@@ -231,7 +231,11 @@ class Pipeline:
             # conservatively *before* any dataset is locked.
             policy_errors = validate_real_mode_dataset(c, execution_mode)
             if policy_errors:
-                write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": policy_errors, "candidate": c.get("resource_candidate_id", "")})
+                write_object(
+                    project_dir,
+                    "policy_failure",
+                    {"failure_class": "POLICY_FAILURE", "reasons": policy_errors, "candidate": c.get("resource_candidate_id", "")},
+                )
                 self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {policy_errors}")
                 return
         profile = self.resources.profile(candidates[0])
@@ -246,14 +250,26 @@ class Pipeline:
         execution_mode = self._execution_mode(project_dir)
         inputs_dir = project_dir / "state" / "inputs"
         files = self.resources.materialize(profile, str(inputs_dir))
-        checksums = {name: build_artifact_manifest(project_dir, Path(path).relative_to(project_dir), producer="resource_discovery_agent", artifact_type="input_dataset", expected_by_task_ids=[], supports_subquestion_ids=[])["checksum_sha256"] for name, path in files.items()}
+        checksums = {
+            name: build_artifact_manifest(
+                project_dir,
+                Path(path).relative_to(project_dir),
+                producer="resource_discovery_agent",
+                artifact_type="input_dataset",
+                expected_by_task_ids=[],
+                supports_subquestion_ids=[],
+            )["checksum_sha256"]
+            for name, path in files.items()
+        }
         # R0-01 gate 5: a REAL run may only lock a genuinely checksum-verified
         # dataset.  Recompute every file digest independently of the recorded
         # checksums so a tampered/missing input is caught *before* the lock.
         recomputed = {name: compute_file_sha256(path) for name, path in files.items()}
         lock_errors = validate_real_mode_lock(profile, execution_mode, file_checksums=checksums, recomputed_checksums=recomputed)
         if lock_errors:
-            write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": lock_errors, "dataset_id": profile.get("dataset_id", "")})
+            write_object(
+                project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": lock_errors, "dataset_id": profile.get("dataset_id", "")}
+            )
             self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {lock_errors}")
             return
         manifest = {
@@ -316,7 +332,13 @@ class Pipeline:
         }
         write_object(project_dir, "workflow_plan", workflow)
         write_object(project_dir, "task_packets", packets)
-        self._advance(project_dir, "WORKFLOW_COMPILED", "method_adapter_workorder_compiler", [object_ref(project_dir, "workflow_plan")], "Compiled workflow + task packets.")
+        self._advance(
+            project_dir,
+            "WORKFLOW_COMPILED",
+            "method_adapter_workorder_compiler",
+            [object_ref(project_dir, "workflow_plan")],
+            "Compiled workflow + task packets.",
+        )
 
     def _authorize(self, project_dir: Path) -> None:
         wf_ref = object_ref(project_dir, "workflow_plan")
@@ -395,7 +417,9 @@ class Pipeline:
         gate_errors = validate_artifact_for_evidence(artifact)
         if gate_errors or artifact.get("qc_status") != "pass":
             # No admissible evidence → stop safely.
-            self._advance(project_dir, "INSUFFICIENT_DATA", "result_auditor", [], f"No QC-passed artifact for evidence: {gate_errors or artifact.get('qc_status')}")
+            self._advance(
+                project_dir, "INSUFFICIENT_DATA", "result_auditor", [], f"No QC-passed artifact for evidence: {gate_errors or artifact.get('qc_status')}"
+            )
             return
 
         # R0-01: recompute scientific eligibility from the source objects (never
@@ -429,7 +453,13 @@ class Pipeline:
             eligibility_decision=decision,
         )
         write_evidence_item(project_dir, evidence)
-        claims = synthesize_claims(evidence_items=[evidence], research_spec=read_object(project_dir, "research_spec"), scope_bundle=scope, project_ceiling=ceiling, eligibility_decision=decision)
+        claims = synthesize_claims(
+            evidence_items=[evidence],
+            research_spec=read_object(project_dir, "research_spec"),
+            scope_bundle=scope,
+            project_ceiling=ceiling,
+            eligibility_decision=decision,
+        )
         for claim in claims:
             write_claim(project_dir, claim)
         ev_ref = {"object_type": "EvidenceItem", "object_id": evidence["evidence_item_id"], "audit_status": "audited"}
@@ -451,17 +481,35 @@ class Pipeline:
         self._advance(project_dir, "ALIGNMENT_AUDITED", "evidence_synthesizer_reporter", [], f"Alignment audit decision: {report['final_decision']}.")
         if report["final_decision"] != "approve":
             # Blocking issue: do not emit a clean report; pause for a human.
-            self._advance(project_dir, "HUMAN_REVIEW_REQUIRED", "evidence_synthesizer_reporter", [], f"Alignment not approved ({report['final_decision']}); human review required.")
+            self._advance(
+                project_dir,
+                "HUMAN_REVIEW_REQUIRED",
+                "evidence_synthesizer_reporter",
+                [],
+                f"Alignment not approved ({report['final_decision']}); human review required.",
+            )
 
     def _build_report(self, project_dir: Path) -> None:
         manifest = build_final_report(project_dir)
         write_object(project_dir, "final_report_manifest", manifest)
-        self._advance(project_dir, "REPORT_READY", "evidence_synthesizer_reporter", [object_ref(project_dir, "final_report_manifest")], "Built final report from approved claims.")
+        self._advance(
+            project_dir,
+            "REPORT_READY",
+            "evidence_synthesizer_reporter",
+            [object_ref(project_dir, "final_report_manifest")],
+            "Built final report from approved claims.",
+        )
 
     def _build_bundle(self, project_dir: Path) -> None:
         manifest = build_reproduction_bundle(project_dir)
         write_object(project_dir, "reproduction_bundle_manifest", manifest)
-        self._advance(project_dir, "REPRODUCTION_BUNDLE_READY", "evidence_synthesizer_reporter", [object_ref(project_dir, "reproduction_bundle_manifest")], "Built reproduction bundle with checksums.")
+        self._advance(
+            project_dir,
+            "REPRODUCTION_BUNDLE_READY",
+            "evidence_synthesizer_reporter",
+            [object_ref(project_dir, "reproduction_bundle_manifest")],
+            "Built reproduction bundle with checksums.",
+        )
 
     def _complete(self, project_dir: Path) -> None:
         self._advance(project_dir, "COMPLETED", "system", [], "Closed loop completed end-to-end.")
@@ -527,7 +575,16 @@ class Pipeline:
     def _advance(self, project_dir: Path, next_stage: str, actor: str, object_refs: list[dict[str, Any]], message: str) -> None:
         transition_state(project_dir, next_stage, next_stage, actor, object_refs, message)
 
-    def _handoff(self, project_dir: Path, from_agent: str, to_agent: str, input_refs: list[dict[str, Any]], output_refs: list[dict[str, Any]], ceiling: str, evidence_refs: list[dict[str, Any]] | None = None) -> None:
+    def _handoff(
+        self,
+        project_dir: Path,
+        from_agent: str,
+        to_agent: str,
+        input_refs: list[dict[str, Any]],
+        output_refs: list[dict[str, Any]],
+        ceiling: str,
+        evidence_refs: list[dict[str, Any]] | None = None,
+    ) -> None:
         handoff = build_handoff(
             project_id=project_dir.name,
             from_agent=from_agent,

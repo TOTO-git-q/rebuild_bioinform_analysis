@@ -29,6 +29,7 @@ dev = [
     "auto-bioinfo[test]",
     "ruff>=0.4",
     "mypy>=1.8",
+    "coverage[toml]>=7",
 ]
 
 [project.scripts]
@@ -47,6 +48,30 @@ target-version = "py310"
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
 ignore = ["E501", "B008"]
+
+# Type checking (WP-01c / T-01-07). Advisory, non-blocking at this stage to
+# match the held CI step; `make typecheck` runs mypy with --ignore-missing-imports.
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = true
+
+# Coverage (WP-01c / T-01-07). The canonical test runner is `unittest`; coverage
+# wraps it (see `make coverage`). Scope is the package only; tests/fixtures and
+# reserved-port stubs are excluded so the number reflects exercised product code.
+[tool.coverage.run]
+branch = true
+source = ["auto_bioinfo"]
+omit = ["auto_bioinfo/fixtures/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

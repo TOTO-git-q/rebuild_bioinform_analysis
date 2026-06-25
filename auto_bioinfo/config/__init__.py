@@ -15,13 +15,13 @@ Required configuration fails fast with explicit, non-secret error messages.
 """
 
 from .settings import (
+    CONFIG_FIELDS,
+    SECRET_FIELDS,
     AppConfig,
     ConfigError,
     ConfigField,
     FieldKind,
     SecretRef,
-    CONFIG_FIELDS,
-    SECRET_FIELDS,
     load_config,
 )
 

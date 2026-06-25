@@ -48,6 +48,7 @@ def verification_at_least(level: str, threshold: str) -> bool:
 
 # --- ProjectPolicy: the authoritative source of execution_mode --------------
 
+
 def build_project_policy(project_id: str, execution_mode: str, *, policy_version: int = 1) -> dict[str, Any]:
     if execution_mode not in EXECUTION_MODES:
         raise ValueError(f"execution_mode must be one of {EXECUTION_MODES}, got {execution_mode!r}")
@@ -231,23 +232,14 @@ def validate_provenance(candidate: dict[str, Any]) -> list[str]:
     if sc in SOURCE_CLASSES and rm in RETRIEVAL_MODES and vl in VERIFICATION_LEVELS:
         allowed = _RETRIEVAL_CONSISTENT_WITH_SOURCE[sc]
         if rm not in allowed:
-            errors.append(
-                f"retrieval_mode {rm!r} is inconsistent with source_class {sc!r} "
-                f"(allowed: {sorted(allowed)})"
-            )
+            errors.append(f"retrieval_mode {rm!r} is inconsistent with source_class {sc!r} (allowed: {sorted(allowed)})")
         ceiling = _MAX_VERIFICATION_BY_SOURCE.get(sc)
         if ceiling is not None and verification_at_least(vl, ceiling) and vl != ceiling:
-            errors.append(
-                f"source_class {sc!r} cannot honestly claim verification_level {vl!r} "
-                f"(max {ceiling})"
-            )
+            errors.append(f"source_class {sc!r} cannot honestly claim verification_level {vl!r} (max {ceiling})")
         # A self-recorded replay can never, on its own, ground a checksum
         # verification of real materialized files — regardless of source_class.
         if rm == "RECORDED_REPLAY" and vl == "FILES_CHECKSUM_VERIFIED":
-            errors.append(
-                "RECORDED_REPLAY retrieval cannot ground FILES_CHECKSUM_VERIFIED "
-                "(a replay verifies its own recording, not real files)"
-            )
+            errors.append("RECORDED_REPLAY retrieval cannot ground FILES_CHECKSUM_VERIFIED (a replay verifies its own recording, not real files)")
 
     accession = str(candidate.get("accession", "") or candidate.get("dataset_id", "")).upper()
     if sc == "PUBLIC_DATABASE" and (not accession or accession.startswith("AUTO_") or accession.startswith("MOCK_") or accession.startswith("FIXTURE")):
@@ -294,9 +286,7 @@ def validate_real_mode_lock(
     errors: list[str] = []
     vl = profile.get("verification_level", "UNVERIFIED")
     if not verification_at_least(vl, _MIN_VERIFICATION_FOR_LOCK):
-        errors.append(
-            f"REAL lock requires verification_level >= {_MIN_VERIFICATION_FOR_LOCK}, got {vl!r}"
-        )
+        errors.append(f"REAL lock requires verification_level >= {_MIN_VERIFICATION_FOR_LOCK}, got {vl!r}")
     if profile.get("retrieval_mode") == "RECORDED_REPLAY":
         errors.append("REAL lock cannot be authorized by RECORDED_REPLAY retrieval alone")
     if not file_checksums:
@@ -319,6 +309,7 @@ def validate_real_mode_lock(
 
 
 # --- Legacy normalisation (conservative; never invents provenance) ----------
+
 
 def normalize_legacy_provenance(obj: dict[str, Any]) -> dict[str, Any]:
     """Fill missing provenance on an object loaded without R0-01 fields.
@@ -384,6 +375,7 @@ def migrate_legacy_project_policy(project_id: str) -> dict[str, Any]:
 
 
 # --- ScientificEligibilityDecision (immutable, always recomputed) -----------
+
 
 def _eligibility_reason_codes(
     *,
@@ -500,6 +492,7 @@ def is_eligible(decision: dict[str, Any]) -> bool:
 
 # --- Decision integrity validation (Gate 2 of R0-01 review-fix) -------------
 
+
 def verify_decision_integrity(
     decision: dict[str, Any],
     *,
@@ -549,10 +542,7 @@ def verify_decision_integrity(
     )
     recomputed_id = _decision_id_for(inputs)
     if stored_id != recomputed_id:
-        errors.append(
-            f"decision id {stored_id!r} does not match recomputed id {recomputed_id!r} "
-            "(decision content was tampered with)"
-        )
+        errors.append(f"decision id {stored_id!r} does not match recomputed id {recomputed_id!r} (decision content was tampered with)")
 
     reasons = _eligibility_reason_codes(
         execution_mode=decision.get("execution_mode", ""),
@@ -562,17 +552,12 @@ def verify_decision_integrity(
     )
     expected_verdict = "ELIGIBLE" if not reasons else "INELIGIBLE"
     if decision.get("decision") != expected_verdict:
-        errors.append(
-            f"decision verdict {decision.get('decision')!r} disagrees with the facts "
-            f"(recomputed {expected_verdict!r}); verdict was tampered with"
-        )
+        errors.append(f"decision verdict {decision.get('decision')!r} disagrees with the facts (recomputed {expected_verdict!r}); verdict was tampered with")
     if sorted(decision.get("reason_codes", [])) != sorted(reasons):
         errors.append("decision reason_codes disagree with the facts")
     expected_release = RESEARCH_PRELIMINARY if expected_verdict == "ELIGIBLE" else DEMONSTRATION_ONLY
     if decision.get("release_status") != expected_release:
-        errors.append(
-            f"release_status {decision.get('release_status')!r} disagrees with the recomputed verdict"
-        )
+        errors.append(f"release_status {decision.get('release_status')!r} disagrees with the recomputed verdict")
 
     if policy is not None:
         if decision.get("policy_id") != policy.get("project_policy_id"):
@@ -586,9 +571,7 @@ def verify_decision_integrity(
         errors.append("decision evaluated_input_hashes do not match the evaluated objects")
 
     if referencing_decision_id is not None and referencing_decision_id != stored_id:
-        errors.append(
-            f"object references decision {referencing_decision_id!r} but the verified decision is {stored_id!r}"
-        )
+        errors.append(f"object references decision {referencing_decision_id!r} but the verified decision is {stored_id!r}")
     return errors
 
 
@@ -664,6 +647,7 @@ def expected_decision_inputs(
 
 
 # --- Authoritative eligibility gate (Gate 1 of R0-01 review-fix) -------------
+
 
 def authoritative_release(
     decision: dict[str, Any] | None,

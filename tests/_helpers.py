@@ -1,19 +1,60 @@
-"""Shared test helpers (offline, deterministic)."""
+"""Shared test helpers (offline, deterministic).
+
+Fixture lifecycle rules live in ``tests/README.md`` (WP-01c / T-01-09).  The
+short version enforced here: every fixture is **synthetic**, written under the
+**system temp dir** (never the repo, never a database or object store), and the
+temp workspace is **cleaned up automatically** so the suite leaves no residue.
+"""
 
 from __future__ import annotations
 
+import atexit
+import contextlib
 import json
+import shutil
 import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 
 from auto_bioinfo.adapters.fixture_resources import FixtureResourceAdapter
 
 DEMO_QUESTION = "Which genes are differentially expressed in tissue_x between condition_a and condition_b?"
 
+# Temp roots created by fixture helpers, removed at interpreter exit so the suite
+# never leaks directories (the old ``mkdtemp`` calls were never cleaned up).
+_TEMP_ROOTS: list[Path] = []
+
+
+def _new_temp_root(prefix: str = "auto_bioinfo_fx_") -> Path:
+    """Create a fresh temp dir under the system temp and schedule its cleanup."""
+    root = Path(tempfile.mkdtemp(prefix=prefix))
+    _TEMP_ROOTS.append(root)
+    return root
+
+
+@atexit.register
+def _cleanup_temp_roots() -> None:
+    while _TEMP_ROOTS:
+        shutil.rmtree(_TEMP_ROOTS.pop(), ignore_errors=True)
+
+
+@contextlib.contextmanager
+def temp_workspace(prefix: str = "auto_bioinfo_ws_") -> Iterator[Path]:
+    """Yield an isolated temp workspace and remove it on exit.
+
+    Reusable lifecycle helper for tests that need a scratch directory with
+    deterministic, eager cleanup (instead of relying on the atexit sweep).
+    """
+    root = Path(tempfile.mkdtemp(prefix=prefix))
+    try:
+        yield root
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
 
 def tiny_fixture(group_a_n: int = 3, group_b_n: int = 3) -> Path:
     """Write a tiny committed-style fixture with a chosen number of replicates."""
-    base = Path(tempfile.mkdtemp()) / "fx"
+    base = _new_temp_root() / "fx"
     base.mkdir(parents=True)
     samples = ["sample\tgroup"]
     cols = []

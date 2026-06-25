@@ -57,8 +57,18 @@ def build_final_report(project_dir: str | Path) -> dict[str, Any]:
         "original_question": spec.get("research_question", ""),
         "normalized_spec": {k: spec.get(k) for k in ("organism", "tissue", "comparison_groups", "claim_ceiling", "open_questions", "assumptions")},
         "scope": {"species": scope.get("species", []), "tissue": scope.get("tissues", []), "condition": scope.get("conditions", [])},
-        "dataset": {"dataset_id": profile.get("dataset_id"), "accession": profile.get("accession"), "source_status": profile.get("source_status"), "file_checksums": manifest.get("file_checksums", {})},
-        "method": {"workflow": workflow.get("workflow_name"), "method_contract_id": workflow.get("method_contract_id"), "params": method_result.get("params", {}), "software_versions": method_result.get("software_versions", {})},
+        "dataset": {
+            "dataset_id": profile.get("dataset_id"),
+            "accession": profile.get("accession"),
+            "source_status": profile.get("source_status"),
+            "file_checksums": manifest.get("file_checksums", {}),
+        },
+        "method": {
+            "workflow": workflow.get("workflow_name"),
+            "method_contract_id": workflow.get("method_contract_id"),
+            "params": method_result.get("params", {}),
+            "software_versions": method_result.get("software_versions", {}),
+        },
         "qc_summary": [{"qc_report_id": r["qc_report_id"], "overall_status": r["overall_status"], "decision": r.get("decision")} for r in qc_reports],
         "subquestion_answers": _subquestion_answers(subs, claims, alignment),
         "claims": claims,
@@ -153,5 +163,9 @@ def _render_markdown(s: dict[str, Any]) -> str:
     if s["unanswered"]:
         lines += ["", "## 8. Unanswered / not covered"]
         lines += [f"- {u['subquestion_id']}: {u['status']}" for u in s["unanswered"]]
-    lines += ["", "## 9. Traceability", "Every claim above references EvidenceItem ids, which reference QC-passed Artifact ids with content checksums, produced by a recorded TaskRun bound to a MethodContract. See `state/` ledgers and the reproduction bundle."]
+    lines += [
+        "",
+        "## 9. Traceability",
+        "Every claim above references EvidenceItem ids, which reference QC-passed Artifact ids with content checksums, produced by a recorded TaskRun bound to a MethodContract. See `state/` ledgers and the reproduction bundle.",
+    ]
     return "\n".join(lines) + "\n"

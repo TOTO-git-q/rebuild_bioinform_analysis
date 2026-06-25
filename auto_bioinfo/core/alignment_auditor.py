@@ -71,10 +71,14 @@ def audit_question_alignment(
                 unsupported_claims.append({"claim_id": claim_id, "evidence_item_id": evidence_id, "reason": "referenced artifact manifest is missing"})
                 continue
             if artifact.get("is_placeholder") is True:
-                unsupported_claims.append({"claim_id": claim_id, "artifact_id": artifact.get("artifact_id"), "reason": "placeholder artifact cannot support approved claim"})
+                unsupported_claims.append(
+                    {"claim_id": claim_id, "artifact_id": artifact.get("artifact_id"), "reason": "placeholder artifact cannot support approved claim"}
+                )
                 required_reruns.append({"claim_id": claim_id, "action": "replace_placeholder_artifact_with_real_result"})
             if artifact.get("exists") is not True:
-                unsupported_claims.append({"claim_id": claim_id, "artifact_id": artifact.get("artifact_id"), "reason": "missing artifact cannot support approved claim"})
+                unsupported_claims.append(
+                    {"claim_id": claim_id, "artifact_id": artifact.get("artifact_id"), "reason": "missing artifact cannot support approved claim"}
+                )
             if artifact.get("qc_status") in {"fail", "failed", "rejected"}:
                 unsupported_claims.append({"claim_id": claim_id, "artifact_id": artifact.get("artifact_id"), "reason": "artifact qc_status failed"})
             if evidence_id in failed_evidence_ids or evidence.get("artifact_id") in failed_artifact_ids:
@@ -148,11 +152,7 @@ def _coverage_by_subquestion(subquestions: list[dict[str, Any]], claims: list[di
     coverage = []
     for subquestion in subquestions:
         subquestion_id = subquestion.get("subquestion_id")
-        supporting_claim_ids = [
-            claim.get("claim_id")
-            for claim in claims
-            if subquestion_id in (claim.get("supports_subquestion_ids") or [])
-        ]
+        supporting_claim_ids = [claim.get("claim_id") for claim in claims if subquestion_id in (claim.get("supports_subquestion_ids") or [])]
         unresolved_reason = subquestion.get("unresolved_reason", "")
         if supporting_claim_ids:
             status = "covered"
@@ -217,11 +217,7 @@ def _omitted_negative_or_failed_evidence(
     claims: list[dict[str, Any]],
     failed_evidence_ids: set[str],
 ) -> list[dict[str, Any]]:
-    referenced = {
-        evidence_id
-        for claim in claims
-        for evidence_id in (claim.get("evidence_item_refs") or [])
-    }
+    referenced = {evidence_id for claim in claims for evidence_id in (claim.get("evidence_item_refs") or [])}
     omitted = []
     for evidence in evidence_item_refs:
         evidence_id = evidence.get("evidence_item_id")

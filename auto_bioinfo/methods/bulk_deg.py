@@ -119,7 +119,7 @@ class BulkDegMethod:
         alpha = float(merged_params["significance_alpha"])
         lfc_thr = float(merged_params["log2fc_threshold"])
         n_sig = 0
-        for row, q in zip(rows, fdr):
+        for row, q in zip(rows, fdr, strict=False):
             row["fdr"] = round(q, 8)
             row["p_value"] = round(row["p_value"], 8)
             significant = (q < alpha) and (abs(row["log2_fold_change"]) >= lfc_thr)
@@ -150,6 +150,7 @@ class BulkDegMethod:
 
 
 # --- IO helpers (numpy-only, no pandas) -------------------------------------
+
 
 def _read_matrix(path: str) -> tuple[list[str], list[str], np.ndarray]:
     with Path(path).open("r", encoding="utf-8", newline="") as handle:

@@ -14,9 +14,9 @@ building runtime infrastructure here.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import Enum
-from typing import Mapping, Optional
 
 
 class ConfigError(ValueError):
@@ -47,8 +47,8 @@ class ConfigField:
     env_var: str  # source environment variable name
     kind: FieldKind
     required: bool = False
-    default: Optional[str] = None
-    choices: Optional[tuple[str, ...]] = None
+    default: str | None = None
+    choices: tuple[str, ...] | None = None
     description: str = ""
 
 
@@ -65,7 +65,7 @@ class SecretRef:
     name: str
     env_var: str
 
-    def resolve(self, environ: Optional[Mapping[str, str]] = None) -> Optional[str]:
+    def resolve(self, environ: Mapping[str, str] | None = None) -> str | None:
         """Return the secret value from the environment, or ``None`` if unset.
 
         The value is returned to the caller for immediate use and is never
@@ -119,8 +119,7 @@ CONFIG_FIELDS: tuple[ConfigField, ...] = (
         kind=FieldKind.ENV,
         required=True,
         default=None,
-        description="Postgres connection URL WITHOUT an embedded password "
-        "(the password is supplied separately via a secret reference).",
+        description="Postgres connection URL WITHOUT an embedded password (the password is supplied separately via a secret reference).",
     ),
 )
 
@@ -187,7 +186,7 @@ def _database_url_has_embedded_password(url: str) -> bool:
 
 
 def load_config(
-    environ: Optional[Mapping[str, str]] = None,
+    environ: Mapping[str, str] | None = None,
     *,
     fields: tuple[ConfigField, ...] = CONFIG_FIELDS,
     secret_fields: tuple[ConfigField, ...] = SECRET_FIELDS,
@@ -221,26 +220,16 @@ def load_config(
         resolved[field.key] = value
 
     if missing:
-        raise ConfigError(
-            "Missing required configuration: " + ", ".join(sorted(missing))
-        )
+        raise ConfigError("Missing required configuration: " + ", ".join(sorted(missing)))
     if invalid:
-        raise ConfigError(
-            "Invalid configuration value(s): " + ", ".join(sorted(invalid))
-        )
+        raise ConfigError("Invalid configuration value(s): " + ", ".join(sorted(invalid)))
 
     db_url = resolved.get("database_url", "")
     if db_url and _database_url_has_embedded_password(db_url):
         # Do NOT echo the URL — it contains a secret.
-        raise ConfigError(
-            "AUTO_BIOINFO_DATABASE_URL must not embed a password; supply the "
-            "password via the AUTO_BIOINFO_DB_PASSWORD secret reference instead."
-        )
+        raise ConfigError("AUTO_BIOINFO_DATABASE_URL must not embed a password; supply the password via the AUTO_BIOINFO_DB_PASSWORD secret reference instead.")
 
-    secret_refs: dict[str, SecretRef] = {
-        field.key: SecretRef(name=field.key, env_var=field.env_var)
-        for field in secret_fields
-    }
+    secret_refs: dict[str, SecretRef] = {field.key: SecretRef(name=field.key, env_var=field.env_var) for field in secret_fields}
 
     return AppConfig(
         environment=resolved["environment"],

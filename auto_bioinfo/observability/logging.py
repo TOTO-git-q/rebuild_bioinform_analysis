@@ -13,8 +13,9 @@ from __future__ import annotations
 
 import json
 import logging
+from collections.abc import Callable, Mapping
 from datetime import datetime, timezone
-from typing import Any, Callable, Mapping, Optional
+from typing import Any
 
 from .redaction import redact
 
@@ -24,12 +25,32 @@ CANONICAL_FIELDS = ("time", "level", "service", "project", "correlation", "task_
 # Standard ``LogRecord`` attributes we never copy into the structured ``fields``.
 _RESERVED_RECORD_ATTRS = frozenset(
     {
-        "name", "msg", "args", "levelname", "levelno", "pathname", "filename",
-        "module", "exc_info", "exc_text", "stack_info", "lineno", "funcName",
-        "created", "msecs", "relativeCreated", "thread", "threadName",
-        "processName", "process", "taskName",
+        "name",
+        "msg",
+        "args",
+        "levelname",
+        "levelno",
+        "pathname",
+        "filename",
+        "module",
+        "exc_info",
+        "exc_text",
+        "stack_info",
+        "lineno",
+        "funcName",
+        "created",
+        "msecs",
+        "relativeCreated",
+        "thread",
+        "threadName",
+        "processName",
+        "process",
+        "taskName",
         # our injected structured keys, handled explicitly below
-        "service", "project", "correlation", "task_run",
+        "service",
+        "project",
+        "correlation",
+        "task_run",
     }
 )
 
@@ -43,11 +64,11 @@ def build_log_payload(
     level: str,
     message: str,
     service: str,
-    project: Optional[str] = None,
-    correlation: Optional[str] = None,
-    task_run: Optional[str] = None,
-    fields: Optional[Mapping[str, Any]] = None,
-    clock: Optional[Callable[[], str]] = None,
+    project: str | None = None,
+    correlation: str | None = None,
+    task_run: str | None = None,
+    fields: Mapping[str, Any] | None = None,
+    clock: Callable[[], str] | None = None,
 ) -> dict[str, Any]:
     """Build a structured, redacted log payload.
 
@@ -85,11 +106,7 @@ class JsonFormatter(logging.Formatter):
         self._service = service
 
     def format(self, record: logging.LogRecord) -> str:
-        extra_fields = {
-            key: value
-            for key, value in record.__dict__.items()
-            if key not in _RESERVED_RECORD_ATTRS and not key.startswith("_")
-        }
+        extra_fields = {key: value for key, value in record.__dict__.items() if key not in _RESERVED_RECORD_ATTRS and not key.startswith("_")}
         payload = build_log_payload(
             level=record.levelname,
             message=record.getMessage(),
@@ -98,9 +115,7 @@ class JsonFormatter(logging.Formatter):
             correlation=getattr(record, "correlation", None),
             task_run=getattr(record, "task_run", None),
             fields=extra_fields,
-            clock=lambda: datetime.fromtimestamp(record.created, timezone.utc).strftime(
-                "%Y-%m-%dT%H:%M:%S.%fZ"
-            ),
+            clock=lambda: datetime.fromtimestamp(record.created, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"),
         )
         if record.exc_info:
             payload["exc"] = redact(self.formatException(record.exc_info))
@@ -110,9 +125,9 @@ class JsonFormatter(logging.Formatter):
 def get_logger(
     service: str = "auto_bioinfo",
     *,
-    project: Optional[str] = None,
-    correlation: Optional[str] = None,
-    task_run: Optional[str] = None,
+    project: str | None = None,
+    correlation: str | None = None,
+    task_run: str | None = None,
     level: str = "INFO",
 ) -> logging.LoggerAdapter:
     """Return a stdlib logger wrapped to emit redacted structured JSON.

@@ -6,8 +6,8 @@ import unittest
 from auto_bioinfo.config import load_config
 from auto_bioinfo.observability import (
     CANONICAL_FIELDS,
-    JsonFormatter,
     REDACTED,
+    JsonFormatter,
     build_log_payload,
     get_logger,
     is_sensitive_key,
@@ -15,7 +15,8 @@ from auto_bioinfo.observability import (
 )
 
 
-_FIXED_CLOCK = lambda: "2026-06-25T00:00:00.000000Z"
+def _FIXED_CLOCK() -> str:
+    return "2026-06-25T00:00:00.000000Z"
 
 
 class RedactionTest(unittest.TestCase):
@@ -50,8 +51,13 @@ class RedactionTest(unittest.TestCase):
 class BuildLogPayloadTest(unittest.TestCase):
     def test_payload_has_all_canonical_fields(self):
         payload = build_log_payload(
-            level="INFO", message="hi", service="api",
-            project="proj1", correlation="corr1", task_run="tr1", clock=_FIXED_CLOCK,
+            level="INFO",
+            message="hi",
+            service="api",
+            project="proj1",
+            correlation="corr1",
+            task_run="tr1",
+            clock=_FIXED_CLOCK,
         )
         for field in CANONICAL_FIELDS:
             self.assertIn(field, payload)
@@ -64,8 +70,11 @@ class BuildLogPayloadTest(unittest.TestCase):
 
     def test_extra_fields_are_redacted(self):
         payload = build_log_payload(
-            level="INFO", message="m", service="api",
-            fields={"db_host": "db", "db_password": "hunter2"}, clock=_FIXED_CLOCK,
+            level="INFO",
+            message="m",
+            service="api",
+            fields={"db_host": "db", "db_password": "hunter2"},
+            clock=_FIXED_CLOCK,
         )
         self.assertEqual(payload["db_host"], "db")
         self.assertEqual(payload["db_password"], REDACTED)
@@ -73,8 +82,11 @@ class BuildLogPayloadTest(unittest.TestCase):
     def test_secret_value_absent_from_serialized_payload(self):
         secret = "super-secret-value-xyz"
         payload = build_log_payload(
-            level="INFO", message=f"authorized with Bearer {secret}", service="api",
-            fields={"api_key": secret, "token": secret}, clock=_FIXED_CLOCK,
+            level="INFO",
+            message=f"authorized with Bearer {secret}",
+            service="api",
+            fields={"api_key": secret, "token": secret},
+            clock=_FIXED_CLOCK,
         )
         serialized = json.dumps(payload)
         self.assertNotIn(secret, serialized)
@@ -129,8 +141,11 @@ class ConfigLoggingIntegrationTest(unittest.TestCase):
         }
         cfg = load_config(env)
         payload = build_log_payload(
-            level="INFO", message="startup", service=cfg.service,
-            fields={"config": cfg.public_dict()}, clock=_FIXED_CLOCK,
+            level="INFO",
+            message="startup",
+            service=cfg.service,
+            fields={"config": cfg.public_dict()},
+            clock=_FIXED_CLOCK,
         )
         self.assertNotIn("should-never-appear-in-logs", json.dumps(payload))
 

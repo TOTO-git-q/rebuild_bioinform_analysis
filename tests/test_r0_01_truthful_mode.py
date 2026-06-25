@@ -13,6 +13,7 @@ from pathlib import Path
 from auto_bioinfo.core.provenance import (
     LEGACY_MIGRATION_MARKER,
     authoritative_release,
+    build_project_policy,
     classify_project_policy_state,
     decision_is_authoritatively_eligible,
     describe_dataset_origin,
@@ -27,7 +28,6 @@ from auto_bioinfo.core.provenance import (
     verify_decision_integrity,
     verify_project_policy_integrity,
 )
-from auto_bioinfo.core.provenance import build_project_policy
 from auto_bioinfo.interfaces.cli import main
 from auto_bioinfo.pipeline import LegacyMigrationRequired, Pipeline, PipelineError
 from auto_bioinfo.report import build_final_report
@@ -46,7 +46,12 @@ def _policy(mode="DEMO"):
 class TruthfulModeBypassTest(unittest.TestCase):
     # 1. A manually-set eligible=true is ignored; the gate recomputes from facts.
     def test_tampered_eligible_flag_is_ignored(self):
-        tampered = {"evidence_item_id": "ev", "source_class": "SYNTHETIC_FIXTURE", "verification_level": "FILES_CHECKSUM_VERIFIED", "scientific_output_eligible": True}
+        tampered = {
+            "evidence_item_id": "ev",
+            "source_class": "SYNTHETIC_FIXTURE",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+            "scientific_output_eligible": True,
+        }
         decision = recompute_eligibility_for(tampered, qc_status="pass", policy=_policy("DEMO"))
         self.assertEqual(decision["decision"], "INELIGIBLE")
         self.assertIn("EXECUTION_MODE_NOT_REAL", decision["reason_codes"])
@@ -120,10 +125,15 @@ class DecisionIntegrityBypassTest(unittest.TestCase):
 
     def _eligible_decision(self):
         return evaluate_scientific_eligibility(
-            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
-            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
-            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
-            policy_id="pp1", policy_version=1,
+            execution_mode="REAL",
+            source_class="PUBLIC_DATABASE",
+            retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED",
+            qc_status="pass",
+            evaluated_input_refs=["ev1"],
+            evaluated_input_hashes=["h1"],
+            policy_id="pp1",
+            policy_version=1,
         )
 
     def test_untampered_decision_passes_integrity(self):
@@ -135,9 +145,15 @@ class DecisionIntegrityBypassTest(unittest.TestCase):
         # Facts say INELIGIBLE (DEMO/fixture); attacker flips only the verdict +
         # release_status, leaving the id (a hash of the *facts*) unchanged.
         d = evaluate_scientific_eligibility(
-            execution_mode="DEMO", source_class="SYNTHETIC_FIXTURE", retrieval_mode="LOCAL_CACHE",
-            verification_level="UNVERIFIED", qc_status="pass",
-            evaluated_input_refs=["ev1"], evaluated_input_hashes=[], policy_id="pp1", policy_version=1,
+            execution_mode="DEMO",
+            source_class="SYNTHETIC_FIXTURE",
+            retrieval_mode="LOCAL_CACHE",
+            verification_level="UNVERIFIED",
+            qc_status="pass",
+            evaluated_input_refs=["ev1"],
+            evaluated_input_hashes=[],
+            policy_id="pp1",
+            policy_version=1,
         )
         d["decision"] = "ELIGIBLE"
         d["release_status"] = "RESEARCH_PRELIMINARY"
@@ -223,10 +239,15 @@ class AuthoritativeEligibilityGateBypassTest(unittest.TestCase):
         # A genuinely-eligible decision, but a Claim claims eligibility while
         # pointing at a *different* decision id — the gate refuses the release.
         decision = evaluate_scientific_eligibility(
-            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
-            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
-            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
-            policy_id="pp1", policy_version=1,
+            execution_mode="REAL",
+            source_class="PUBLIC_DATABASE",
+            retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED",
+            qc_status="pass",
+            evaluated_input_refs=["ev1"],
+            evaluated_input_hashes=["h1"],
+            policy_id="pp1",
+            policy_version=1,
         )
         foreign_claim = {"scientific_output_eligible": True, "scientific_eligibility_decision_id": "some_other_decision"}
         release = authoritative_release(decision, policy=_policy("REAL"), claims=[foreign_claim])
@@ -236,10 +257,15 @@ class AuthoritativeEligibilityGateBypassTest(unittest.TestCase):
 
     def test_authoritative_release_passes_for_genuine_eligible_decision(self):
         decision = evaluate_scientific_eligibility(
-            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
-            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
-            evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
-            policy_id="pp1", policy_version=1,
+            execution_mode="REAL",
+            source_class="PUBLIC_DATABASE",
+            retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED",
+            qc_status="pass",
+            evaluated_input_refs=["ev1"],
+            evaluated_input_hashes=["h1"],
+            policy_id="pp1",
+            policy_version=1,
         )
         good_claim = {"scientific_output_eligible": True, "scientific_eligibility_decision_id": decision["scientific_eligibility_decision_id"]}
         release = authoritative_release(decision, policy=_policy("REAL"), claims=[good_claim])
@@ -523,9 +549,15 @@ class LegacyProjectGateBypassTest(unittest.TestCase):
 class EligibilityRuleTest(unittest.TestCase):
     def test_real_verified_public_data_is_eligible(self):
         decision = evaluate_scientific_eligibility(
-            execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
-            verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
-            evaluated_input_refs=["a"], evaluated_input_hashes=["h"], policy_id="p", policy_version=1,
+            execution_mode="REAL",
+            source_class="PUBLIC_DATABASE",
+            retrieval_mode="LIVE",
+            verification_level="FILES_CHECKSUM_VERIFIED",
+            qc_status="pass",
+            evaluated_input_refs=["a"],
+            evaluated_input_hashes=["h"],
+            policy_id="p",
+            policy_version=1,
         )
         self.assertEqual(decision["decision"], "ELIGIBLE")
         self.assertEqual(decision["release_status"], "RESEARCH_PRELIMINARY")
@@ -551,68 +583,80 @@ class StructuredProvenanceConsistencyBypassTest(unittest.TestCase):
         # A real public-DB candidate and a committed fixture are both coherent.
         self.assertEqual(validate_provenance(self._ok()), [])
         self.assertEqual(
-            validate_provenance({
-                "source_class": "SYNTHETIC_FIXTURE",
-                "retrieval_mode": "LOCAL_CACHE",
-                "verification_level": "FILES_CHECKSUM_VERIFIED",
-                "accession": "FIXTURE-DEMO",
-            }),
+            validate_provenance(
+                {
+                    "source_class": "SYNTHETIC_FIXTURE",
+                    "retrieval_mode": "LOCAL_CACHE",
+                    "verification_level": "FILES_CHECKSUM_VERIFIED",
+                    "accession": "FIXTURE-DEMO",
+                }
+            ),
             [],
         )
 
     def test_fixture_cannot_be_fetched_live(self):
         # Structural: a committed fixture is never obtained by a live fetch,
         # and the accession here is honestly a FIXTURE one (no prefix trick).
-        errs = validate_provenance({
-            "source_class": "SYNTHETIC_FIXTURE",
-            "retrieval_mode": "LIVE",
-            "verification_level": "UNVERIFIED",
-            "accession": "FIXTURE-DEMO",
-        })
+        errs = validate_provenance(
+            {
+                "source_class": "SYNTHETIC_FIXTURE",
+                "retrieval_mode": "LIVE",
+                "verification_level": "UNVERIFIED",
+                "accession": "FIXTURE-DEMO",
+            }
+        )
         self.assertTrue(any("inconsistent with source_class" in e for e in errs))
 
     def test_local_data_cannot_be_fetched_live(self):
         # On-disk local data has no live retrieval path — caught by structure,
         # not by any accession spelling (accession is a plausible local id).
-        errs = validate_provenance({
-            "source_class": "LOCAL_DATA",
-            "retrieval_mode": "LIVE",
-            "verification_level": "FILES_CHECKSUM_VERIFIED",
-            "accession": "LOCAL-RUN-7",
-        })
+        errs = validate_provenance(
+            {
+                "source_class": "LOCAL_DATA",
+                "retrieval_mode": "LIVE",
+                "verification_level": "FILES_CHECKSUM_VERIFIED",
+                "accession": "LOCAL-RUN-7",
+            }
+        )
         self.assertTrue(any("inconsistent with source_class" in e for e in errs))
 
     def test_legacy_unknown_cannot_claim_verification(self):
         # Unknown provenance cannot honestly assert any verification level.
-        errs = validate_provenance({
-            "source_class": "LEGACY_UNKNOWN",
-            "retrieval_mode": "LOCAL_CACHE",
-            "verification_level": "FILES_CHECKSUM_VERIFIED",
-            "accession": "OLD-DATASET",
-        })
+        errs = validate_provenance(
+            {
+                "source_class": "LEGACY_UNKNOWN",
+                "retrieval_mode": "LOCAL_CACHE",
+                "verification_level": "FILES_CHECKSUM_VERIFIED",
+                "accession": "OLD-DATASET",
+            }
+        )
         self.assertTrue(any("cannot honestly claim verification_level" in e for e in errs))
 
     def test_recorded_replay_cannot_ground_checksum_verification(self):
         # A self-recorded replay verifies its own recording, not real files —
         # so it can never reach FILES_CHECKSUM_VERIFIED, whatever the source.
-        errs = validate_provenance({
-            "source_class": "PUBLIC_DATABASE",
-            "retrieval_mode": "RECORDED_REPLAY",
-            "verification_level": "FILES_CHECKSUM_VERIFIED",
-            "accession": "GSE99999",
-        })
+        errs = validate_provenance(
+            {
+                "source_class": "PUBLIC_DATABASE",
+                "retrieval_mode": "RECORDED_REPLAY",
+                "verification_level": "FILES_CHECKSUM_VERIFIED",
+                "accession": "GSE99999",
+            }
+        )
         self.assertTrue(any("RECORDED_REPLAY" in e for e in errs))
 
     def test_consistency_holds_even_with_innocent_accession(self):
         # The decisive failure is structural: a PUBLIC_DATABASE claiming a
         # USER_UPLOAD-only retrieval path is rejected even though the accession
         # string looks like a perfectly real public accession.
-        errs = validate_provenance({
-            "source_class": "USER_UPLOAD",
-            "retrieval_mode": "LIVE",
-            "verification_level": "METADATA_VERIFIED",
-            "accession": "GSE12345",  # innocent-looking, but irrelevant here
-        })
+        errs = validate_provenance(
+            {
+                "source_class": "USER_UPLOAD",
+                "retrieval_mode": "LIVE",
+                "verification_level": "METADATA_VERIFIED",
+                "accession": "GSE12345",  # innocent-looking, but irrelevant here
+            }
+        )
         self.assertTrue(any("inconsistent with source_class" in e for e in errs))
 
 
@@ -678,10 +722,15 @@ class BundleReadmeSourceClassTest(unittest.TestCase):
 def _eligible_real_decision():
     """A genuinely-eligible decision whose policy binding matches ``_policy('REAL')``."""
     return evaluate_scientific_eligibility(
-        execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
-        verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
-        evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
-        policy_id="pp1", policy_version=1,
+        execution_mode="REAL",
+        source_class="PUBLIC_DATABASE",
+        retrieval_mode="LIVE",
+        verification_level="FILES_CHECKSUM_VERIFIED",
+        qc_status="pass",
+        evaluated_input_refs=["ev1"],
+        evaluated_input_hashes=["h1"],
+        policy_id="pp1",
+        policy_version=1,
     )
 
 
@@ -741,7 +790,9 @@ class AuthoritativeGateUncachedBindingBypassTest(unittest.TestCase):
     def test_formal_export_refused_when_claim_references_foreign_decision(self):
         with tempfile.TemporaryDirectory() as d:
             proj = self._run_eligible_real_project(d)
-            _rewrite_jsonl(proj / "state" / "claims.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": "scientific_eligibility_decision_forged"}))
+            _rewrite_jsonl(
+                proj / "state" / "claims.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": "scientific_eligibility_decision_forged"})
+            )
             release = compute_project_release(proj)
             self.assertFalse(release["scientific_output_eligible"])
             self.assertIn("OBJECT_REFERENCES_FOREIGN_DECISION", release["reasons"])

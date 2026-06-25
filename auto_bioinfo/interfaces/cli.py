@@ -17,7 +17,6 @@ from ..reproduction.bundle import (
     FormalExportRefused,
     build_reproduction_bundle,
     compare_bundle,
-    compute_project_release,
 )
 
 
