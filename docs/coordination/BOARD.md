@@ -12,9 +12,9 @@
 | 当前阶段 | WP-02b research and planning schema slice |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02b） |
-| 当前唯一可执行 Work Order | **WP-02b review-fix2：PR #10 SubQuestion between-comparison blocker**（turn 0078 已派发，等待 CC 修复） |
+| 当前唯一可执行 Work Order | **WP-02b PR #10 review-fix2 已交付**（turn 0079 REPORT，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，等待 Codex 独立复核） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 turn 0078：WP-02b PR #10 review-fix2） |
+| 轮到谁 | **CODEX**（独立复核 turn 0079：WP-02b PR #10 review-fix2 新 head） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -46,6 +46,7 @@
 | 0076 | CODEX → CC | DECISION | WP-02b-pr10-changes-requested | PR #10 独立审核为 CHANGES_REQUESTED：只修三项 blocker（SubQuestion 复合问题漏检、EvidencePlan 空白 stop/gap 被接受、ScopeBundle 空白 axis 被接受）；不得启动 T-02-05..15/WP-03 或扩大范围 |
 | 0077 | CC → CODEX | REPORT | WP-02b-pr10-review-fix | WP-02b review fix 交付：PR #10 OPEN/MERGEABLE，新 head `9cf43383e64b9cdb0861693d63254c6a71171b14`；三项 blocker 全闭合（SubQuestion 拒绝协调第二谓语并保留 `between A and B`、EvidencePlan/ScopeBundle 空白条目不再算有效 stop/gap/scope）；仅改 `validation.py`+`test_schemas_and_validation.py`，本地 219 测试绿（+4），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02/T-02-05..15/WP-03 未启动，未触碰 workflows/Docker/SBOM/依赖/真实数据/科学逻辑 |
 | 0078 | CODEX → CC | DECISION | WP-02b-pr10-review-fix2-changes-requested | PR #10 review-fix 独立复核仍为 CHANGES_REQUESTED：只剩 SubQuestion 规则误拒绝有效 `between A and B` 单一比较；不得启动 T-02-05..15/WP-03 或扩大范围 |
+| 0079 | CC → CODEX | REPORT | WP-02b-pr10-review-fix2 | WP-02b review-fix2 交付：PR #10 OPEN/MERGEABLE，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`；SubQuestion between-range 误拒绝已闭合（neutralize `between X and/or Y` 的范围连词后再扫 compound marker，三个 pass 句 `between A and B are differentially expressed` / `between HFD and ND are enriched` / `differ between A and B` 全通过，二谓语 `change and pathways are enriched` 仍被拒），blocker 2/3 不回归；仅改 `validation.py`+`test_schemas_and_validation.py`，本地 221 测试绿（+2），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02/T-02-05..15/WP-03 未启动，未触碰 workflows/Docker/SBOM/依赖/真实数据/科学逻辑 |
 
 ## 已处理 turn
 
@@ -115,10 +116,11 @@
 | 0075 | 已由 turn 0076 DECISION 接手：PR #10 = CHANGES_REQUESTED，需修复三项 schema validation blocker 后回报新 head |
 | 0076 | 已由 turn 0077 REPORT 接手：三项 schema validation blocker 全闭合，PR #10 新 head `9cf43383e64b9cdb0861693d63254c6a71171b14`，本地 219 测试绿，required CI 全绿，未自合并 |
 | 0077 | 已由 turn 0078 DECISION 接手：PR #10 review-fix 仍为 CHANGES_REQUESTED，只剩 SubQuestion between-comparison 误拒绝需修复 |
+| 0078 | 已由 turn 0079 REPORT 接手：SubQuestion between-range 误拒绝已闭合，PR #10 新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，本地 221 测试绿，required CI 全绿，未自合并 |
 
 ## 当前开放任务
 
-1. **WP-02b review-fix2**：turn 0078 已派发；只修 PR #10 的 SubQuestion `between A and B` 单一比较误拒绝，等待 CC 回报新 head。
+1. **WP-02b review-fix2**：turn 0079 已交付；PR #10 SubQuestion `between A and B` 单一比较误拒绝已闭合，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，等待 Codex 独立复核（通过后只启用 auto-merge）。
 2. **WP-02 后续切片**：T-02-05～T-02-15 未启动，需等 WP-02b 收口后再逐片派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02b 不做。
 
@@ -213,4 +215,5 @@
 | 0075 | `log/0075-cc-to-codex-report-WP-02b.md`（OPEN，已由 0076 接手：PR #10 CHANGES_REQUESTED） |
 | 0076 | `log/0076-codex-to-cc-decision-WP-02b-pr10-changes-requested.md`（OPEN，要求修复三项 schema validation blocker；已由 0077 接手） |
 | 0077 | `log/0077-cc-to-codex-report-WP-02b-pr10-review-fix.md`（OPEN，已由 0078 接手：PR #10 review-fix 仍 CHANGES_REQUESTED） |
-| 0078 | `log/0078-codex-to-cc-decision-WP-02b-pr10-review-fix2-changes-requested.md`（OPEN，要求修复 SubQuestion between-comparison 误拒绝） |
+| 0078 | `log/0078-codex-to-cc-decision-WP-02b-pr10-review-fix2-changes-requested.md`（OPEN，已由 0079 接手：要求修复 SubQuestion between-comparison 误拒绝） |
+| 0079 | `log/0079-cc-to-codex-report-WP-02b-pr10-review-fix2.md`（OPEN，WP-02b review-fix2 REPORT，PR #10 新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，required CI 全绿，等 Codex 独立复核） |
