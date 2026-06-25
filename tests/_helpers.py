@@ -35,7 +35,9 @@ def tiny_fixture(group_a_n: int = 3, group_b_n: int = 3) -> Path:
         "dataset_id": "FIXTURE_TINY",
         "accession": "FIXTURE-TINY",
         "source_status": "committed_fixture",
-        "verified": True,
+        "source_class": "SYNTHETIC_FIXTURE",
+        "retrieval_mode": "LOCAL_CACHE",
+        "verification_level": "FILES_CHECKSUM_VERIFIED",
         "modality": "bulk_expression_matrix",
         "organism": "synthetic_fixture_organism",
         "tissue": "tissue_x",
@@ -51,3 +53,35 @@ def tiny_fixture(group_a_n: int = 3, group_b_n: int = 3) -> Path:
 
 def fixture_adapter(group_a_n: int = 3, group_b_n: int = 3) -> FixtureResourceAdapter:
     return FixtureResourceAdapter(fixture_dir=tiny_fixture(group_a_n, group_b_n))
+
+
+def real_like_fixture(group_a_n: int = 3, group_b_n: int = 3) -> Path:
+    """Like :func:`tiny_fixture`, but the dataset card is labelled as genuinely
+    real ``PUBLIC_DATABASE`` data obtained from a ``LOCAL_CACHE`` and verified to
+    ``FILES_CHECKSUM_VERIFIED``.  A REAL run over this card flows all the way to an
+    ELIGIBLE ``ScientificEligibilityDecision`` and a successful formal export, so
+    the review-fix downstream tests have a genuine eligible baseline to tamper.
+
+    This is a *test double*: its bytes are the same deterministic offline fixture;
+    relabelling its structured provenance lets the eligibility gate treat it as
+    real, which is exactly the baseline the adversarial tamper tests then attack.
+    """
+    base = tiny_fixture(group_a_n, group_b_n)
+    card = json.loads((base / "dataset_card.json").read_text(encoding="utf-8"))
+    card.update(
+        {
+            "dataset_id": "GSE_REAL_TEST",
+            "accession": "GSE123456",
+            "source_status": "public_database",
+            "source_class": "PUBLIC_DATABASE",
+            "retrieval_mode": "LOCAL_CACHE",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+            "known_limitations": [],
+        }
+    )
+    (base / "dataset_card.json").write_text(json.dumps(card), encoding="utf-8")
+    return base
+
+
+def real_like_fixture_adapter(group_a_n: int = 3, group_b_n: int = 3) -> FixtureResourceAdapter:
+    return FixtureResourceAdapter(fixture_dir=real_like_fixture(group_a_n, group_b_n))

@@ -20,12 +20,24 @@ from typing import Any, Callable
 
 from .adapters.fixture_resources import FixtureResourceAdapter
 from .adapters.offline_planner import OfflineDeterministicPlanner
-from .core.artifacts import build_artifact_manifest, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
+from .core.artifacts import build_artifact_manifest, compute_file_sha256, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
 from .core.handoff import build_handoff, write_handoff
 from .core.agent_protocol import validate_agent_handoff
 from .core.alignment_auditor import audit_question_alignment
 from .core.ids import make_stable_id
-from .core.store import init_project_state, load_project_state, transition_state
+from .core.provenance import (
+    authoritative_release,
+    build_project_policy,
+    classify_project_policy_state,
+    evaluate_scientific_eligibility,
+    is_eligible,
+    migrate_legacy_project_policy,
+    validate_provenance,
+    verify_project_policy_integrity,
+    validate_real_mode_dataset,
+    validate_real_mode_lock,
+)
+from .core.store import init_project_state, load_project_state, record_legacy_migration, transition_state
 from .core.task_packets import build_analysis_task_packet, build_review_task_packet, validate_task_packets
 from .core.validation import validate_no_unknown_verified_dataset
 from .evidence.synthesis import build_evidence_item, synthesize_claims
@@ -49,6 +61,18 @@ class PipelineError(RuntimeError):
     """Raised on an unrecoverable, non-scientific failure (bad inputs/config)."""
 
 
+class LegacyMigrationRequired(PipelineError):
+    """Gate 6 (R0-01 review-fix): a policy-less project whose ProjectState still
+    *references* a (now missing) ProjectPolicy.
+
+    This is the explicit, named alternative to bare-raising: auto-migrating such
+    a project to DEMO could silently relabel a once-REAL project, so the operator
+    must restore the policy or re-initialize.  ``.reason`` carries a machine
+    code; the message carries the actionable remediation."""
+
+    reason = "MIGRATION_REQUIRED"
+
+
 class Pipeline:
     def __init__(self, *, planner: Any = None, resources: Any = None) -> None:
         self.planner = planner or OfflineDeterministicPlanner()
@@ -56,13 +80,49 @@ class Pipeline:
 
     # -- public API ----------------------------------------------------------
 
-    def run(self, project_dir: str | Path, question: str | None = None) -> dict[str, Any]:
+    def run(self, project_dir: str | Path, question: str | None = None, execution_mode: str = "DEMO") -> dict[str, Any]:
         project_dir = Path(project_dir)
         state_file = project_dir / "state" / "project_state.json"
         if not state_file.exists():
             if not question:
                 raise PipelineError("a question is required to start a new project")
-            init_project_state(project_dir, question)
+            # The immutable ProjectPolicy is the authoritative source of mode.
+            policy = build_project_policy(project_dir.name, execution_mode)
+            write_object(project_dir, "project_policy", policy)
+            init_project_state(project_dir, question, execution_mode=execution_mode, project_policy_ref=policy["project_policy_id"])
+        # Gate 6: a project may predate R0-01 and have no ProjectPolicy at all.
+        # Classify it explicitly instead of bare-raising an integrity failure.
+        policy = read_object(project_dir, "project_policy", {})
+        state = load_project_state(project_dir)
+        classification = classify_project_policy_state(policy, state)
+        if classification == "MIGRATION_REQUIRED":
+            raise LegacyMigrationRequired(
+                f"project {project_dir.name!r} has no ProjectPolicy but ProjectState "
+                f"references project_policy_ref={state.get('project_policy_ref')!r}; "
+                "restore the ProjectPolicy or re-initialize the project — refusing to "
+                "auto-relabel a possibly-REAL project as DEMO."
+            )
+        if classification == "LEGACY_MIGRATABLE":
+            # One-time conservative migration: a pre-R0-01 project becomes DEMO.
+            policy = migrate_legacy_project_policy(project_dir.name)
+            write_object(project_dir, "project_policy", policy)
+            state = record_legacy_migration(project_dir, policy)
+        # The ProjectPolicy is immutable: recompute its integrity (hash/id) and
+        # require ProjectState to agree, so editing either file is detected.
+        integrity = verify_project_policy_integrity(policy, state)
+        if integrity:
+            raise PipelineError(f"project policy integrity failure: {integrity}")
+
+        # Gate 5 resume defence (R0-01 review-fix, Blocker 3): once a dataset is
+        # locked, a resume re-enters here *after* ``_lock_datasets`` and would
+        # otherwise reach compile/execution without re-checking the manifest.
+        # Re-verify the locked DatasetManifest against the materialized files
+        # before driving any further step, so tampering it between runs (emptying
+        # or altering checksums, deleting or adding a materialized file) cannot
+        # slip an unverified dataset through.  Enforced for every execution mode.
+        locked_manifest = read_object(project_dir, "dataset_manifest", {})
+        if locked_manifest.get("locked"):
+            self._verify_locked_manifest(project_dir, locked_manifest, policy.get("execution_mode", "DEMO"))
 
         # Drive guarded steps until a terminal/paused stage is reached.
         steps: list[tuple[str, Callable[[Path], None]]] = [
@@ -100,13 +160,28 @@ class Pipeline:
     def inspect(self, project_dir: str | Path) -> dict[str, Any]:
         project_dir = Path(project_dir)
         state = load_project_state(project_dir)
+        claims = load_claims(project_dir)
+        evidence_items = load_evidence_items(project_dir)
+        # Authoritative eligibility gate: recompute from the persisted decision +
+        # active policy; never trust the cached flag on a Claim/EvidenceItem.
+        release = authoritative_release(
+            read_object(project_dir, "scientific_eligibility_decision", {}),
+            policy=read_object(project_dir, "project_policy", {}),
+            claims=claims,
+            evidence_items=evidence_items,
+            artifact=read_object(project_dir, "registered_artifact", {}),
+            dataset_profile=read_object(project_dir, "dataset_profile", {}),
+        )
         return {
             "project_id": state["project_id"],
             "current_stage": state["current_stage"],
             "stage_history": state.get("stage_history", []),
+            "execution_mode": state.get("execution_mode", "DEMO"),
+            "release_status": release["release_status"],
+            "scientific_output_eligible": release["scientific_output_eligible"],
             "research_spec": read_object(project_dir, "research_spec", {}),
-            "claims": load_claims(project_dir),
-            "evidence_items": load_evidence_items(project_dir),
+            "claims": claims,
+            "evidence_items": evidence_items,
             "qc_reports": load_qc_reports(project_dir),
             "artifacts": load_artifact_registry(project_dir),
             "alignment": read_object(project_dir, "question_alignment_report", {}),
@@ -144,12 +219,21 @@ class Pipeline:
     def _discover_resources(self, project_dir: Path) -> None:
         spec = read_object(project_dir, "research_spec")
         plan = read_object(project_dir, "evidence_plan")
+        execution_mode = self._execution_mode(project_dir)
         candidates = self.resources.discover(spec, plan)
         # Hard guard: a verified dataset may never come from a mock/placeholder source.
         for c in candidates:
             errors = validate_no_unknown_verified_dataset(c)
+            errors += validate_provenance(c)
             if errors:
-                raise PipelineError(f"resource discovery produced an invalid verified dataset: {errors}")
+                raise PipelineError(f"resource discovery produced an invalid/ inconsistent dataset: {errors}")
+            # R0-01: a REAL run may not be backed by a synthetic fixture; stop
+            # conservatively *before* any dataset is locked.
+            policy_errors = validate_real_mode_dataset(c, execution_mode)
+            if policy_errors:
+                write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": policy_errors, "candidate": c.get("resource_candidate_id", "")})
+                self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {policy_errors}")
+                return
         profile = self.resources.profile(candidates[0])
         write_object(project_dir, "resource_candidates", candidates)
         ref = write_object(project_dir, "dataset_profile", profile)
@@ -159,14 +243,29 @@ class Pipeline:
     def _lock_datasets(self, project_dir: Path) -> None:
         profile = read_object(project_dir, "dataset_profile")
         subs = read_object(project_dir, "subquestions")
+        execution_mode = self._execution_mode(project_dir)
         inputs_dir = project_dir / "state" / "inputs"
         files = self.resources.materialize(profile, str(inputs_dir))
         checksums = {name: build_artifact_manifest(project_dir, Path(path).relative_to(project_dir), producer="resource_discovery_agent", artifact_type="input_dataset", expected_by_task_ids=[], supports_subquestion_ids=[])["checksum_sha256"] for name, path in files.items()}
+        # R0-01 gate 5: a REAL run may only lock a genuinely checksum-verified
+        # dataset.  Recompute every file digest independently of the recorded
+        # checksums so a tampered/missing input is caught *before* the lock.
+        recomputed = {name: compute_file_sha256(path) for name, path in files.items()}
+        lock_errors = validate_real_mode_lock(profile, execution_mode, file_checksums=checksums, recomputed_checksums=recomputed)
+        if lock_errors:
+            write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": lock_errors, "dataset_id": profile.get("dataset_id", "")})
+            self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {lock_errors}")
+            return
         manifest = {
             "dataset_manifest_id": make_stable_id("dataset_manifest", {"dataset_id": profile["dataset_id"], "checksums": checksums}),
             "dataset_id": profile["dataset_id"],
             "accession": profile.get("accession", ""),
             "source_status": profile.get("source_status", ""),
+            # Gate 5: the manifest must persist the four provenance elements that
+            # the lock decision rests on, not just the checksums.
+            "source_class": profile.get("source_class", "LEGACY_UNKNOWN"),
+            "retrieval_mode": profile.get("retrieval_mode", "LOCAL_CACHE"),
+            "verification_level": profile.get("verification_level", "UNVERIFIED"),
             "samples": [{"group": g, "n": n} for g, n in profile.get("group_sizes", {}).items()],
             "excluded_samples": [],
             "file_checksums": checksums,
@@ -299,6 +398,24 @@ class Pipeline:
             self._advance(project_dir, "INSUFFICIENT_DATA", "result_auditor", [], f"No QC-passed artifact for evidence: {gate_errors or artifact.get('qc_status')}")
             return
 
+        # R0-01: recompute scientific eligibility from the source objects (never
+        # trust an eligible flag already on an object).  In DEMO/TEST this is
+        # INELIGIBLE, so the loop still completes but produces *demonstration*
+        # evidence/claims that can never enter the formal scientific pool.
+        policy = read_object(project_dir, "project_policy", {})
+        decision = evaluate_scientific_eligibility(
+            execution_mode=policy.get("execution_mode", "DEMO"),
+            source_class=profile.get("source_class", "LEGACY_UNKNOWN"),
+            retrieval_mode=profile.get("retrieval_mode", "LOCAL_CACHE"),
+            verification_level=profile.get("verification_level", "UNVERIFIED"),
+            qc_status=artifact.get("qc_status", ""),
+            evaluated_input_refs=[artifact.get("artifact_id", ""), profile.get("dataset_profile_id", "")],
+            evaluated_input_hashes=[artifact.get("checksum_sha256", "")],
+            policy_id=policy.get("project_policy_id", ""),
+            policy_version=policy.get("policy_version", 1),
+        )
+        write_object(project_dir, "scientific_eligibility_decision", decision)
+
         evidence = build_evidence_item(
             deg_table_path=str(project_dir / artifact["path"]),
             method_result=result,
@@ -309,9 +426,10 @@ class Pipeline:
             subquestion_ids=[s["subquestion_id"] for s in subs],
             contract=contract,
             project_ceiling=ceiling,
+            eligibility_decision=decision,
         )
         write_evidence_item(project_dir, evidence)
-        claims = synthesize_claims(evidence_items=[evidence], research_spec=read_object(project_dir, "research_spec"), scope_bundle=scope, project_ceiling=ceiling)
+        claims = synthesize_claims(evidence_items=[evidence], research_spec=read_object(project_dir, "research_spec"), scope_bundle=scope, project_ceiling=ceiling, eligibility_decision=decision)
         for claim in claims:
             write_claim(project_dir, claim)
         ev_ref = {"object_type": "EvidenceItem", "object_id": evidence["evidence_item_id"], "audit_status": "audited"}
@@ -349,6 +467,62 @@ class Pipeline:
         self._advance(project_dir, "COMPLETED", "system", [], "Closed loop completed end-to-end.")
 
     # -- helpers -------------------------------------------------------------
+
+    def _verify_locked_manifest(self, project_dir: Path, manifest: dict[str, Any], execution_mode: str) -> None:
+        """Re-verify an already-locked DatasetManifest on resume (Blocker 3).
+
+        The lock-time gate in :meth:`_lock_datasets` is not sufficient on its own:
+        a resume from ``DATASETS_LOCKED`` (or any later stage) would otherwise
+        continue to compile/execution without re-checking the persisted manifest.
+        This recomputes every materialized file's digest and rejects an empty
+        checksum set, an empty/missing/mismatched checksum, or an unexpected extra
+        materialized file — for *all* execution modes (a corrupt locked manifest is
+        corrupt regardless of mode).  REAL additionally re-runs the full lock gate.
+        """
+        checksums = manifest.get("file_checksums", {})
+        materialized = manifest.get("materialized_files", {})
+        errors: list[str] = []
+        if not checksums:
+            errors.append("locked dataset_manifest has empty file_checksums")
+        recomputed: dict[str, str] = {}
+        for name, rel in materialized.items():
+            fpath = project_dir / rel
+            if not fpath.exists():
+                errors.append(f"materialized file {name!r} ({rel}) is missing on disk")
+            else:
+                recomputed[name] = compute_file_sha256(str(fpath))
+        for name, digest in checksums.items():
+            if not digest:
+                errors.append(f"locked file {name!r} has an empty recorded checksum")
+            actual = recomputed.get(name)
+            if actual is None:
+                if name not in materialized:
+                    errors.append(f"locked file {name!r} has no materialized file to verify")
+            elif digest and actual != digest:
+                errors.append(f"locked dataset_manifest checksum mismatch for {name!r}")
+        for name in recomputed:
+            if name not in checksums:
+                errors.append(f"unexpected materialized file {name!r} is not covered by the locked manifest checksums")
+        # REAL-mode defence in depth: re-apply the full lock policy gate.
+        if execution_mode == "REAL":
+            for e in validate_real_mode_lock(
+                {
+                    "verification_level": manifest.get("verification_level", "UNVERIFIED"),
+                    "retrieval_mode": manifest.get("retrieval_mode", "LOCAL_CACHE"),
+                },
+                execution_mode,
+                file_checksums=checksums,
+                recomputed_checksums=recomputed,
+            ):
+                if e not in errors:
+                    errors.append(e)
+        if errors:
+            raise PipelineError(f"locked dataset manifest failed re-verification on resume: {errors}")
+
+    def _execution_mode(self, project_dir: Path) -> str:
+        """Authoritative execution mode comes from the immutable ProjectPolicy."""
+        policy = read_object(project_dir, "project_policy", {})
+        return policy.get("execution_mode", "DEMO")
 
     def _advance(self, project_dir: Path, next_stage: str, actor: str, object_refs: list[dict[str, Any]], message: str) -> None:
         transition_state(project_dir, next_stage, next_stage, actor, object_refs, message)

@@ -22,9 +22,9 @@ def _events_path(project_dir: str | Path) -> Path:
     return _v5_dir(project_dir) / "events.jsonl"
 
 
-def init_project_state(project_dir: str | Path, user_question: str) -> dict[str, Any]:
+def init_project_state(project_dir: str | Path, user_question: str, *, execution_mode: str = "DEMO", project_policy_ref: str = "") -> dict[str, Any]:
     project_id = Path(project_dir).name
-    state = build_initial_state(project_id=project_id, user_question=user_question)
+    state = build_initial_state(project_id=project_id, user_question=user_question, execution_mode=execution_mode, project_policy_ref=project_policy_ref)
     _write_state(project_dir, state)
     event = build_event(
         project_id=project_id,
@@ -34,7 +34,35 @@ def init_project_state(project_dir: str | Path, user_question: str) -> dict[str,
         next_stage="INTAKE",
         object_refs=[{"object_type": "ProjectState", "object_id": state["project_state_id"]}],
         message="Initialized canonical v5 project state.",
-        payload={"user_question": user_question},
+        payload={"user_question": user_question, "execution_mode": execution_mode, "project_policy_ref": project_policy_ref},
+    )
+    append_event(project_dir, event)
+    return state
+
+
+def record_legacy_migration(project_dir: str | Path, policy: dict[str, Any]) -> dict[str, Any]:
+    """One-time conservative migration of a pre-R0-01 project (Gate 6).
+
+    Binds the freshly built DEMO ``policy`` to the existing ProjectState: forces
+    ``execution_mode=DEMO`` (a legacy project can never be trusted as REAL),
+    points ``project_policy_ref`` at the new policy, and stamps the audit marker
+    ``migrated_from_legacy`` (mirrors ``provenance.LEGACY_MIGRATION_MARKER``).
+    The migration is recorded as an explicit event so it is never silent.
+    """
+    state = load_project_state(project_dir)
+    state["execution_mode"] = "DEMO"
+    state["project_policy_ref"] = policy["project_policy_id"]
+    state["migrated_from_legacy"] = True
+    _write_state(project_dir, state)
+    event = build_event(
+        project_id=state["project_id"],
+        event_type="LEGACY_PROJECT_MIGRATED",
+        actor="system",
+        previous_stage=state["current_stage"],
+        next_stage=state["current_stage"],
+        object_refs=[{"object_type": "ProjectPolicy", "object_id": policy["project_policy_id"]}],
+        message="Migrated legacy (pre-R0-01) project to a conservative DEMO ProjectPolicy.",
+        payload={"execution_mode": "DEMO", "project_policy_ref": policy["project_policy_id"]},
     )
     append_event(project_dir, event)
     return state

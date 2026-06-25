@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.ids import make_stable_id
+from ..core.provenance import authoritative_release, describe_dataset_origin
 from ..core.schemas import now_iso
 from ..execution.objects import read_object
 from ..execution.runs import load_claims, load_evidence_items, load_qc_reports, load_task_runs
@@ -30,8 +31,48 @@ CONSISTENCY_LEVELS = [
 ]
 
 
-def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
+class FormalExportRefused(Exception):
+    """Raised when a *formal* export is requested for a project whose
+    authoritative release is ``DEMONSTRATION_ONLY``.  No formal export artifact
+    is produced — the caller must surface a non-zero exit (Gate 4)."""
+
+    def __init__(self, release: dict[str, Any]) -> None:
+        self.release = release
+        reasons = ", ".join(release.get("reasons", [])) or "INELIGIBLE"
+        super().__init__(f"formal export refused: release is {release.get('release_status')} ({reasons})")
+
+
+def compute_project_release(project_dir: str | Path) -> dict[str, Any]:
+    """Recompute the project's authoritative release through the single gate
+    (persisted ScientificEligibilityDecision + active ProjectPolicy), without
+    building any bundle.  Lets the CLI gate ``export --formal`` *before* it would
+    write any artifact."""
     project_dir = Path(project_dir)
+    policy = read_object(project_dir, "project_policy", {})
+    return authoritative_release(
+        read_object(project_dir, "scientific_eligibility_decision", {}),
+        policy=policy,
+        claims=load_claims(project_dir),
+        evidence_items=load_evidence_items(project_dir),
+        artifact=read_object(project_dir, "registered_artifact", {}),
+        dataset_profile=read_object(project_dir, "dataset_profile", {}),
+    )
+
+
+def build_reproduction_bundle(project_dir: str | Path, *, formal: bool = False) -> dict[str, Any]:
+    """Build the reproduction bundle.
+
+    A plain (``formal=False``) export always carries the ``DEMONSTRATION_ONLY``
+    watermark for an ineligible project.  A ``formal=True`` export is the Gate 4
+    formal-output door: if the authoritative release is not eligible it raises
+    :class:`FormalExportRefused` *before writing anything*, so no formal export
+    artifact can ever be produced for a demonstration run.
+    """
+    project_dir = Path(project_dir)
+    if formal:
+        guard = compute_project_release(project_dir)
+        if not guard["scientific_output_eligible"]:
+            raise FormalExportRefused(guard)
     bundle = project_dir / "reproduction_bundle"
     if bundle.exists():
         shutil.rmtree(bundle)
@@ -44,6 +85,20 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
     research_spec = read_object(project_dir, "research_spec", {})
     workflow = read_object(project_dir, "workflow_plan", {})
     artifact = read_object(project_dir, "registered_artifact", {})
+    policy = read_object(project_dir, "project_policy", {})
+    execution_mode = policy.get("execution_mode", "DEMO")
+    # Authoritative eligibility gate: recompute from the persisted decision +
+    # active policy; never trust the cached flag on a Claim/EvidenceItem.
+    release = authoritative_release(
+        read_object(project_dir, "scientific_eligibility_decision", {}),
+        policy=policy,
+        claims=load_claims(project_dir),
+        evidence_items=load_evidence_items(project_dir),
+        artifact=artifact,
+        dataset_profile=read_object(project_dir, "dataset_profile", {}),
+    )
+    eligible = release["scientific_output_eligible"]
+    release_status = release["release_status"]
 
     # Copy locked inputs and produced outputs into the bundle.
     for _name, rel in manifest.get("materialized_files", {}).items():
@@ -94,16 +149,34 @@ def build_reproduction_bundle(project_dir: str | Path) -> dict[str, Any]:
         "\nThis bundle is offline and deterministic; a correct re-run is BITWISE_IDENTICAL.\n"
     )
     (bundle / "run_order.md").write_text(run_order, encoding="utf-8")
+    demo_banner = (
+        f"> ⚠️ **{release_status}** (execution_mode = `{execution_mode}`). This bundle reproduces a "
+        f"DEMONSTRATION run; its claims are NOT formal scientific evidence and must not be exported as research results.\n\n"
+        if not eligible
+        else f"> execution_mode = `{execution_mode}` · release_status = `{release_status}`.\n\n"
+    )
+    # Gate 8: the inputs line is generated from the *actual* source_class of the
+    # locked dataset, never a hard-coded "committed fixture" string.  A REAL run
+    # backed by real data must not be described as a fixture.
+    origin_line = describe_dataset_origin(
+        manifest.get("source_class", "LEGACY_UNKNOWN"),
+        accession=str(manifest.get("accession", "") or ""),
+    )
     (bundle / "README.md").write_text(
         f"# Reproduction bundle for project `{project_dir.name}`\n\n"
-        "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
-        "Inputs are a committed fixture, not a real biological dataset.\n",
+        + demo_banner
+        + "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
+        + origin_line + "\n",
         encoding="utf-8",
     )
 
     manifest_obj = {
         "reproduction_bundle_id": make_stable_id("reproduction_bundle", {"project_id": project_dir.name, "checksums": checksums}),
         "project_id": project_dir.name,
+        "execution_mode": execution_mode,
+        "release_status": release_status,
+        "scientific_output_eligible": eligible,
+        "export_type": "FORMAL" if formal else "DEMONSTRATION",
         "bundle_dir": "reproduction_bundle",
         "files": sorted(checksums.keys()),
         "checksums_sha256": checksums,

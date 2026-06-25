@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.ids import make_stable_id
+from ..core.provenance import verification_at_least
 from ..core.schemas import DatasetProfile, ResourceCandidate
 
 _FIXTURE_DIR = Path(__file__).resolve().parent.parent / "fixtures" / "bulk_deg_demo"
@@ -30,13 +31,19 @@ class FixtureResourceAdapter:
         self.card = json.loads((self.fixture_dir / "dataset_card.json").read_text(encoding="utf-8"))
 
     def discover(self, research_spec: dict[str, Any], evidence_plan: dict[str, Any]) -> list[dict[str, Any]]:
+        vlevel = self.card.get("verification_level", "UNVERIFIED")
         candidate = ResourceCandidate(
             resource_name=self.card["dataset_id"],
             resource_type="dataset_candidate",
-            verified=True,
+            # ``verified`` is only a derived convenience now; it never implies
+            # scientific eligibility (this is a SYNTHETIC_FIXTURE).
+            verified=verification_at_least(vlevel, "METADATA_VERIFIED"),
             source_status=self.card["source_status"],
             status="candidate",
             accession=self.card["accession"],
+            source_class=self.card.get("source_class", "SYNTHETIC_FIXTURE"),
+            retrieval_mode=self.card.get("retrieval_mode", "LOCAL_CACHE"),
+            verification_level=vlevel,
         )
         data = asdict(candidate)
         data["resource_candidate_id"] = make_stable_id(
@@ -59,7 +66,10 @@ class FixtureResourceAdapter:
         data["dataset_profile_id"] = make_stable_id("dataset_profile", {"dataset_id": self.card["dataset_id"]})
         data["accession"] = self.card["accession"]
         data["source_status"] = self.card["source_status"]
-        data["verified"] = self.card["verified"]
+        data["source_class"] = self.card.get("source_class", "SYNTHETIC_FIXTURE")
+        data["retrieval_mode"] = self.card.get("retrieval_mode", "LOCAL_CACHE")
+        data["verification_level"] = self.card.get("verification_level", "UNVERIFIED")
+        data["verified"] = verification_at_least(data["verification_level"], "METADATA_VERIFIED")
         data["platform"] = self.card.get("platform", "")
         data["group_sizes"] = self.card["group_sizes"]
         data["comparison_groups"] = self.card["comparison_groups"]

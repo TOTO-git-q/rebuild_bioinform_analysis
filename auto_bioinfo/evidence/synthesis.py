@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from ..core.ids import make_stable_id
+from ..core.provenance import is_eligible
 from ..core.schemas import CLAIM_LEVELS, Claim, EvidenceItem
 from ..core.validation import validate_claim_ceiling
 
@@ -45,6 +46,7 @@ def build_evidence_item(
     subquestion_ids: list[str],
     contract: dict[str, Any],
     project_ceiling: str,
+    eligibility_decision: dict[str, Any],
 ) -> dict[str, Any]:
     rows = read_deg_table(deg_table_path)
     sig = [r for r in rows if r["significant"]]
@@ -95,6 +97,11 @@ def build_evidence_item(
             "Single dataset; results are not independently replicated.",
         ]
         + list(dataset_profile.get("known_limitations", [])),
+        mode=eligibility_decision["execution_mode"],
+        release_status=eligibility_decision["release_status"],
+        source_class=eligibility_decision["source_class"],
+        scientific_eligibility_decision_id=eligibility_decision["scientific_eligibility_decision_id"],
+        scientific_output_eligible=is_eligible(eligibility_decision),
     )
     from dataclasses import asdict
 
@@ -107,6 +114,7 @@ def synthesize_claims(
     research_spec: dict[str, Any],
     scope_bundle: dict[str, Any],
     project_ceiling: str,
+    eligibility_decision: dict[str, Any],
 ) -> list[dict[str, Any]]:
     claims: list[dict[str, Any]] = []
     for ev in evidence_items:
@@ -139,6 +147,10 @@ def synthesize_claims(
             },
             limitations=list(ev.get("limitations", [])),
             status=support,
+            mode=eligibility_decision["execution_mode"],
+            release_status=eligibility_decision["release_status"],
+            scientific_eligibility_decision_id=eligibility_decision["scientific_eligibility_decision_id"],
+            scientific_output_eligible=is_eligible(eligibility_decision),
         )
         from dataclasses import asdict
 

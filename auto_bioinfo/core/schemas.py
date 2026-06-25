@@ -118,6 +118,12 @@ class ResourceCandidate:
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "candidate"
     accession: str = ""
+    # R0-01 truthful-execution provenance (four orthogonal facts). ``verified``
+    # is retained only as a derived convenience and must not be trusted alone.
+    source_class: str = "LEGACY_UNKNOWN"
+    retrieval_mode: str = "LOCAL_CACHE"
+    verification_level: str = "UNVERIFIED"
+    legacy_verified_assertion: bool = False
 
 
 @dataclass
@@ -131,6 +137,10 @@ class DatasetProfile:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "profiled"
+    source_class: str = "LEGACY_UNKNOWN"
+    retrieval_mode: str = "LOCAL_CACHE"
+    verification_level: str = "UNVERIFIED"
+    legacy_verified_assertion: bool = False
 
 
 @dataclass
@@ -297,6 +307,13 @@ class EvidenceItem:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "audited"
+    # R0-01: truthful-execution markers. ``scientific_output_eligible`` is a
+    # cached copy of the referenced decision; the admission gate recomputes it.
+    mode: str = "DEMO"
+    release_status: str = "DEMONSTRATION_ONLY"
+    source_class: str = "LEGACY_UNKNOWN"
+    scientific_eligibility_decision_id: str = ""
+    scientific_output_eligible: bool = False
 
 
 @dataclass
@@ -337,6 +354,12 @@ class Claim:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    # R0-01: a Demo claim is allowed (keeps E2E value) but is never eligible and
+    # never enters the formal scientific pool / export channel.
+    mode: str = "DEMO"
+    release_status: str = "DEMONSTRATION_ONLY"
+    scientific_eligibility_decision_id: str = ""
+    scientific_output_eligible: bool = False
 
 
 @dataclass
@@ -383,3 +406,6 @@ class ProjectState:
     updated_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "active"
+    # Projection of the immutable ProjectPolicy; the policy remains authoritative.
+    execution_mode: str = "DEMO"
+    project_policy_ref: str = ""
