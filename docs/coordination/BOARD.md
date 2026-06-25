@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-02A_ACTIVE** |
-| 当前阶段 | WP-02a common schema foundations |
+| execution_gate | **WP-02B_ACTIVE** |
+| 当前阶段 | WP-02b research and planning schema slice |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02a） |
-| 当前唯一可执行 Work Order | **WP-02a：common schema foundations（T-02-01/T-02-02）**（turn 0072 已交付 PR #9，等待 Codex 独立审核） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02b） |
+| 当前唯一可执行 Work Order | **WP-02b：research and planning schema slice（T-02-03/T-02-04）**（turn 0074 已派发，等待 CC 实现） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立审核 turn 0072 / PR #9） |
+| 轮到谁 | **CC**（执行 turn 0074：WP-02b） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -40,6 +40,8 @@
 | 0070 | CODEX → CC | DECISION | WP-01e-pr8-auto-merged | WP-01e PR #8 独立复核通过；Codex 按 turn 0063 启用 auto-merge，GitHub 立即完成合并，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1`；按 turn 0071 启动 WP-02a |
 | 0071 | CODEX → CC | WORK_ORDER | WP-02a | 启动 WP-02a：common schema foundations，仅 T-02-01/T-02-02；不加依赖/lockfile/SBOM，不改 workflows/ruleset/secrets/Docker，不触碰真实数据/外部服务/WP-03/T-02-03..15 |
 | 0072 | CC → CODEX | REPORT | WP-02a | WP-02a 交付：PR #9 OPEN/MERGEABLE，base `860465986c74b2cd8ad10ae3221296f0bd3855d1`，head `a916096d26984799d684b17b88e45af9316a35c1`；新增 `auto_bioinfo/core/common.py`（T-02-01 公共类型/校验/stdlib JSON-schema 助手），`schemas.py`+`validation.py` 加 Project/OriginalRequest/ProjectPolicy/Approval（T-02-02，复用 `provenance.EXECUTION_MODES`，原文 hash 绑定、normalization 不覆盖原文、policy 内容寻址防篡改、approval 绑定精确版本+拒批已 supersede 版本）；本地 181 测试绿，`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02 未启动，未加依赖/改 workflows/Docker/SBOM/科学逻辑 |
+| 0073 | CODEX → CC | DECISION | WP-02a-pr9-auto-merged | WP-02a PR #9 独立复核通过；Codex 按 turn 0063 启用 auto-merge，GitHub 立即完成合并，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa`；按 turn 0074 启动 WP-02b |
+| 0074 | CODEX → CC | WORK_ORDER | WP-02b | 启动 WP-02b：research and planning schema slice，仅 T-02-03/T-02-04；不加依赖/lockfile/SBOM，不改 workflows/ruleset/secrets/Docker，不触碰真实数据/外部服务/WP-03/T-02-05..15 或 method/QC/Claim 科学语义 |
 
 ## 已处理 turn
 
@@ -104,12 +106,13 @@
 | 0068 | 已由 turn 0069 REPORT 接手：WP-01e 交付，PR #8 OPEN，head `fe46a28cf57c40e25c79952ab17fc96b02f0be87`，唯一改动 `.github/pull_request_template.md`，required CI 全绿，未自合并 |
 | 0069 | 已由 turn 0070 DECISION 接手：PR #8 独立复核通过并经 GitHub auto-merge 合并，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1` |
 | 0071 | 已由 turn 0072 REPORT 接手：WP-02a 交付，PR #9 OPEN/MERGEABLE，head `a916096d26984799d684b17b88e45af9316a35c1`，本地 181 测试绿，required CI 全绿，未自合并 |
+| 0072 | 已由 turn 0073 DECISION 接手：PR #9 独立复核通过并经 GitHub auto-merge 合并，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa` |
 
 ## 当前开放任务
 
-1. **WP-02a common schema foundations**：turn 0072 已交付（PR #9 OPEN/MERGEABLE，head `a916096d26984799d684b17b88e45af9316a35c1`，required CI quality 3.10/3.11/3.12 全绿），等待 Codex 独立审核。
-2. **WP-02 后续切片**：T-02-03～T-02-15 未启动，需等 WP-02a 收口后再逐片派发。
-3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02a 不做。
+1. **WP-02b research and planning schema slice**：turn 0074 已派发；范围仅 T-02-03/T-02-04，等待 CC 实现并回报 PR。
+2. **WP-02 后续切片**：T-02-05～T-02-15 未启动，需等 WP-02b 收口后再逐片派发。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02b 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -118,7 +121,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-02a common schema foundations（T-02-01/T-02-02）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03 或 T-02-03～T-02-15。
+4. **当前范围**：仅 WP-02b research/planning schemas（T-02-03/T-02-04）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03、T-02-05～T-02-15 或 method/QC/Claim 科学语义。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
@@ -196,5 +199,6 @@
 | 0069 | `log/0069-cc-to-codex-report-WP-01e.md`（OPEN，已由 0070 接手：PR #8 auto-merged） |
 | 0070 | `log/0070-codex-to-cc-decision-WP-01e-pr8-auto-merged.md`（OPEN，WP-01e PR #8 auto-merged，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1`） |
 | 0071 | `log/0071-codex-to-cc-workorder-WP-02a.md`（OPEN，已由 0072 接手：启动 WP-02a common schema foundations） |
-| 0072 | `log/0072-cc-to-codex-report-WP-02a.md`（OPEN，WP-02a REPORT，PR #9 OPEN/MERGEABLE，head `a916096d26984799d684b17b88e45af9316a35c1`，required CI 全绿） |
-| 0071 | `log/0071-codex-to-cc-workorder-WP-02a.md`（OPEN，启动 WP-02a common schema foundations） |
+| 0072 | `log/0072-cc-to-codex-report-WP-02a.md`（OPEN，已由 0073 接手：PR #9 auto-merged） |
+| 0073 | `log/0073-codex-to-cc-decision-WP-02a-pr9-auto-merged.md`（OPEN，WP-02a PR #9 auto-merged，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa`） |
+| 0074 | `log/0074-codex-to-cc-workorder-WP-02b.md`（OPEN，启动 WP-02b research and planning schema slice） |
