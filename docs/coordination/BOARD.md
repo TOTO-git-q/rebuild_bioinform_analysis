@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **WP-01D_ACTIVE** |
-| 当前阶段 | WP-01d license / dependency inventory |
+| 当前阶段 | WP-01d 已交付（PR #7 OPEN），等待 Codex 独立审核 |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01d：license / dependency inventory / SBOM entry**（turn 0061 已派发） |
+| 当前唯一可执行 Work Order | **WP-01d：license / dependency inventory / SBOM entry**（turn 0061 已派发 → turn 0064 REPORT 交付，PR #7） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 turn 0061：WP-01d） |
+| 轮到谁 | **CODEX**（独立审核 turn 0064 / PR #7；审核通过且无硬停点则启用 auto-merge） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -33,6 +33,7 @@
 | 0061 | CODEX → CC | WORK_ORDER | WP-01d | 启动 WP-01d：license / dependency inventory / SBOM entry；不改 `.github/workflows`、Docker、migrations、PR template、WP-02 或产品/科学逻辑 |
 | 0062 | CC → CEO | PROPOSAL | governance-tiered-merge-autonomy | CEO-requested governance input；由 turn 0063 接手保护分支 + PR/CI/auto-merge 机制 |
 | 0063 | CODEX → CC | DECISION | auto-merge-protected-base | CEO 裁定 base 改走 PR + required CI + GitHub auto-merge；Codex 不再直接合并 base，保护拦截/403 属预期，不得绕过 |
+| 0064 | CC → CODEX | REPORT | WP-01d | WP-01d 交付：PR #7 OPEN/MERGEABLE，head `56b635f86c5713acd50ff2a2e4419cd0b26f73b5`，新增 `LICENSE`(MIT) + `ci/sbom.py`(`make sbom`，离线纯标准库 CycloneDX) + `docs/audit/dependency_inventory.md` + `tests/test_sbom_generator.py`，未新增任何依赖；本地 153 测试绿，PR required CI quality 3.10/3.11/3.12 全绿，`git diff --check` clean；未自合并，R0-02 未启动 |
 
 ## 已处理 turn
 
@@ -89,11 +90,12 @@
 | 0057 | 已由 turn 0058 DECISION 接手：PR #6 = CHANGES_REQUESTED；需添加显式 `permissions: contents: read` 并重跑 CI |
 | 0058 | 已由 turn 0059 REPORT 接手：review fix 交付，PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，加 `permissions: contents: read`，GitHub Actions 全绿，等独立复核 |
 | 0059 | 已由 turn 0060 DECISION 接手：独立复核通过，PR #6 已机械合并，merge commit `7bac3b26a850ffe5da842c8a61c530d102d74fb2` |
+| 0061 | 已由 turn 0064 REPORT 接手：WP-01d 交付，PR #7 OPEN，head `56b635f86c5713acd50ff2a2e4419cd0b26f73b5`，本地 153 测试绿，PR required CI 全绿，未自合并 |
 | 0062 | 已由 turn 0063 DECISION 接手：CEO-requested governance input；合并机制改为 PR + required CI + GitHub auto-merge |
 
 ## 当前开放任务
 
-1. **WP-01d license / dependency inventory / SBOM entry**：turn 0061 已派发，等待 CC 实现并回报 PR。
+1. **WP-01d license / dependency inventory / SBOM entry**：turn 0061 已派发 → turn 0064 REPORT 交付（PR #7 OPEN/MERGEABLE，required CI 全绿），等待 Codex 独立审核 + 启用 auto-merge。
 2. **WP-01e**：未启动；等 WP-01d 合并并记录 merge SHA 后继续。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 CI WO 不做。
 4. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
@@ -172,6 +174,7 @@
 | 0058 | `log/0058-codex-to-cc-decision-WP-01-ci-pr6-changes-requested.md`（OPEN，已由 0059 接手：PR #6 CHANGES_REQUESTED → review fix 已交付） |
 | 0059 | `log/0059-cc-to-codex-report-WP-01-ci-pr6-review-fix.md`（OPEN，WP-01 CI review fix REPORT，PR #6 head `98907ea3`，GitHub Actions 全绿） |
 | 0060 | `log/0060-codex-to-cc-decision-WP-01-ci-pr6-merged.md`（OPEN，WP-01 CI PR #6 merged，merge commit `7bac3b26a850ffe5da842c8a61c530d102d74fb2`） |
-| 0061 | `log/0061-codex-to-cc-workorder-WP-01d.md`（OPEN，启动 WP-01d license / dependency inventory / SBOM entry） |
+| 0061 | `log/0061-codex-to-cc-workorder-WP-01d.md`（OPEN，已由 0064 接手：启动 WP-01d license / dependency inventory / SBOM entry） |
 | 0062 | `log/0062-cc-to-ceo-proposal-tiered-merge-autonomy.md`（OPEN，CEO-requested governance input；auto-merge 机制由 0063 接手） |
 | 0063 | `log/0063-codex-to-cc-decision-auto-merge-protected-base.md`（OPEN，base 保护 + PR/CI/auto-merge 合并机制裁定） |
+| 0064 | `log/0064-cc-to-codex-report-WP-01d.md`（OPEN，WP-01d REPORT，PR #7 OPEN/MERGEABLE，head `56b635f8`，153 测试绿，required CI 全绿） |
