@@ -25,6 +25,23 @@ CLAIM_LEVELS = [
     "experimentally_validated_target",
 ]
 
+# --- WP-02b / T-02-03..04: research & planning vocabularies ------------------
+
+# Lifecycle of a recorded ambiguity: an unresolved unknown, an explicitly stated
+# working assumption (with a recorded default), or a closed/answered item.
+AMBIGUITY_STATES = ("open", "assumed", "resolved")
+
+# Status of an ontology mapping.  ``unresolved`` keeps an unmapped term visible
+# instead of inventing an identifier; ``ambiguous`` means competing candidates.
+ONTOLOGY_MAPPING_STATES = ("mapped", "ambiguous", "unresolved")
+# A mapping below this confidence may not be recorded as a resolved fact; it must
+# be surfaced as ``ambiguous``/``unresolved`` instead of treated as certain.
+ONTOLOGY_CONFIDENCE_FLOOR = 0.5
+
+# Kinds of evidence shortfall and the append-only states a gap moves through.
+EVIDENCE_GAP_TYPES = ("missing", "insufficient", "unverifiable")
+EVIDENCE_GAP_STATES = ("open", "mitigated", "accepted")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -64,6 +81,9 @@ class ResearchSpec:
     assumptions: list[str] = field(default_factory=list)
     open_questions: list[str] = field(default_factory=list)
     user_constraints: list[str] = field(default_factory=list)
+    # Link to the AmbiguityReport that records *why* fields were left empty; the
+    # spec never guesses, it points at the recorded unknowns.
+    ambiguity_report_id: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -74,6 +94,16 @@ class ResearchSpec:
 
 @dataclass
 class SubQuestion:
+    """A single-purpose research sub-question bound to its parent ResearchSpec.
+
+    Each sub-question must express exactly one relationship (the single-purpose
+    rule, T-02-04); compound questions are split before they are recorded.  The
+    optional ``purpose``/``evidence_type``/``claim_ceiling`` fields make the one
+    purpose, its evidence axis, and its hard claim ceiling explicit, and
+    ``parent_subquestion_id`` records a parent/child relationship without
+    inventing one.
+    """
+
     research_spec_id: str
     question: str
     schema_version: str = CANONICAL_SCHEMA_VERSION
@@ -81,6 +111,10 @@ class SubQuestion:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    purpose: str = ""
+    evidence_type: str = ""
+    parent_subquestion_id: str = ""
+    claim_ceiling: str = "association"
 
     def to_dict(self) -> dict[str, Any]:
         data = asdict(self)
@@ -91,19 +125,43 @@ class SubQuestion:
 
 @dataclass
 class ScopeBundle:
+    """The resolved analysis scope: species/tissue/condition/comparison axes.
+
+    ``comparisons`` carries the critical contrast(s) the question asks about; an
+    empty or self-contradictory critical scope is rejected by
+    :func:`auto_bioinfo.core.validation.validate_scope_bundle` rather than being
+    silently completed.
+    """
+
     research_spec_id: str
     species: list[str]
     tissues: list[str]
     conditions: list[str]
+    comparisons: list[str] = field(default_factory=list)
     schema_version: str = CANONICAL_SCHEMA_VERSION
     scope_bundle_id: str = ""
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
 
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["scope_bundle_id"]:
+            data["scope_bundle_id"] = make_stable_id("scope_bundle", {"research_spec_id": self.research_spec_id})
+        return data
+
 
 @dataclass
 class EvidencePlan:
+    """How a sub-question's evidence will be gathered, with the claim ceiling and
+    any *planned* evidence gaps made explicit.
+
+    ``evidence_axes`` and ``max_claim_level`` are mandatory; ``planned_gaps`` and
+    ``stop_conditions`` keep known shortfalls and stop reasons visible instead of
+    quietly proceeding (validated by
+    :func:`auto_bioinfo.core.validation.validate_evidence_plan`).
+    """
+
     research_spec_id: str
     evidence_axes: list[str]
     max_claim_level: str = "association"
@@ -112,6 +170,220 @@ class EvidencePlan:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    subquestion_ids: list[str] = field(default_factory=list)
+    planned_gaps: list[str] = field(default_factory=list)
+    stop_conditions: list[str] = field(default_factory=list)
+    minimum_replication: dict[str, Any] = field(default_factory=dict)
+    negative_evidence_strategy: str = ""
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["evidence_plan_id"]:
+            data["evidence_plan_id"] = make_stable_id("evidence_plan", {"research_spec_id": self.research_spec_id})
+        return data
+
+
+# --- WP-02b / T-02-03: AmbiguityReport, OntologyMapping ----------------------
+
+
+@dataclass
+class AmbiguityReport:
+    """The unresolved unknowns behind a ResearchSpec, kept explicit.
+
+    Each entry in ``items`` records an ambiguity as a small dict with at least a
+    ``subject`` (what is unclear), an ``impact`` (why it matters) and a
+    ``status`` (:data:`AMBIGUITY_STATES`).  An ``assumed`` item must also carry a
+    ``default_value`` — the system may proceed on a stated default but may never
+    silently guess (validated by
+    :func:`auto_bioinfo.core.validation.validate_ambiguity_report`).  Assumptions
+    are kept separate from confirmed facts and never written back as known facts.
+    """
+
+    research_spec_id: str
+    items: list[dict[str, Any]] = field(default_factory=list)
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    ambiguity_report_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "draft"
+
+    def open_items(self) -> list[dict[str, Any]]:
+        return [it for it in self.items if str(it.get("status")) == "open"]
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["ambiguity_report_id"]:
+            data["ambiguity_report_id"] = make_stable_id("ambiguity_report", {"research_spec_id": self.research_spec_id})
+        return data
+
+
+@dataclass
+class OntologyMapping:
+    """An immutable record of mapping one source term to a standard identifier.
+
+    Captures the original term, the resolved standard id (empty while
+    unresolved), the mapping source/ontology, a confidence score, the status
+    (:data:`ONTOLOGY_MAPPING_STATES`) and the ranked ``candidates`` considered.
+    A low-confidence match may not be recorded as ``mapped`` — that would treat a
+    single uncertain score as a fact (validated by
+    :func:`auto_bioinfo.core.validation.validate_ontology_mapping`).
+    """
+
+    research_spec_id: str
+    source_term: str
+    mapping_source: str
+    status: str = "unresolved"
+    mapped_id: str = ""
+    confidence: float = 0.0
+    candidates: list[dict[str, Any]] = field(default_factory=list)
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    ontology_mapping_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["ontology_mapping_id"]:
+            data["ontology_mapping_id"] = make_stable_id(
+                "ontology_mapping",
+                {"research_spec_id": self.research_spec_id, "source_term": self.source_term, "mapping_source": self.mapping_source},
+            )
+        return data
+
+
+# --- WP-02b / T-02-04: DependencyGraph, EvidenceGap --------------------------
+
+
+@dataclass
+class DependencyGraph:
+    """A directed dependency graph over sub-questions that must stay acyclic.
+
+    ``edges`` are ``(from_id, to_id)`` pairs meaning "from depends on to".  The
+    graph offers deterministic serialisation (nodes and edges sorted, so two
+    graphs with the same content serialise identically) and cycle detection;
+    :func:`auto_bioinfo.core.validation.validate_dependency_graph` rejects
+    dangling endpoints, self-loops and cycles.
+    """
+
+    research_spec_id: str
+    nodes: list[str] = field(default_factory=list)
+    edges: list[list[str]] = field(default_factory=list)
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    dependency_graph_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "draft"
+
+    def _adjacency(self) -> dict[str, list[str]]:
+        adj: dict[str, list[str]] = {n: [] for n in self.nodes}
+        for edge in self.edges:
+            if len(edge) == 2 and edge[0] in adj:
+                adj[edge[0]].append(edge[1])
+        return adj
+
+    def has_cycle(self) -> bool:
+        adj = self._adjacency()
+        # DFS three-colour cycle detection (WHITE=0, GREY=1, BLACK=2).
+        colour: dict[str, int] = {n: 0 for n in self.nodes}
+
+        def visit(node: str) -> bool:
+            colour[node] = 1
+            for nxt in adj.get(node, []):
+                if nxt not in colour:
+                    continue
+                if colour[nxt] == 1:
+                    return True
+                if colour[nxt] == 0 and visit(nxt):
+                    return True
+            colour[node] = 2
+            return False
+
+        return any(colour[n] == 0 and visit(n) for n in sorted(self.nodes))
+
+    def topological_order(self) -> list[str]:
+        """Deterministic execution order: prerequisites first.
+
+        An edge ``(u, v)`` means "u depends on v", so v is a prerequisite of u and
+        must appear before it.  Raises if the graph has a cycle.
+        """
+        if self.has_cycle():
+            raise ValueError("dependency graph has a cycle; no topological order exists")
+        # Reverse the dependency edges: prerequisite -> dependent, and count each
+        # node's unmet prerequisites so a node with none is ready first.
+        dependents: dict[str, list[str]] = {n: [] for n in self.nodes}
+        indeg: dict[str, int] = {n: 0 for n in self.nodes}
+        for edge in self.edges:
+            if len(edge) == 2 and edge[0] in indeg and edge[1] in dependents:
+                dependents[edge[1]].append(edge[0])
+                indeg[edge[0]] += 1
+        ready = sorted(n for n in self.nodes if indeg[n] == 0)
+        order: list[str] = []
+        while ready:
+            node = ready.pop(0)
+            order.append(node)
+            for nxt in sorted(dependents.get(node, [])):
+                indeg[nxt] -= 1
+                if indeg[nxt] == 0:
+                    ready.append(nxt)
+            ready.sort()
+        return order
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection (sorted nodes and edges)."""
+        return {
+            "research_spec_id": self.research_spec_id,
+            "nodes": sorted(self.nodes),
+            "edges": sorted([list(e) for e in self.edges]),
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["nodes"] = sorted(self.nodes)
+        data["edges"] = sorted([list(e) for e in self.edges])
+        if not data["dependency_graph_id"]:
+            data["dependency_graph_id"] = make_stable_id("dependency_graph", self.canonical())
+        return data
+
+
+@dataclass
+class EvidenceGap:
+    """A recorded shortfall of evidence that *lowers* — never raises — a claim.
+
+    A gap names the missing/insufficient/unverifiable evidence
+    (:data:`EVIDENCE_GAP_TYPES`), the sub-question it affects and a follow-up
+    action.  ``imposed_claim_ceiling`` is the hard ceiling that applies while the
+    gap is open; :meth:`caps_claim_level` and
+    :func:`auto_bioinfo.core.validation.validate_evidence_gap` guarantee a gap can
+    only cap a claim, never license a higher one.
+    """
+
+    research_spec_id: str
+    subquestion_id: str
+    description: str
+    gap_type: str
+    follow_up: str = ""
+    status: str = "open"
+    imposed_claim_ceiling: str = "descriptive"
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    evidence_gap_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+
+    def caps_claim_level(self, desired_level: str) -> str:
+        """Return the allowed claim level: the lower of ``desired_level`` and the
+        gap's imposed ceiling.  A gap can only pull a claim down, never up."""
+        if desired_level not in CLAIM_LEVELS or self.imposed_claim_ceiling not in CLAIM_LEVELS:
+            return self.imposed_claim_ceiling
+        return min(desired_level, self.imposed_claim_ceiling, key=CLAIM_LEVELS.index)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["evidence_gap_id"]:
+            data["evidence_gap_id"] = make_stable_id(
+                "evidence_gap",
+                {"research_spec_id": self.research_spec_id, "subquestion_id": self.subquestion_id, "description": self.description},
+            )
+        return data
 
 
 @dataclass

@@ -1,7 +1,19 @@
+import re
 from typing import Any
 
 from . import common
-from .schemas import APPROVAL_DECISIONS, APPROVAL_STATES, AUTOMATION_LEVELS, CLAIM_LEVELS
+from .schemas import (
+    AMBIGUITY_STATES,
+    APPROVAL_DECISIONS,
+    APPROVAL_STATES,
+    AUTOMATION_LEVELS,
+    CLAIM_LEVELS,
+    EVIDENCE_GAP_STATES,
+    EVIDENCE_GAP_TYPES,
+    ONTOLOGY_CONFIDENCE_FLOOR,
+    ONTOLOGY_MAPPING_STATES,
+    DependencyGraph,
+)
 
 
 def validate_required_fields(obj: dict[str, Any], required: list[str]) -> list[str]:
@@ -186,4 +198,278 @@ def validate_approval_decision(decision: dict[str, Any], request: dict[str, Any]
         and version != current_version
     ):
         errors.append(f"cannot approve superseded subject_version {version} as current (current is {current_version})")
+    return errors
+
+
+def _has_nonblank_entry(value: Any) -> bool:
+    """True when ``value`` is a list with at least one non-blank string entry."""
+    return isinstance(value, list) and any(isinstance(item, str) and item.strip() for item in value)
+
+
+# --- WP-02b / T-02-03: ResearchSpec, AmbiguityReport, ScopeBundle, Ontology --
+
+
+def validate_research_spec(spec: dict[str, Any]) -> list[str]:
+    """Validate the key research object and its declared unknowns.
+
+    The question, project binding and a valid claim ceiling are required.
+    ``open_questions``/``assumptions`` must be lists of non-empty strings — an
+    unknown has to be stated explicitly, never invented or left as a placeholder.
+    """
+    errors = validate_required_fields(spec, ["schema_version", "project_id", "research_question"])
+    errors += common.validate_identifier(spec.get("project_id", ""), "project_id")
+    for level_field in ("max_claim_level", "claim_ceiling"):
+        if level_field in spec and spec.get(level_field) not in CLAIM_LEVELS:
+            errors.append(f"{level_field}: must be one of {', '.join(CLAIM_LEVELS)}")
+    for list_field in ("open_questions", "assumptions", "comparison_groups"):
+        value = spec.get(list_field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append(f"{list_field}: expected a list")
+        elif any((not isinstance(item, str)) or not item.strip() for item in value):
+            errors.append(f"{list_field}: entries must be non-empty strings (unknowns must be stated, not blank)")
+    return errors
+
+
+def validate_ambiguity_report(report: dict[str, Any]) -> list[str]:
+    """Each ambiguity must record subject, impact and status; an ``assumed`` item
+    must carry the explicit ``default_value`` it is proceeding on (no silent
+    guessing).  Assumptions are kept distinct from confirmed facts."""
+    errors = validate_required_fields(report, ["schema_version", "research_spec_id"])
+    errors += common.validate_identifier(report.get("research_spec_id", ""), "research_spec_id")
+    items = report.get("items")
+    if items is None:
+        items = []
+    if not isinstance(items, list):
+        return errors + ["items: expected a list of ambiguity records"]
+    for idx, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"items[{idx}]: each ambiguity must be an object")
+            continue
+        for key in ("subject", "impact"):
+            if not str(item.get(key, "") or "").strip():
+                errors.append(f"items[{idx}].{key}: missing required ambiguity {key}")
+        status = item.get("status")
+        if status not in AMBIGUITY_STATES:
+            errors.append(f"items[{idx}].status: must be one of {', '.join(AMBIGUITY_STATES)}")
+        if status == "assumed" and not str(item.get("default_value", "") or "").strip():
+            errors.append(f"items[{idx}]: an assumed ambiguity must record an explicit default_value (no silent guess)")
+    return errors
+
+
+def validate_scope_bundle(scope: dict[str, Any], *, require_comparison: bool = False) -> list[str]:
+    """Validate the species/tissue/condition/comparison scope.
+
+    Every axis must be a list; an axis that repeats a value, or a comparison of a
+    group against itself, is contradictory and rejected.  A comparison must name
+    at least two distinct groups.  A scope with no axis populated at all (or, when
+    ``require_comparison``, no comparison) is an empty critical scope and fails.
+    """
+    errors = validate_required_fields(scope, ["schema_version", "research_spec_id"])
+    errors += common.validate_identifier(scope.get("research_spec_id", ""), "research_spec_id")
+    axes = ("species", "tissues", "conditions", "comparisons")
+    populated = False
+    for axis in axes:
+        value = scope.get(axis)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append(f"{axis}: expected a list")
+            continue
+        if any((not isinstance(item, str)) or not item.strip() for item in value):
+            errors.append(f"{axis}: scope entries must be non-empty strings (a blank value is not a scope)")
+        if _has_nonblank_entry(value):
+            populated = True
+        if len(set(value)) != len(value):
+            errors.append(f"{axis}: contradictory scope — the same value is listed more than once")
+    comparisons = scope.get("comparisons")
+    if isinstance(comparisons, list) and comparisons and len(set(comparisons)) < 2:
+        errors.append("comparisons: a comparison needs at least two distinct groups (cannot compare a group with itself)")
+    if not populated:
+        errors.append("scope is empty: at least one of species/tissue/condition/comparison must be specified")
+    elif require_comparison and not (isinstance(comparisons, list) and len(set(comparisons)) >= 2):
+        errors.append("comparisons: a critical comparison scope is required but missing")
+    return errors
+
+
+def validate_ontology_mapping(mapping: dict[str, Any]) -> list[str]:
+    """Validate one source-term -> standard-id mapping.
+
+    A ``mapped`` status requires a non-empty ``mapped_id`` and a confidence at or
+    above :data:`ONTOLOGY_CONFIDENCE_FLOOR` — a low-confidence score may not be
+    recorded as a resolved fact.  An ``unresolved`` mapping must *not* carry a
+    fabricated ``mapped_id``; the unmapped term stays explicit.
+    """
+    errors = validate_required_fields(mapping, ["schema_version", "research_spec_id", "source_term", "mapping_source", "status"])
+    errors += common.validate_identifier(mapping.get("research_spec_id", ""), "research_spec_id")
+    status = mapping.get("status")
+    if status not in ONTOLOGY_MAPPING_STATES:
+        errors.append(f"status: must be one of {', '.join(ONTOLOGY_MAPPING_STATES)}")
+    confidence = mapping.get("confidence", 0.0)
+    if not isinstance(confidence, (int, float)) or isinstance(confidence, bool) or not (0.0 <= float(confidence) <= 1.0):
+        errors.append("confidence: must be a number in [0.0, 1.0]")
+        confidence = 0.0
+    mapped_id = str(mapping.get("mapped_id", "") or "").strip()
+    if status == "mapped":
+        if not mapped_id:
+            errors.append("mapped status requires a non-empty mapped_id")
+        if float(confidence) < ONTOLOGY_CONFIDENCE_FLOOR:
+            errors.append(f"confidence {confidence} below floor {ONTOLOGY_CONFIDENCE_FLOOR}: a low-confidence match cannot be recorded as 'mapped'")
+    if status == "unresolved" and mapped_id:
+        errors.append("unresolved mapping must not carry a mapped_id (do not invent an identifier)")
+    return errors
+
+
+# --- WP-02b / T-02-04: SubQuestion, DependencyGraph, EvidencePlan, Gap --------
+
+# A sub-question is compound when it joins two predicates with an explicit
+# clause conjunction or asks more than one thing.  ``between X and Y`` is a single
+# relationship, so a bare "and" is not enough — only conjunctions that introduce a
+# second interrogative/predicate count.
+#
+# Two cases are caught: a conjunction directly followed by a second
+# interrogative/auxiliary ("...and how are..."), and a conjunction that introduces
+# a fresh subject which then takes its own finite verb/auxiliary
+# ("...change and pathways are enriched").  A range like "between A and B" carries
+# no second predicate — the conjunction merely closes the range — so it stays
+# single-purpose even when a finite verb follows the range
+# ("...between A and B are differentially expressed").
+_FINITE_AUX = (
+    r"is|are|was|were|be|been|being|has|have|had|do|does|did"
+    r"|can|could|shall|should|will|would|may|might|must"
+)
+_COMPOUND_MARKERS = re.compile(
+    r"\b(?:and|or)\s+(?:also|then|how|what|which|whether|why|when|where|" + _FINITE_AUX + r")\b"
+    r"|\b(?:and|or)\s+(?:\w+\s+){1,2}(?:" + _FINITE_AUX + r")\b"
+    r"|\bas well as\b|\bin addition to\b",
+    re.IGNORECASE,
+)
+# The conjunction inside a ``between X and/or Y`` range closes the range rather
+# than introducing a second predicate, so it must not count as a compound marker.
+# Match "between" up to the first following and/or and drop that conjunction
+# before scanning for compound markers — the surrounding text is preserved so a
+# genuine second predicate elsewhere ("...between A and B change and pathways are
+# enriched") is still caught.
+_BETWEEN_RANGE_CONJUNCTION = re.compile(
+    r"\bbetween\b(?:(?!\b(?:and|or)\b)[^?;])*?\b(and|or)\b",
+    re.IGNORECASE,
+)
+
+
+def _neutralize_between_range_conjunction(question: str) -> str:
+    """Blank out the range conjunction in ``between X and/or Y`` constructions."""
+    return _BETWEEN_RANGE_CONJUNCTION.sub(
+        lambda m: m.group(0)[: m.start(1) - m.start(0)] + " " * (m.end(1) - m.start(1)),
+        question,
+    )
+
+
+def subquestion_is_single_purpose(question: str) -> bool:
+    """True when ``question`` expresses exactly one purpose/relationship.
+
+    Rejects multiple terminal questions (more than one ``?``) and clauses joined
+    by a second-predicate conjunction; a range like "between A and B" stays
+    single-purpose even when followed by a finite verb.
+    """
+    if not isinstance(question, str) or not question.strip():
+        return False
+    if question.count("?") > 1:
+        return False
+    if ";" in question:
+        return False
+    return _COMPOUND_MARKERS.search(_neutralize_between_range_conjunction(question)) is None
+
+
+def validate_subquestion(subquestion: dict[str, Any], research_spec_id: str | None = None) -> list[str]:
+    """Each sub-question has one clear purpose and binds to its ResearchSpec."""
+    errors = validate_required_fields(subquestion, ["schema_version", "research_spec_id", "question"])
+    errors += common.validate_identifier(subquestion.get("research_spec_id", ""), "research_spec_id")
+    if "claim_ceiling" in subquestion and subquestion.get("claim_ceiling") not in CLAIM_LEVELS:
+        errors.append(f"claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+    question = subquestion.get("question", "")
+    if isinstance(question, str) and question.strip() and not subquestion_is_single_purpose(question):
+        errors.append("question: a sub-question must have a single purpose (split compound questions)")
+    if research_spec_id is not None and subquestion.get("research_spec_id") != research_spec_id:
+        errors.append("research_spec_id: sub-question is not bound to the expected ResearchSpec")
+    return errors
+
+
+def validate_dependency_graph(graph: dict[str, Any]) -> list[str]:
+    """Reject dangling endpoints, self-loops and cycles in a dependency graph."""
+    errors = validate_required_fields(graph, ["schema_version", "research_spec_id"])
+    errors += common.validate_identifier(graph.get("research_spec_id", ""), "research_spec_id")
+    nodes = graph.get("nodes") or []
+    edges = graph.get("edges") or []
+    if not isinstance(nodes, list):
+        return errors + ["nodes: expected a list"]
+    if not isinstance(edges, list):
+        return errors + ["edges: expected a list"]
+    node_set = set(nodes)
+    if len(node_set) != len(nodes):
+        errors.append("nodes: duplicate node ids are not allowed")
+    for idx, edge in enumerate(edges):
+        if not (isinstance(edge, (list, tuple)) and len(edge) == 2):
+            errors.append(f"edges[{idx}]: each edge must be a [from, to] pair")
+            continue
+        src, dst = edge[0], edge[1]
+        if src == dst:
+            errors.append(f"edges[{idx}]: self-loop {src!r} is not allowed")
+        if src not in node_set:
+            errors.append(f"edges[{idx}]: source {src!r} is not a declared node")
+        if dst not in node_set:
+            errors.append(f"edges[{idx}]: target {dst!r} is not a declared node")
+    if not errors and DependencyGraph(research_spec_id=graph.get("research_spec_id", ""), nodes=list(nodes), edges=[list(e) for e in edges]).has_cycle():
+        errors.append("dependency graph has a cycle; sub-question dependencies must be acyclic")
+    return errors
+
+
+def validate_evidence_plan(plan: dict[str, Any]) -> list[str]:
+    """Evidence axes, the claim ceiling and any planned gaps must be explicit.
+
+    A plan must declare at least one evidence axis *or* an explicit stop reason /
+    planned gap — it may never advance with no evidence path and no stated reason.
+    """
+    errors = validate_required_fields(plan, ["schema_version", "research_spec_id", "max_claim_level"])
+    errors += common.validate_identifier(plan.get("research_spec_id", ""), "research_spec_id")
+    if plan.get("max_claim_level") not in CLAIM_LEVELS:
+        errors.append(f"max_claim_level: must be one of {', '.join(CLAIM_LEVELS)}")
+    # evidence_axes may legitimately be empty *iff* an explicit stop reason is
+    # given, so it is checked below rather than as a generic required field.
+    axes = plan.get("evidence_axes")
+    if axes is not None and not isinstance(axes, list):
+        errors.append("evidence_axes: expected a list")
+        axes = []
+    for list_field in ("planned_gaps", "stop_conditions", "subquestion_ids"):
+        if list_field in plan and not isinstance(plan.get(list_field), list):
+            errors.append(f"{list_field}: expected a list")
+    has_axes = bool(axes)
+    # A blank/whitespace-only entry is not a meaningful stop reason or planned gap.
+    has_stop = _has_nonblank_entry(plan.get("stop_conditions")) or _has_nonblank_entry(plan.get("planned_gaps"))
+    if not has_axes and not has_stop:
+        errors.append("evidence plan must declare at least one evidence axis or an explicit stop_condition/planned_gap")
+    return errors
+
+
+def validate_evidence_gap(gap: dict[str, Any]) -> list[str]:
+    """A gap records missing/insufficient evidence and only *caps* a claim.
+
+    ``imposed_claim_ceiling`` is the ceiling that applies while the gap is open;
+    it must be a valid claim level.  A gap is never allowed to *raise* a claim, so
+    when ``prior_claim_level`` is supplied the imposed ceiling must not exceed it.
+    """
+    errors = validate_required_fields(gap, ["schema_version", "research_spec_id", "subquestion_id", "description", "gap_type", "status"])
+    errors += common.validate_identifier(gap.get("research_spec_id", ""), "research_spec_id")
+    errors += common.validate_identifier(gap.get("subquestion_id", ""), "subquestion_id")
+    if gap.get("gap_type") not in EVIDENCE_GAP_TYPES:
+        errors.append(f"gap_type: must be one of {', '.join(EVIDENCE_GAP_TYPES)}")
+    if gap.get("status") not in EVIDENCE_GAP_STATES:
+        errors.append(f"status: must be one of {', '.join(EVIDENCE_GAP_STATES)}")
+    ceiling = gap.get("imposed_claim_ceiling", "descriptive")
+    if ceiling not in CLAIM_LEVELS:
+        errors.append(f"imposed_claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+    else:
+        prior = gap.get("prior_claim_level")
+        if prior in CLAIM_LEVELS and CLAIM_LEVELS.index(ceiling) > CLAIM_LEVELS.index(prior):
+            errors.append(f"imposed_claim_ceiling {ceiling} would raise the claim above prior {prior}; a gap may only cap a claim")
     return errors
