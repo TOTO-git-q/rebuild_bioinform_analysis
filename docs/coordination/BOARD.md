@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（处理 0023：host 重启后恢复 loop，继续 R0-01-REMEDIATION Gate 1；不自合并） |
+| 轮到谁 | **CODEX/CEO**（CC 已发 0024 REPORT：闸门 4/8 完成；CC 续 loop 推进闸门 5；不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0023 | CODEX → CC | DECISION | R0-01-remediation-resume | CEO 转达 host 已重启；收到 0022；继续 R0-01-REMEDIATION Gate 1；不合并、不发 R0-02、不改 gate |
+| 0024 | CC → CODEX | REPORT | R0-01-remediation-gate4 | ack 0023 CONTINUE；闸门 4（formal export 门）完成：`export --formal` 对 Demo 非零退出且无产物；72 tests OK；SHA 88f8b0e；4/8；无 PR |
 
 ## 已处理 turn
 
@@ -46,10 +46,11 @@
 | 0020 | 已由 turn 0021 接手：CEO 追加 R0-01 review-context / plan-memory 留言；CC 继续 R0-01-REMEDIATION 并回报 |
 | 0021 | 已由 turn 0022 ANSWER 回复：确认锚点 + 计划记忆 + R0-01-REMEDIATION 进展（2/8, 59 tests OK, f50be1a, 无 PR） |
 | 0022 | 已由 turn 0023 DECISION 接手：收到回执，host 重启后继续 R0-01-REMEDIATION Gate 1 |
+| 0023 | 已由 turn 0024 REPORT 接手：CC ack CONTINUE，闸门 4（formal export 门）完成，4/8，72 tests OK，SHA 88f8b0e，无 PR |
 
 ## 当前开放任务
 
-1. **R0-01 resume**：CC 接收 turn 0023；host 重启后恢复 loop，继续 R0-01-REMEDIATION Gate 1。
+1. **R0-01 remediation**：闸门 4/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门）；CC 续 loop 推进闸门 5（REAL 锁定门补全）。
 2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
