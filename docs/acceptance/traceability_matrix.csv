@@ -1,0 +1,78 @@
+requirement_id,priority,mapped_tasks,current_evidence,status
+REQ-PRIN-01,MUST,WP-07;WP-20,auto_bioinfo/core/alignment_auditor.py;tests/test_planner_resources_alignment.py,PARTIAL
+REQ-PRIN-02,MUST,WP-10;WP-11,auto_bioinfo/methods/registry.py;tests/test_methods_and_qc.py,EXISTING
+REQ-PRIN-03,MUST,WP-08,auto_bioinfo/core/validation.py;tests/test_failure_paths.py,EXISTING
+REQ-PRIN-04,MUST,WP-02,auto_bioinfo/core/schemas.py;tests/test_schemas_and_validation.py,EXISTING
+REQ-PRIN-05,MUST,WP-05;WP-20;WP-21,auto_bioinfo/core/agent_protocol.py;auto_bioinfo/report.py;tests/test_evidence_and_cli.py,EXISTING
+REQ-PRIN-06,MUST,WP-19;WP-20,auto_bioinfo/evidence/synthesis.py;tests/test_evidence_and_cli.py,EXISTING
+REQ-PRIN-07,MUST,WP-21;WP-26,auto_bioinfo/core/alignment_auditor.py;tests/test_pipeline_e2e.py,PARTIAL
+REQ-PRIN-08,MUST,WP-25,auto_bioinfo/core/state.py;tests/test_failure_paths.py,EXISTING
+REQ-OBJ-01,MUST,WP-02,auto_bioinfo/core/schemas.py:29,EXISTING
+REQ-OBJ-02,MUST,WP-02,auto_bioinfo/core/schemas.py:67,PARTIAL
+REQ-OBJ-03,MUST,WP-02,auto_bioinfo/core/schemas.py:97,PARTIAL
+REQ-OBJ-04,MUST,WP-02;WP-08,auto_bioinfo/core/schemas.py:109,EXISTING
+REQ-OBJ-05,MUST,WP-02;WP-09,auto_bioinfo/core/schemas.py:123,PARTIAL
+REQ-OBJ-06,MUST,WP-02;WP-10,planned (no DatasetFeasibilityReport),MISSING
+REQ-OBJ-07,MUST,WP-02;WP-10,auto_bioinfo/core/schemas.py:302;tests/test_pipeline_e2e.py,EXISTING
+REQ-OBJ-08,MUST,WP-02;WP-11,auto_bioinfo/methods/bulk_deg.py:35,PARTIAL
+REQ-OBJ-09,MUST,WP-11,auto_bioinfo/core/schemas.py:159;auto_bioinfo/methods/registry.py,EXISTING
+REQ-OBJ-10,MUST,WP-02;WP-12,auto_bioinfo/core/schemas.py:172,PARTIAL
+REQ-OBJ-11,MUST,WP-02,auto_bioinfo/core/schemas.py:183-219,PARTIAL
+REQ-OBJ-12,MUST,WP-02;WP-14,auto_bioinfo/core/schemas.py:222,PARTIAL
+REQ-OBJ-13,MUST,WP-15,auto_bioinfo/core/artifacts.py;auto_bioinfo/core/schemas.py:234,EXISTING
+REQ-OBJ-14,MUST,WP-18,auto_bioinfo/quality/qc_engine.py;auto_bioinfo/core/schemas.py:249,EXISTING
+REQ-OBJ-15,MUST,WP-19,auto_bioinfo/core/schemas.py:271;auto_bioinfo/evidence/synthesis.py,EXISTING
+REQ-OBJ-16,MUST,WP-20,auto_bioinfo/core/schemas.py:327,EXISTING
+REQ-OBJ-17,MUST,WP-20,auto_bioinfo/core/schemas.py:342;auto_bioinfo/core/alignment_auditor.py,EXISTING
+REQ-OBJ-18,MUST,WP-02;WP-22,auto_bioinfo/reproduction/bundle.py,EXISTING
+REQ-STG-00,MUST,WP-02;WP-06,planned (OriginalRequest/ProjectPolicy/Approval),MISSING
+REQ-STG-02,SHOULD,WP-06,planned (OntologyMapping/ScopeWarnings),MISSING
+REQ-STG-05,MUST,WP-08,auto_bioinfo/adapters/fixture_resources.py (offline); ResourceDiscoveryPort,PARTIAL
+REQ-STG-06,MUST,WP-09,planned (real verification adapter),MISSING
+REQ-STG-07,MUST,WP-10,auto_bioinfo/pipeline.py:_lock_datasets;tests/test_pipeline_e2e.py,PARTIAL
+REQ-STG-10,MUST,WP-13;WP-23,auto_bioinfo/pipeline.py:_authorize,PARTIAL
+REQ-STG-11,MUST,WP-14;WP-16;WP-17,auto_bioinfo/pipeline.py:_execute;auto_bioinfo/methods/bulk_deg.py,PARTIAL
+REQ-STG-12,MUST,WP-15,auto_bioinfo/core/artifacts.py;tests/test_methods_and_qc.py,EXISTING
+REQ-STG-13,MUST,WP-18,auto_bioinfo/quality/qc_engine.py;tests/test_methods_and_qc.py,EXISTING
+REQ-STG-14,MUST,WP-19,auto_bioinfo/core/artifacts.validate_artifact_for_evidence;tests/test_evidence_and_cli.py,EXISTING
+REQ-STG-15,MUST,WP-20,auto_bioinfo/evidence/synthesis.py;tests/test_evidence_and_cli.py,EXISTING
+REQ-STG-16,MUST,WP-20,auto_bioinfo/core/alignment_auditor.py;tests/test_planner_resources_alignment.py,EXISTING
+REQ-STG-17,MUST,WP-21,auto_bioinfo/report.py,PARTIAL
+REQ-STG-18,MUST,WP-22,auto_bioinfo/reproduction/bundle.py;tests/test_reproduction.py,EXISTING
+REQ-SM-01,MUST,WP-03,auto_bioinfo/core/store.py;tests/test_state_machine.py,EXISTING
+REQ-SM-02,MUST,WP-03;WP-04,auto_bioinfo/core/state.py,PARTIAL
+REQ-SM-03,SHOULD,WP-25,auto_bioinfo/pipeline.py (resume);tests/test_pipeline_e2e.py,PARTIAL
+REQ-BND-01,MUST,WP-02;WP-03,auto_bioinfo/core/*;tests/test_state_machine.py,EXISTING
+REQ-BND-02,MUST,WP-05;WP-14,auto_bioinfo/core/agent_specs.py;auto_bioinfo/core/agent_protocol.py,PARTIAL
+REQ-FAIL-01,SHOULD,WP-25,auto_bioinfo/core/state.py,PARTIAL
+REQ-FAIL-02,MUST,WP-25,auto_bioinfo/pipeline.py;tests/test_failure_paths.py,EXISTING
+REQ-FAIL-03,SHOULD,WP-25,planned (subgraph rerun),MISSING
+REQ-SEC-01,MUST,WP-23,planned (policy/allowlist),MISSING
+REQ-SEC-02,MUST,WP-14;WP-23,auto_bioinfo/core/schemas.py:197 (EngineeringTaskPacket paths),PARTIAL
+REQ-SEC-03,MUST,WP-23,planned (secret isolation); D-05 offline-honored,MISSING
+REQ-SEC-04,MUST,WP-22;WP-23,planned (export sensitivity scan),MISSING
+REQ-SEC-05,MUST,WP-23;WP-24,auto_bioinfo/core/store.py (event log),PARTIAL
+REQ-OBS-01,SHOULD,WP-24,auto_bioinfo/interfaces/cli.py (inspect),PARTIAL
+REQ-SCOPE-01,MUST,WP-16;WP-17,auto_bioinfo/methods/bulk_deg.py (bulk only),PARTIAL
+REQ-SCOPE-02,MUST,WP-20;WP-27,auto_bioinfo/evidence/synthesis.py (ceiling); baseline hard_stops,EXISTING
+REQ-IF-01,SHOULD,WP-04,auto_bioinfo/interfaces/cli.py (CLI only),PARTIAL
+REQ-ACC-01,MUST,WP-26,tests/test_pipeline_e2e.py,EXISTING
+REQ-ACC-02,MUST,WP-06;WP-26,tests/test_planner_resources_alignment.py;tests/test_schemas_and_validation.py,EXISTING
+REQ-ACC-03,MUST,WP-07;WP-26,tests/test_planner_resources_alignment.py,EXISTING
+REQ-ACC-04,MUST,WP-07;WP-26,tests/test_planner_resources_alignment.py,EXISTING
+REQ-ACC-05,MUST,WP-08;WP-09;WP-26,auto_bioinfo/adapters/fixture_resources.py (fixture only),PARTIAL
+REQ-ACC-06,MUST,WP-10;WP-26,planned (feasibility report),MISSING
+REQ-ACC-07,MUST,WP-10;WP-26,tests/test_pipeline_e2e.py,EXISTING
+REQ-ACC-08,MUST,WP-11;WP-26,tests/test_methods_and_qc.py,EXISTING
+REQ-ACC-09,MUST,WP-12;WP-26,auto_bioinfo/core/workflow_compiler.py (linear),PARTIAL
+REQ-ACC-10,MUST,WP-14;WP-26,auto_bioinfo/pipeline.py:_execute,PARTIAL
+REQ-ACC-11,MUST,WP-15;WP-26,tests/test_methods_and_qc.py,EXISTING
+REQ-ACC-12,MUST,WP-18;WP-26,tests/test_methods_and_qc.py,EXISTING
+REQ-ACC-13,MUST,WP-19;WP-26,tests/test_evidence_and_cli.py,EXISTING
+REQ-ACC-14,MUST,WP-20;WP-26,tests/test_evidence_and_cli.py,EXISTING
+REQ-ACC-15,MUST,WP-20;WP-26,tests/test_planner_resources_alignment.py,EXISTING
+REQ-ACC-16,MUST,WP-21;WP-26,auto_bioinfo/report.py;tests/test_evidence_and_cli.py,EXISTING
+REQ-ACC-17,MUST,WP-22;WP-26,tests/test_reproduction.py,EXISTING
+REQ-ACC-18,MUST,WP-22;WP-26,tests/test_reproduction.py (BITWISE_IDENTICAL),EXISTING
+REQ-ACC-19,MUST,WP-21;WP-26,auto_bioinfo/execution/runs.py (ledgers);alignment_auditor,PARTIAL
+REQ-ACC-20,MUST,WP-25;WP-26,tests/test_failure_paths.py,EXISTING

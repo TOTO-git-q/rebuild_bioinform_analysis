@@ -1,0 +1,78 @@
+requirement_id,priority,current_capability,evidence,gap_description,work_packages
+REQ-PRIN-01,MUST,PARTIAL,"alignment_auditor + problem-first pipeline","principle enforced in slice; needs full subquestion-driven planning",WP-07;WP-20
+REQ-PRIN-02,MUST,EXISTING,"methods/registry.compatibility_decision + METHOD_NOT_APPLICABLE","extend to more modalities",WP-11;WP-10
+REQ-PRIN-03,MUST,EXISTING,"core/validation + tool-only discovery design","extend to real discovery audit log",WP-08
+REQ-PRIN-04,MUST,EXISTING,"dataclass schemas + validators","extend schema coverage",WP-02
+REQ-PRIN-05,MUST,EXISTING,"agent_specs/agent_protocol + report.py constraint","keep across new agents",WP-05;WP-20;WP-21
+REQ-PRIN-06,MUST,EXISTING,"evidence/synthesis retains negatives","verify in cross-dataset synth",WP-19;WP-20
+REQ-PRIN-07,MUST,PARTIAL,"alignment audit + ledgers","needs traceability index in reports",WP-21;WP-26
+REQ-PRIN-08,MUST,EXISTING,"state.LEGAL_TERMINALS + failure tests","extend to replan",WP-25
+REQ-OBJ-01,MUST,EXISTING,"schemas.ResearchSpec","add research_objective/secondary_endpoints/cell_type_scope fields",WP-02
+REQ-OBJ-02,MUST,PARTIAL,"schemas.SubQuestion (minimal)","add required_evidence_types/success+failure criteria/priority",WP-02
+REQ-OBJ-03,MUST,PARTIAL,"schemas.EvidencePlan (minimal)","add minimum_replication/validation_strategy/stop_conditions",WP-02
+REQ-OBJ-04,MUST,EXISTING,"schemas.ResourceCandidate","ok",WP-02;WP-08
+REQ-OBJ-05,MUST,PARTIAL,"schemas.DatasetProfile (minimal)","add full metadata fact set",WP-02;WP-09
+REQ-OBJ-06,MUST,MISSING,"no DatasetFeasibilityReport object","model feasibility decision object",WP-02;WP-10
+REQ-OBJ-07,MUST,EXISTING,"schemas.DatasetManifest locked+versioned","ok",WP-02;WP-10
+REQ-OBJ-08,MUST,PARTIAL,"MethodContract dict in bulk_deg","promote to standalone contract schema/registry",WP-02;WP-11
+REQ-OBJ-09,MUST,EXISTING,"schemas.CompatibilityDecision + registry","ok",WP-11
+REQ-OBJ-10,MUST,PARTIAL,"schemas.WorkflowPlan task_ids only","add dependency edges + acyclicity",WP-02;WP-12
+REQ-OBJ-11,MUST,PARTIAL,"Analysis/Engineering/Review packets","add DataPreparationTaskPacket",WP-02
+REQ-OBJ-12,MUST,PARTIAL,"schemas.TaskRun (minimal)","add env/logs/exit/resource/retry fields",WP-02;WP-14
+REQ-OBJ-13,MUST,EXISTING,"schemas.ArtifactManifest + core/artifacts","ok",WP-15
+REQ-OBJ-14,MUST,EXISTING,"schemas.QCReport + qc_engine","ok",WP-18
+REQ-OBJ-15,MUST,EXISTING,"schemas.EvidenceItem + admission gate","ok",WP-19
+REQ-OBJ-16,MUST,EXISTING,"schemas.Claim + ceiling","ok",WP-20
+REQ-OBJ-17,MUST,EXISTING,"schemas.QuestionAlignmentReport + auditor","ok",WP-20
+REQ-OBJ-18,MUST,EXISTING,"reproduction/bundle manifest","model as dataclass + full structure",WP-02;WP-22
+REQ-STG-00,MUST,MISSING,"question stored on state; no OriginalRequest/ProjectPolicy/Approval objects","model intake objects + policy",WP-02;WP-06
+REQ-STG-02,SHOULD,MISSING,"no OntologyMapping/ScopeWarnings","ontology normalization",WP-06
+REQ-STG-05,MUST,PARTIAL,"fixture adapter only; ResourceDiscoveryPort reserved","real discovery + SearchAuditLog (CEO hard stop on real data)",WP-08
+REQ-STG-06,MUST,MISSING,"no real verification adapter","metadata factualization adapter",WP-09
+REQ-STG-07,MUST,PARTIAL,"dataset manifest lock exists; feasibility report missing","feasibility decision + checks",WP-10
+REQ-STG-10,MUST,PARTIAL,"pipeline authorize step; no policy/quota/network gate; A1 default","automation-level gate evaluator + pre-exec checks",WP-13;WP-23
+REQ-STG-11,MUST,PARTIAL,"in-process real bulk_deg exec; no sandbox/queue","isolated workers + Nextflow + engineering worker",WP-14;WP-16;WP-17
+REQ-STG-12,MUST,EXISTING,"core/artifacts registration + integrity","extend integrity (schema columns/undeclared files)",WP-15
+REQ-STG-13,MUST,EXISTING,"qc_engine four layers","extend data/biological checks per modality",WP-18
+REQ-STG-14,MUST,EXISTING,"evidence admission gate","ok",WP-19
+REQ-STG-15,MUST,EXISTING,"synthesize_claims ceiling-capped","add cross-dataset synthesis dimensions",WP-20
+REQ-STG-16,MUST,EXISTING,"audit_question_alignment","ok",WP-20
+REQ-STG-17,MUST,PARTIAL,"report.py md+json only","add HTML/PDF + traceability index",WP-21
+REQ-STG-18,MUST,EXISTING,"reproduction/bundle compare","clean-room rerun smoke",WP-22
+REQ-SM-01,MUST,EXISTING,"store event log + projection + transition guard","ok",WP-03
+REQ-SM-02,MUST,PARTIAL,"legal terminals partial set","add PARTIALLY_COMPLETED/REQUIRES_HUMAN_DECISION; reconcile stage names",WP-03;WP-04
+REQ-SM-03,SHOULD,PARTIAL,"resume idempotent; no checkpoint rollback","local rollback to checkpoint",WP-25
+REQ-BND-01,MUST,EXISTING,"deterministic core tools","ok",WP-02;WP-03
+REQ-BND-02,MUST,PARTIAL,"agent_protocol forbidden_actions; no engineering exec path","engineering worker bounds at execution",WP-05;WP-14
+REQ-FAIL-01,SHOULD,PARTIAL,"terminals exist; no full taxonomy","failure classification",WP-25
+REQ-FAIL-02,MUST,EXISTING,"scientific failures -> terminals not retried","formalize retry policy",WP-25
+REQ-FAIL-03,SHOULD,MISSING,"no subgraph rerun","local rerun of affected subgraph",WP-25
+REQ-SEC-01,MUST,MISSING,"no policy/allowlist enforcement","project data policy + network allowlist",WP-23
+REQ-SEC-02,MUST,PARTIAL,"task packet allowed/forbidden paths; not enforced at exec","write-scope enforcement",WP-14;WP-23
+REQ-SEC-03,MUST,MISSING,"no formal secret layer (D-05 honored by offline)","secret isolation + no restricted data to LLM",WP-23
+REQ-SEC-04,MUST,MISSING,"no export sensitivity scan","sensitive-data scan before bundle export",WP-22;WP-23
+REQ-SEC-05,MUST,PARTIAL,"event log present; tool-call audit partial","full tool/code-change audit",WP-23;WP-24
+REQ-OBS-01,SHOULD,PARTIAL,"CLI inspect; no logging/metrics/heartbeat","observability layer + run panel",WP-24
+REQ-SCOPE-01,MUST,PARTIAL,"bulk DEG slice only","sc route, gene-set, enrichment, surface/secretome, cross-dataset",WP-16;WP-17
+REQ-SCOPE-02,MUST,EXISTING,"claim ceiling + no auto-publish hard stop","keep scope guard",WP-20;WP-27
+REQ-IF-01,SHOULD,PARTIAL,"CLI present; no REST API","project/task/artifact/evidence/claim APIs",WP-04
+REQ-ACC-01,MUST,EXISTING,"e2e test pipeline","ok",WP-26
+REQ-ACC-02,MUST,EXISTING,"ResearchSpec produced","ok",WP-06;WP-26
+REQ-ACC-03,MUST,EXISTING,"decompose in planner","ok",WP-07;WP-26
+REQ-ACC-04,MUST,EXISTING,"plan_evidence","ok",WP-07;WP-26
+REQ-ACC-05,MUST,PARTIAL,"fixture only; real discovery reserved","real verified discovery",WP-08;WP-09;WP-26
+REQ-ACC-06,MUST,MISSING,"no DatasetFeasibilityReport","feasibility report",WP-10;WP-26
+REQ-ACC-07,MUST,EXISTING,"dataset manifest lock","ok",WP-10;WP-26
+REQ-ACC-08,MUST,EXISTING,"compatibility_decision","ok",WP-11;WP-26
+REQ-ACC-09,MUST,PARTIAL,"linear workflow; not true DAG","acyclic DAG compiler",WP-12;WP-26
+REQ-ACC-10,MUST,PARTIAL,"real exec; isolation partial","isolated TaskRun",WP-14;WP-26
+REQ-ACC-11,MUST,EXISTING,"checksummed artifacts","ok",WP-15;WP-26
+REQ-ACC-12,MUST,EXISTING,"four-layer QC","ok",WP-18;WP-26
+REQ-ACC-13,MUST,EXISTING,"evidence gate","ok",WP-19;WP-26
+REQ-ACC-14,MUST,EXISTING,"claim ceiling","ok",WP-20;WP-26
+REQ-ACC-15,MUST,EXISTING,"alignment reject tests","ok",WP-20;WP-26
+REQ-ACC-16,MUST,EXISTING,"report positives+negatives+unanswered","ok",WP-21;WP-26
+REQ-ACC-17,MUST,EXISTING,"reproduction bundle","ok",WP-22;WP-26
+REQ-ACC-18,MUST,EXISTING,"validate BITWISE_IDENTICAL","clean-room rerun",WP-22;WP-26
+REQ-ACC-19,MUST,PARTIAL,"ledgers + alignment; index not in report","traceability index",WP-21;WP-26
+REQ-ACC-20,MUST,EXISTING,"INSUFFICIENT_DATA terminal test","ok",WP-25;WP-26
