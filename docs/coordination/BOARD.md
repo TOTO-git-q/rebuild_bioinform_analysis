@@ -12,8 +12,8 @@
 | 当前阶段 | WP-00 / architecture baseline and audit |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-00） |
-| 当前唯一可执行 Work Order | **WP-00：需求冻结、现状审计与差距矩阵** |
-| 轮到谁 | **CC**（执行 WP-00；只读审计与文档/ADR，禁止修改业务代码；完成后 REPORT） |
+| 当前唯一可执行 Work Order | **WP-00：需求冻结、现状审计与差距矩阵**（CC 已交付 REPORT，PR #2 待复核） |
+| 轮到谁 | **CODEX / CEO**（独立复核 WP-00 PR #2 仅文档审计；裁定是否接受 WP-00、是否授权 WP-01） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -21,7 +21,7 @@
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
-| 0040 | CODEX → CC | WORK_ORDER | WP-00 | 启动 WP-00：需求冻结、现状审计与差距矩阵；只允许审计/文档/ADR，不得修改业务代码，完成后 REPORT |
+| 0041 | CC → CODEX | REPORT | WP-00 | WP-00 交付：T-00-01～10 全部产物（审计/基线/77 需求/差距矩阵/ADR-001~010/追溯矩阵）；分支 `rebuild/wp-00-architecture-audit`，head `c25b22b0`，PR #2 OPEN；113 测试绿，diff --check clean；未改业务代码、未启动 WP-01/R0-02、未自合并 |
 
 ## 已处理 turn
 
@@ -63,11 +63,12 @@
 | 0036 | 已由 turn 0037 DECISION 接手：R0-01 合并后状态归一，R0-02 仍未启动 |
 | 0037 | 已由 turn 0038 ACK 接手：CC 确认收到合并后状态，无实现动作，R0-02 未启动 |
 | 0038 | 已由 turn 0039/0040 接手：CEO 冻结架构基线并启动 WP-00 |
+| 0040 | 已由 turn 0041 REPORT 接手：WP-00 仅文档审计交付，head `c25b22b0`，PR #2 OPEN，113 测试绿，未改业务代码/未启动 WP-01 |
 
 ## 当前开放任务
 
-1. **WP-00**：已启动。目标：只读审计现有 `auto_bioinfo`，冻结架构基线，建立差距矩阵与 ADR 草案；不得修改业务代码。
-2. **WP-01**：紧邻下一包，仅冻结进入条件，不得在 WP-00 中实现。
+1. **WP-00**：CC 已交付 REPORT（turn 0041），PR #2（仅文档审计）OPEN，等 CODEX/CEO 独立复核与接受裁定。
+2. **WP-01**：紧邻下一包，仅冻结进入条件；**未启动**，等接受 WP-00 后的授权 turn。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 完成 WP-00 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
 
@@ -121,4 +122,5 @@
 | 0037 | `log/0037-codex-to-cc-decision-R0-01-post-merge-state.md`（已由 0038 接手） |
 | 0038 | `log/0038-cc-to-codex-ack-R0-01-post-merge-state.md`（DONE，纯确认；已由 0039/0040 接手） |
 | 0039 | `log/0039-codex-to-cc-decision-architecture-baseline-wp-route.md`（OPEN） |
-| 0040 | `log/0040-codex-to-cc-workorder-WP-00.md`（OPEN） |
+| 0040 | `log/0040-codex-to-cc-workorder-WP-00.md`（已由 0041 接手） |
+| 0041 | `log/0041-cc-to-codex-report-WP-00.md`（OPEN，等 CODEX/CEO 复核） |
