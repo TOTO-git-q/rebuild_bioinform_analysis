@@ -66,6 +66,19 @@ COMPATIBILITY_DECISIONS = ("compatible", "conditionally_compatible", "incompatib
 # The two verdicts that assert the method is (at least conditionally) usable.
 COMPATIBILITY_ACCEPTED_DECISIONS = ("compatible", "conditionally_compatible")
 
+# --- WP-02f / T-02-11: TaskRun run-record vocabularies (REQ-OBJ-12) -----------
+
+# Bounded result status for a recorded run instance.  ``completed`` / ``failed``
+# are terminal records that must be auditable on their own; ``pending`` /
+# ``running`` / ``skipped`` are incomplete records that may be partial only when
+# they carry an explicit reason (validated by
+# :func:`auto_bioinfo.core.validation.validate_task_run`).
+TASK_RUN_RESULT_STATUSES = ("pending", "running", "completed", "failed", "skipped")
+# Terminal records: a run that has finished one way or the other.
+TASK_RUN_TERMINAL_STATUSES = ("completed", "failed")
+# Incomplete records: the run has not produced a terminal exit.
+TASK_RUN_INCOMPLETE_STATUSES = ("pending", "running", "skipped")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -853,6 +866,25 @@ class DataPreparationTaskPacket:
 
 @dataclass
 class TaskRun:
+    """An auditable record of a single run instance of a task (REQ-OBJ-12).
+
+    The legacy ``TaskRun(task_run_id, task_id, result_status, artifact_refs, ...)``
+    construction is preserved: those four fields stay first and keep their meaning.
+    The record is hardened with structured *facts* about the run — its
+    ``environment``, ``parameters``, command/``tool_identity``, ``log_refs`` /
+    ``output_refs``, ``exit_code``, ``resource_usage``, retry lineage
+    (``attempt`` / ``retry_of``) and an ``error_summary`` — so a completed or
+    failed run can be audited from the record alone.
+
+    Every field is a recorded fact or reference, never an action.  A TaskRun never
+    runs a task, locks a dataset, authorises REAL execution, creates formal
+    evidence, bypasses a gate, raises a claim level, or mutates workflow state: the
+    authority-like flags are pinned ``False`` and
+    :func:`auto_bioinfo.core.validation.validate_task_run` rejects any attempt to
+    make them truthy.  Outputs and artifacts are references / checksummed facts
+    only; this object never generates or registers an artifact.
+    """
+
     task_run_id: str
     task_id: str
     result_status: str
@@ -861,6 +893,54 @@ class TaskRun:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "recorded"
+    # --- WP-02f / T-02-11: structured run-record facts (REQ-OBJ-12) ---
+    environment: dict[str, Any] = field(default_factory=dict)
+    tool_identity: str = ""
+    parameters: dict[str, Any] = field(default_factory=dict)
+    log_refs: list[str] = field(default_factory=list)
+    output_refs: list[str] = field(default_factory=list)
+    exit_code: int | None = None
+    resource_usage: dict[str, Any] = field(default_factory=dict)
+    attempt: int = 1
+    retry_of: str = ""
+    error_summary: str = ""
+    reason: str = ""
+    # The record confers no authority of its own; these stay False.
+    authorizes_execution: bool = False
+    locks_dataset: bool = False
+    creates_formal_evidence: bool = False
+    bypasses_gates: bool = False
+    raises_claim_level: bool = False
+    mutates_workflow_state: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id.
+
+        Only recorded run *facts* contribute to identity; the wall-clock
+        ``created_at`` and the ``provenance`` envelope are excluded so the same
+        run record always addresses to the same id."""
+        return {
+            "task_id": self.task_id,
+            "result_status": self.result_status,
+            "tool_identity": self.tool_identity,
+            "environment": dict(self.environment),
+            "parameters": dict(self.parameters),
+            "exit_code": self.exit_code,
+            "artifact_refs": list(self.artifact_refs),
+            "output_refs": list(self.output_refs),
+            "log_refs": list(self.log_refs),
+            "resource_usage": dict(self.resource_usage),
+            "attempt": self.attempt,
+            "retry_of": self.retry_of,
+            "error_summary": self.error_summary,
+            "reason": self.reason,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["task_run_id"]:
+            data["task_run_id"] = make_stable_id("task_run", self.canonical())
+        return data
 
 
 @dataclass
