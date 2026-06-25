@@ -537,8 +537,10 @@ def validate_dataset_profile(profile: dict[str, Any]) -> list[str]:
     absent (an unverified profile stays valid but non-authoritative), but a field
     that is *present* must not be blank or internally contradictory: species facts
     must be distinct non-blank strings, samples and files must be objects carrying
-    a non-blank id/name, ``sample_count`` must agree with the recorded samples, and
-    a grouping may not reference a sample id that is not in ``samples``.
+    a non-blank id/name, sample ids must be unique, a positive ``sample_count``
+    must be backed by recorded samples and must agree with their number, and a
+    grouping may not reference a sample id that is not declared in ``samples`` (even
+    when no samples are declared at all).
     """
     errors = validate_required_fields(profile, ["schema_version", "dataset_id", "modality"])
     errors += common.validate_identifier(profile.get("dataset_id", ""), "dataset_id")
@@ -568,6 +570,8 @@ def validate_dataset_profile(profile: dict[str, Any]) -> list[str]:
                 sample_id = str(sample.get("sample_id", "") or "").strip()
                 if not sample_id:
                     errors.append(f"samples[{idx}]: missing required sample_id")
+                elif sample_id in sample_ids:
+                    errors.append(f"samples[{idx}]: duplicate sample_id {sample_id!r} — sample ids must be unique")
                 else:
                     sample_ids.add(sample_id)
 
@@ -577,6 +581,8 @@ def validate_dataset_profile(profile: dict[str, Any]) -> list[str]:
             errors.append("sample_count: expected an integer")
     elif count < 0:
         errors.append("sample_count: must not be negative")
+    elif count > 0 and not (isinstance(samples, list) and samples):
+        errors.append(f"sample_count {count} claims samples but the profile records none — a positive count is an unbound fact")
     elif isinstance(samples, list) and samples and count != len(samples):
         errors.append(f"sample_count {count} contradicts the {len(samples)} recorded samples")
 
@@ -594,7 +600,10 @@ def validate_dataset_profile(profile: dict[str, Any]) -> list[str]:
     grouping = profile.get("grouping")
     if grouping is not None and not isinstance(grouping, dict):
         errors.append("grouping: expected an object")
-    elif isinstance(grouping, dict) and sample_ids:
+    elif isinstance(grouping, dict):
+        # A grouping that names sample ids is a positive sample fact: every member
+        # must resolve to a declared sample.  This runs even when no samples are
+        # declared, so a grouping over an empty sample set is rejected too.
         for label, members in grouping.items():
             if isinstance(members, list):
                 for member in members:
@@ -634,10 +643,12 @@ def validate_dataset_feasibility_report(report: dict[str, Any]) -> list[str]:
         if list_field in report and not isinstance(report.get(list_field), list):
             errors.append(f"{list_field}: expected a list")
 
-    # The report observes feasibility; it confers no authority on its own.
+    # The report observes feasibility; it confers no authority on its own.  Any
+    # truthy value (not just the literal ``True``) is an attempt to assert
+    # authority and is rejected; explicit false / absent flags stay valid.
     for flag in ("locks_dataset", "authorizes_real_execution", "authorizes_formal_evidence", "bypasses_gates"):
-        if report.get(flag) is True:
-            errors.append(f"{flag}: a feasibility report confers no such authority and may not set {flag}=true")
+        if report.get(flag):
+            errors.append(f"{flag}: a feasibility report confers no such authority and may not assert a truthy {flag}")
 
     ceiling = report.get("imposed_claim_ceiling")
     has_ceiling = ceiling in CLAIM_LEVELS

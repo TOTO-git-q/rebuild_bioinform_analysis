@@ -640,6 +640,35 @@ class DatasetProfileContractTest(unittest.TestCase):
         data = self._profile(legacy_verified_assertion=True, verification_level="UNVERIFIED").to_dict()
         self.assertTrue(any("verified assertion" in e for e in validation.validate_dataset_profile(data)))
 
+    def test_duplicate_sample_id_is_rejected(self):
+        # two sample records sharing one id are contradictory sample facts
+        data = self._profile(
+            sample_count=2,
+            samples=[{"sample_id": "GSM1"}, {"sample_id": "GSM1"}],
+        ).to_dict()
+        self.assertTrue(any("duplicate sample_id" in e for e in validation.validate_dataset_profile(data)))
+
+    def test_positive_sample_count_without_records_is_rejected(self):
+        # a positive sample_count with no sample records is an unbound fact
+        data = self._profile(sample_count=3).to_dict()  # samples defaults to []
+        self.assertTrue(any("records none" in e for e in validation.validate_dataset_profile(data)))
+        # the legacy/minimal path stays valid precisely because it claims no count
+        legacy = self._profile().to_dict()
+        self.assertEqual(legacy["sample_count"], 0)
+        self.assertEqual(validation.validate_dataset_profile(legacy), [])
+
+    def test_grouping_referencing_undeclared_samples_is_rejected(self):
+        # a grouping that names sample ids while none are declared is not a fact basis
+        data = self._profile(grouping={"case": ["s1"]}).to_dict()  # no samples declared
+        self.assertTrue(any("unknown sample_id" in e for e in validation.validate_dataset_profile(data)))
+        # normal populated sample facts (count == samples, grouping over declared ids) still pass
+        ok = self._profile(
+            sample_count=2,
+            samples=[{"sample_id": "s1"}, {"sample_id": "s2"}],
+            grouping={"case": ["s1"], "control": ["s2"]},
+        ).to_dict()
+        self.assertEqual(validation.validate_dataset_profile(ok), [])
+
 
 # --- WP-02c / T-02-06: DatasetFeasibilityReport ------------------------------
 
@@ -743,6 +772,26 @@ class DatasetFeasibilityReportContractTest(unittest.TestCase):
             data[flag] = True
             errors = validation.validate_dataset_feasibility_report(data)
             self.assertTrue(any(flag in e for e in errors), flag)
+
+    def test_report_rejects_nonboolean_truthy_authority_flags(self):
+        # every authority flag — including bypasses_gates — must reject any truthy
+        # value, not only the literal True (1, "true", a non-empty list, ...)
+        flags = ("locks_dataset", "authorizes_real_execution", "authorizes_formal_evidence", "bypasses_gates")
+        for flag in flags:
+            for truthy in (1, "true", ["yes"]):
+                data = self._report().to_dict()
+                data[flag] = truthy
+                errors = validation.validate_dataset_feasibility_report(data)
+                self.assertTrue(any(flag in e for e in errors), f"{flag}={truthy!r} should be rejected")
+        # valid false / absent flags stay accepted
+        clean = self._report().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_dataset_feasibility_report(clean), [])
+        absent = self._report().to_dict()
+        for flag in flags:
+            absent.pop(flag, None)
+        self.assertEqual(validation.validate_dataset_feasibility_report(absent), [])
 
 
 if __name__ == "__main__":
