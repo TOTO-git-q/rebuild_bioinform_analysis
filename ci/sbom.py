@@ -4,17 +4,21 @@
 Emits a CycloneDX 1.5 JSON Software Bill of Materials for the dependency closure
 that auto-bioinfo *declares*. The declared set is the committed source of truth —
 ``pyproject.toml`` (``[project.dependencies]`` and
-``[project.optional-dependencies]``) — read with the standard-library
-``tomllib`` (Python 3.11+; falls back to ``tomli`` on 3.10 if installed). Each
-declared component is then enriched with its
-*resolved* version and license, read from installed package metadata via
-``importlib.metadata``. No third-party SBOM tool and no new dependency are
-required.
+``[project.optional-dependencies]``). It is read with the standard-library
+``tomllib`` on Python 3.11+, and on Python 3.10 — where ``tomllib`` does not
+exist — with a tiny built-in fallback that parses *only* the two dependency
+fields this tool reads (see ``_fallback_project_table``). No third-party TOML
+reader is imported, so the tool is genuinely standard-library-only and adds no
+dependency across the project's full ``requires-python = ">=3.10"`` range. Each
+declared component is then enriched with its *resolved* version and license,
+read from installed package metadata via ``importlib.metadata``. No third-party
+SBOM tool and no new dependency are required.
 
 Design notes
 ------------
-- Stdlib only. Runs fully offline; it never reaches the network. Inputs are the
-  committed ``pyproject.toml`` plus package metadata already installed locally.
+- Stdlib only, on every supported Python. Runs fully offline; it never reaches
+  the network. Inputs are the committed ``pyproject.toml`` plus package metadata
+  already installed locally.
 - Source of truth is the manifest, not the environment. The component *set*
   comes from ``pyproject.toml`` so the inventory cannot silently drift with a
   stale editable install; installed metadata only supplies resolved
@@ -61,7 +65,95 @@ def _parse_requirement(raw: str) -> tuple[str, str]:
     return match.group(1), match.group(2).strip()
 
 
-def _load_declared(pyproject: Path = PYPROJECT) -> list[tuple[str, str | None, str]]:
+# Matches a single- or double-quoted TOML basic/literal string; used only to
+# pull dependency-array members out of the two fields the fallback parser reads.
+_TOML_STR_RE = re.compile(r'"([^"]*)"|\'([^\']*)\'')
+
+
+def _strip_inline_comment(line: str) -> str:
+    """Drop a trailing ``#`` comment that is not inside a quoted string."""
+    quote: str | None = None
+    for i, ch in enumerate(line):
+        if quote is not None:
+            if ch == quote:
+                quote = None
+        elif ch in "\"'":
+            quote = ch
+        elif ch == "#":
+            return line[:i]
+    return line
+
+
+def _fallback_project_table(text: str) -> dict:
+    """Minimal stdlib-only parse of the ``[project]`` fields this tool reads.
+
+    Used on Python 3.10, where ``tomllib`` is absent and no third-party TOML
+    reader is assumed. It deliberately understands *only* string arrays under
+    ``[project].dependencies`` and ``[project.optional-dependencies].<group>``
+    — exactly what :func:`_declared_from_project` consumes — and nothing else of
+    the TOML grammar. Any other table or field is ignored (its multi-line arrays
+    are still consumed so they cannot be misread as keys/headers). This keeps the
+    SBOM entry point stdlib-only across ``requires-python = ">=3.10"`` without
+    pulling in a real TOML reader; on 3.11+ the robust stdlib ``tomllib`` is used
+    instead.
+    """
+    project: dict = {}
+    optional: dict = {}
+    table: str | None = None
+    collecting: list | None = None  # the array literal currently being filled
+
+    def members(value: str) -> list[str]:
+        return [m.group(1) if m.group(1) is not None else m.group(2) for m in _TOML_STR_RE.finditer(value)]
+
+    def is_closed(value: str) -> bool:
+        # The array closes on a ``]`` that is not inside a quoted string (e.g.
+        # the ``]`` in ``"auto-bioinfo[test]"`` must not end the array).
+        return "]" in _TOML_STR_RE.sub("", value)
+
+    for raw_line in text.splitlines():
+        line = _strip_inline_comment(raw_line).strip()
+        if not line:
+            continue
+        if collecting is not None:
+            collecting.extend(members(line))
+            if is_closed(line):
+                collecting = None
+            continue
+        if line.startswith("[") and line.endswith("]"):
+            table = line[1:-1].strip()
+            continue
+        key, sep, value = line.partition("=")
+        if not sep:
+            continue
+        key = key.strip().strip("\"'")
+        value = value.strip()
+        if not value.startswith("["):
+            continue
+        target: list = members(value)
+        if table == "project" and key == "dependencies":
+            project["dependencies"] = target
+        elif table == "project.optional-dependencies":
+            optional[key] = target
+        # else: an array we don't care about — still consume it below so its
+        # continuation lines aren't misparsed as keys/table headers.
+        if not is_closed(value):
+            collecting = target
+
+    if optional:
+        project["optional-dependencies"] = optional
+    return project
+
+
+def _read_project_table(text: str) -> dict:
+    """Return the ``[project]`` table, via stdlib ``tomllib`` or the 3.10 fallback."""
+    try:
+        import tomllib  # stdlib on Python 3.11+
+    except ModuleNotFoundError:  # Python 3.10: no stdlib TOML reader
+        return _fallback_project_table(text)
+    return tomllib.loads(text).get("project", {})
+
+
+def _declared_from_project(project: dict) -> list[tuple[str, str | None, str]]:
     """Return ``(name, group, specifier)`` for every declared dependency.
 
     ``group`` is ``None`` for the runtime closure (``[project.dependencies]``),
@@ -69,13 +161,6 @@ def _load_declared(pyproject: Path = PYPROJECT) -> list[tuple[str, str | None, s
     merely pulls in the project's own extra (``auto-bioinfo[test]``) is skipped:
     it is group wiring, not a distinct package.
     """
-    try:
-        import tomllib  # stdlib on Python 3.11+
-    except ModuleNotFoundError:  # Python 3.10: optional backport, if present
-        import tomli as tomllib  # type: ignore[no-redef]
-
-    data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
-    project = data.get("project", {})
     out: list[tuple[str, str | None, str]] = []
     seen: set[tuple[str, str | None]] = set()
 
@@ -91,10 +176,15 @@ def _load_declared(pyproject: Path = PYPROJECT) -> list[tuple[str, str | None, s
 
     for raw in project.get("dependencies", []):
         add(raw, None)
-    for group, members in (project.get("optional-dependencies", {}) or {}).items():
-        for raw in members:
+    for group, group_members in (project.get("optional-dependencies", {}) or {}).items():
+        for raw in group_members:
             add(raw, group)
     return out
+
+
+def _load_declared(pyproject: Path = PYPROJECT) -> list[tuple[str, str | None, str]]:
+    """Load and parse the declared dependency closure from ``pyproject``."""
+    return _declared_from_project(_read_project_table(pyproject.read_text(encoding="utf-8")))
 
 
 def _installed_version(name: str) -> str | None:

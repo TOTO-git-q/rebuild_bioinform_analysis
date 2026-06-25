@@ -71,9 +71,10 @@ python ci/sbom.py -o sbom.json
 ```
 
 `ci/sbom.py`:
-- Uses the **standard library only** (`tomllib`, `importlib.metadata`, `json`,
-  `re`). It never touches the network; inputs are the committed `pyproject.toml`
-  plus package metadata already installed locally.
+- Uses the **standard library only**, on every supported Python
+  (`importlib.metadata`, `json`, `re`, plus `tomllib` on 3.11+). It never touches
+  the network; inputs are the committed `pyproject.toml` plus package metadata
+  already installed locally.
 - Reads the **declared** closure from the committed source of truth,
   `pyproject.toml` (`[project.dependencies]` + `[project.optional-dependencies]`),
   so the component set cannot silently drift with a stale editable install.
@@ -82,9 +83,15 @@ python ci/sbom.py -o sbom.json
 - Is **deterministic**: components are sorted and no wall-clock timestamp is
   embedded, so repeated runs against the same inputs are byte-identical
   (consistent with the reproduction-bundle guarantee).
-- Needs a TOML reader: stdlib `tomllib` on Python 3.11+ (the reference
-  environment), or the `tomli` backport on 3.10. Verified by
-  `tests/test_sbom_generator.py`.
+- Reads `pyproject.toml` with stdlib `tomllib` on Python 3.11+ (the reference
+  environment). On Python 3.10 — where `tomllib` does not exist — it falls back
+  to a tiny built-in parser that understands **only** the two dependency fields
+  it reads (`[project].dependencies` and `[project.optional-dependencies]`), so
+  it stays standard-library-only and adds **no** dependency across the project's
+  declared `requires-python = ">=3.10"` range. No third-party TOML reader (e.g.
+  `tomli`) is imported. The fallback is verified equivalent to `tomllib` on the
+  real `pyproject.toml` by `tests/test_sbom_generator.py`
+  (`FallbackTomlParserTest`), which runs without skipping on every interpreter.
 
 ### Recommended path for a fully attested SBOM (deferred)
 
