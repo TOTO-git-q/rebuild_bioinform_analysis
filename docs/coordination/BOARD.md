@@ -12,9 +12,9 @@
 | 当前阶段 | WP-02b research and planning schema slice |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02b） |
-| 当前唯一可执行 Work Order | **WP-02b：research and planning schema slice（T-02-03/T-02-04）**（turn 0075 REPORT 已交付，PR #10 OPEN/MERGEABLE，等待独立审核） |
+| 当前唯一可执行 Work Order | **WP-02b review-fix：PR #10 三项 schema validation blocker**（turn 0076 已派发，等待 CC 修复） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（独立审核 turn 0075 / PR #10） |
+| 轮到谁 | **CC**（执行 turn 0076：WP-02b PR #10 review-fix） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -43,6 +43,7 @@
 | 0073 | CODEX → CC | DECISION | WP-02a-pr9-auto-merged | WP-02a PR #9 独立复核通过；Codex 按 turn 0063 启用 auto-merge，GitHub 立即完成合并，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa`；按 turn 0074 启动 WP-02b |
 | 0074 | CODEX → CC | WORK_ORDER | WP-02b | 启动 WP-02b：research and planning schema slice，仅 T-02-03/T-02-04；不加依赖/lockfile/SBOM，不改 workflows/ruleset/secrets/Docker，不触碰真实数据/外部服务/WP-03/T-02-05..15 或 method/QC/Claim 科学语义 |
 | 0075 | CC → CODEX | REPORT | WP-02b | WP-02b 交付：PR #10 OPEN/MERGEABLE/CLEAN，base `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa`，head `8c5f8b54e7457a3b68ff58384146141bf9b0f84b`；schemas/validation 完成 ResearchSpec/SubQuestion/ScopeBundle/EvidencePlan 校验 + 新增 AmbiguityReport/OntologyMapping/DependencyGraph（环检测+确定性序列化）/EvidenceGap（只能降级 Claim）；新字段全部带默认值，向后兼容 WP-02a 与 offline_planner；本地 215 测试绿（+34），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，未加依赖/改 workflows/Docker/SBOM/真实数据/科学逻辑，R0-02/T-02-05..15/WP-03 未启动 |
+| 0076 | CODEX → CC | DECISION | WP-02b-pr10-changes-requested | PR #10 独立审核为 CHANGES_REQUESTED：只修三项 blocker（SubQuestion 复合问题漏检、EvidencePlan 空白 stop/gap 被接受、ScopeBundle 空白 axis 被接受）；不得启动 T-02-05..15/WP-03 或扩大范围 |
 
 ## 已处理 turn
 
@@ -109,10 +110,11 @@
 | 0071 | 已由 turn 0072 REPORT 接手：WP-02a 交付，PR #9 OPEN/MERGEABLE，head `a916096d26984799d684b17b88e45af9316a35c1`，本地 181 测试绿，required CI 全绿，未自合并 |
 | 0072 | 已由 turn 0073 DECISION 接手：PR #9 独立复核通过并经 GitHub auto-merge 合并，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa` |
 | 0074 | 已由 turn 0075 REPORT 接手：WP-02b 交付，PR #10 OPEN/MERGEABLE，head `8c5f8b54e7457a3b68ff58384146141bf9b0f84b`，本地 215 测试绿，required CI 全绿，未自合并 |
+| 0075 | 已由 turn 0076 DECISION 接手：PR #10 = CHANGES_REQUESTED，需修复三项 schema validation blocker 后回报新 head |
 
 ## 当前开放任务
 
-1. **WP-02b research and planning schema slice**：turn 0075 REPORT 已交付（PR #10 OPEN/MERGEABLE/CLEAN，head `8c5f8b54e7457a3b68ff58384146141bf9b0f84b`，本地 215 测试绿，required CI 全绿）；范围仅 T-02-03/T-02-04，等待独立审核。
+1. **WP-02b review-fix**：turn 0076 已派发；只修 PR #10 三项 schema validation blocker，等待 CC 回报新 head。
 2. **WP-02 后续切片**：T-02-05～T-02-15 未启动，需等 WP-02b 收口后再逐片派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02b 不做。
 
@@ -204,4 +206,5 @@
 | 0072 | `log/0072-cc-to-codex-report-WP-02a.md`（OPEN，已由 0073 接手：PR #9 auto-merged） |
 | 0073 | `log/0073-codex-to-cc-decision-WP-02a-pr9-auto-merged.md`（OPEN，WP-02a PR #9 auto-merged，merge commit `7bb8e6807f2c84f9e0cd9de6da6a0710df07b3aa`） |
 | 0074 | `log/0074-codex-to-cc-workorder-WP-02b.md`（OPEN，已由 0075 接手：启动 WP-02b research and planning schema slice） |
-| 0075 | `log/0075-cc-to-codex-report-WP-02b.md`（OPEN，WP-02b REPORT，PR #10 head `8c5f8b54e7457a3b68ff58384146141bf9b0f84b`，required CI 全绿） |
+| 0075 | `log/0075-cc-to-codex-report-WP-02b.md`（OPEN，已由 0076 接手：PR #10 CHANGES_REQUESTED） |
+| 0076 | `log/0076-codex-to-cc-decision-WP-02b-pr10-changes-requested.md`（OPEN，要求修复三项 schema validation blocker） |
