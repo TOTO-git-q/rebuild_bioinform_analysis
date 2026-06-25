@@ -1368,8 +1368,10 @@ class TaskRunContractTest(unittest.TestCase):
         self.assertEqual(data["artifact_refs"], ["artifact_deg_table"])
         # a bare legacy record with no environment/tool identity is not auditable
         self.assertTrue(any("auditable" in e for e in validation.validate_task_run(data)))
-        # adding the minimum tool identity makes the minimal record valid
+        # adding the minimum tool identity + the explicit completed exit code 0
+        # makes the minimal record valid
         data["tool_identity"] = "bulk_rnaseq_deg@1.0"
+        data["exit_code"] = 0
         self.assertEqual(validation.validate_task_run(data), [])
 
     def test_well_formed_completed_run_validates_with_stable_id(self):
@@ -1427,6 +1429,18 @@ class TaskRunContractTest(unittest.TestCase):
         c4["exit_code"] = "0"
         self.assertTrue(any("exit_code" in e for e in validation.validate_task_run(c4)))
 
+    def test_completed_run_requires_explicit_exit_code_zero(self):
+        # a completed run with no exit code at all is rejected: the contract
+        # requires completed runs to carry an explicit exit_code == 0.
+        missing = self._completed(exit_code=None).to_dict()
+        self.assertTrue(
+            any("must record an explicit exit code 0" in e for e in validation.validate_task_run(missing)),
+            "completed run with exit_code=None must be rejected",
+        )
+        # the explicit success exit code makes it valid
+        ok = self._completed(exit_code=0).to_dict()
+        self.assertEqual(validation.validate_task_run(ok), [])
+
     def test_duplicate_or_blank_refs_rejected(self):
         dup = self._completed(artifact_refs=["a", "a"]).to_dict()
         self.assertTrue(any("artifact_refs" in e and "duplicate" in e for e in validation.validate_task_run(dup)))
@@ -1434,6 +1448,24 @@ class TaskRunContractTest(unittest.TestCase):
         self.assertTrue(any("log_refs" in e for e in validation.validate_task_run(blank)))
         dup_out = self._completed(output_refs=["o", "o"]).to_dict()
         self.assertTrue(any("output_refs" in e and "duplicate" in e for e in validation.validate_task_run(dup_out)))
+
+    def test_cross_list_duplicate_refs_rejected(self):
+        # the same ref must not be claimed across two different ref lists.
+        artifact_log = self._completed(artifact_refs=["ref_shared"], output_refs=["output_deg_table"], log_refs=["ref_shared"]).to_dict()
+        errors = validation.validate_task_run(artifact_log)
+        self.assertTrue(
+            any("globally unique" in e and "ref_shared" in e for e in errors),
+            "a ref shared between artifact_refs and log_refs must be rejected",
+        )
+        # the same ref in artifact_refs and output_refs is rejected too
+        artifact_output = self._completed(artifact_refs=["ref_dup"], output_refs=["ref_dup"], log_refs=["log_run_abc"]).to_dict()
+        self.assertTrue(
+            any("globally unique" in e and "ref_dup" in e for e in validation.validate_task_run(artifact_output)),
+            "a ref shared between artifact_refs and output_refs must be rejected",
+        )
+        # distinct refs across the three lists remain valid
+        distinct = self._completed(artifact_refs=["artifact_deg_table"], output_refs=["output_deg_table"], log_refs=["log_run_abc"]).to_dict()
+        self.assertEqual(validation.validate_task_run(distinct), [])
 
     def test_malformed_resource_usage_rejected(self):
         neg = self._completed(resource_usage={"wall_seconds": -1}).to_dict()
@@ -1477,7 +1509,9 @@ class TaskRunContractTest(unittest.TestCase):
             "bypasses_gates",
             "raises_claim_level",
             "raises_claim",
+            "claim_level_raised",
             "mutates_workflow_state",
+            "workflow_state_mutated",
         )
         for flag in flags:
             for truthy in (True, 1, "true", ["yes"]):

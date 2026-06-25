@@ -1126,7 +1126,9 @@ _TASK_RUN_AUTHORITY_FLAGS = (
     "bypasses_gates",
     "raises_claim_level",
     "raises_claim",
+    "claim_level_raised",
     "mutates_workflow_state",
+    "workflow_state_mutated",
 )
 
 
@@ -1146,7 +1148,9 @@ def _validate_task_run_status_facts(run: dict[str, Any], status: str, exit_code:
     reason = (run.get("reason") or "").strip()
 
     if status == "completed":
-        if exit_code is not None and exit_code != 0:
+        if exit_code is None:
+            errors.append("exit_code: a completed run must record an explicit exit code 0")
+        elif exit_code != 0:
             errors.append(f"exit_code: a completed run must exit 0, not {exit_code}")
         if not has_identity:
             errors.append("result_status 'completed' requires non-empty environment or tool_identity facts to be auditable")
@@ -1197,6 +1201,22 @@ def validate_task_run(run: dict[str, Any]) -> list[str]:
     for list_field in ("output_refs", "log_refs"):
         if run.get(list_field) is not None:
             errors += _string_list_errors(run.get(list_field), list_field, require_unique=True)
+
+    # A reference identifies one fact and may appear in exactly one ref list: the
+    # same id must not be claimed as both (e.g.) an artifact and a log. Enforce
+    # non-blank uniqueness globally across all three ref lists, not just per-list.
+    seen_refs: set[str] = set()
+    for list_field in ("artifact_refs", "output_refs", "log_refs"):
+        value = run.get(list_field)
+        if not isinstance(value, list):
+            continue
+        for item in value:
+            if not (isinstance(item, str) and item.strip()):
+                continue
+            if item in seen_refs:
+                errors.append(f"{list_field}: ref {item!r} is already declared in another ref list (refs must be globally unique)")
+            else:
+                seen_refs.add(item)
 
     for map_field in ("environment", "parameters"):
         value = run.get(map_field)
