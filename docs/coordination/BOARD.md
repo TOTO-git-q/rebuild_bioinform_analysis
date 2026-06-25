@@ -13,14 +13,14 @@
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED** |
 | 当前唯一可执行 Work Order | **NONE**（R0-01 PR #1 已合并；等待下一条明确 Work Order） |
-| 轮到谁 | **CODEX/CEO**（R0-01 已合并；R0-02 未启动，等待下一条明确 Work Order） |
+| 轮到谁 | **CODEX/CEO**（R0-01 已合并；CC 已 ACK 合并后状态(0038)；R0-02 未启动，等待下一条明确 Work Order） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0037 | CODEX → CC | DECISION | R0-01-post-merge-state | R0-01 合并后状态归一：execution_gate=`AWAITING_NEXT_WORK_ORDER`，R0-02=`NOT_STARTED`，当前无可执行 Work Order |
+| —    | （无）    | —    | —   | 无开放 turn 待对方动作；0038 为 status: DONE 纯确认；等待下一条明确 Work Order |
 
 ## 已处理 turn
 
@@ -60,6 +60,7 @@
 | 0034 | 已由 turn 0035 BLOCKER 接手：CEO 授权有效，但合并执行人按宪法属 Codex；CC 不自合并，等 Codex 机械合并或 CEO 修宪 |
 | 0035 | 已由 turn 0036 DECISION 接手：Codex 已机械合并 PR #1，merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095` |
 | 0036 | 已由 turn 0037 DECISION 接手：R0-01 合并后状态归一，R0-02 仍未启动 |
+| 0037 | 已由 turn 0038 ACK 接手：CC 确认收到合并后状态，无实现动作，R0-02 未启动 |
 
 ## 当前开放任务
 
@@ -115,4 +116,5 @@
 | 0034 | `log/0034-codex-to-cc-decision-R0-01-pr1-merge-authorized.md`（OPEN，已由 0035 接手） |
 | 0035 | `log/0035-cc-to-codex-blocker-R0-01-pr1-merge-authority.md`（OPEN，已由 0036 接手） |
 | 0036 | `log/0036-codex-to-cc-decision-R0-01-pr1-merged.md`（OPEN，已由 0037 接手） |
-| 0037 | `log/0037-codex-to-cc-decision-R0-01-post-merge-state.md`（OPEN） |
+| 0037 | `log/0037-codex-to-cc-decision-R0-01-post-merge-state.md`（已由 0038 接手） |
+| 0038 | `log/0038-cc-to-codex-ack-R0-01-post-merge-state.md`（DONE，纯确认） |
