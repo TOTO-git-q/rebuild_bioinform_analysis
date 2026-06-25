@@ -3,10 +3,10 @@
 The generator is a developer tool living outside the importable package, so it
 is loaded here by file path. It is standard-library-only on every supported
 Python: ``tomllib`` on 3.11+, and a tiny built-in fallback parser on 3.10
-(no ``tomllib``, no third-party TOML reader). These tests therefore never skip —
-the previously-skipped Python 3.10/no-``tomli`` path is covered by exercising the
-fallback parser directly (``FallbackTomlParserTest``), regardless of the running
-interpreter.
+(no ``tomllib``, no third-party TOML reader). The previously-skipped Python
+3.10/no-``tomli`` path is now covered by exercising the fallback parser directly
+(``FallbackTomlParserTest``) on every interpreter; only the optional cross-check
+against a reference reader skips when none is importable.
 """
 
 import importlib.util
@@ -73,10 +73,12 @@ class SbomGeneratorTest(unittest.TestCase):
 class FallbackTomlParserTest(unittest.TestCase):
     """Covers the Python 3.10/no-``tomllib`` path that previously could skip.
 
-    The fallback parser must produce the *same* declared closure as stdlib
-    ``tomllib`` on the real ``pyproject.toml``; otherwise the SBOM would silently
-    differ on Python 3.10. These tests call the fallback directly so they run on
-    every interpreter (including the 3.11 suite environment), never skipping.
+    The fallback parser must produce the *same* declared closure as a real TOML
+    reader on the real ``pyproject.toml``; otherwise the SBOM would silently
+    differ on Python 3.10. The fallback's own behavior is asserted directly and
+    unconditionally (no skip on any interpreter); only the optional cross-check
+    against a reference reader skips when neither ``tomllib`` nor ``tomli`` is
+    importable (a bare 3.10), so the 3.10 path is never left uncovered.
     """
 
     @classmethod
@@ -84,12 +86,23 @@ class FallbackTomlParserTest(unittest.TestCase):
         cls.sbom = _load_sbom_module()
         cls.text = _PYPROJECT.read_text(encoding="utf-8")
 
-    def test_fallback_matches_tomllib_on_real_pyproject(self):
-        import tomllib  # the 3.11 suite environment has stdlib tomllib
+    def test_fallback_matches_reference_reader_on_real_pyproject(self):
+        # Compare the fallback against a real TOML reader when one is importable
+        # (stdlib ``tomllib`` on 3.11+, else the ``tomli`` backport if present).
+        # On a bare 3.10 with neither, this single comparison skips — but the
+        # fallback's own behavior is still asserted unconditionally by the other
+        # tests in this class, so the 3.10 path is never left uncovered.
+        try:
+            import tomllib as toml_reader
+        except ModuleNotFoundError:
+            try:
+                import tomli as toml_reader
+            except ModuleNotFoundError:
+                self.skipTest("no reference TOML reader available to cross-check the fallback")
 
-        via_tomllib = self.sbom._declared_from_project(tomllib.loads(self.text).get("project", {}))
+        via_reference = self.sbom._declared_from_project(toml_reader.loads(self.text).get("project", {}))
         via_fallback = self.sbom._declared_from_project(self.sbom._fallback_project_table(self.text))
-        self.assertEqual(sorted(via_fallback), sorted(via_tomllib))
+        self.assertEqual(sorted(via_fallback), sorted(via_reference))
         # And it actually parsed something — guard against a vacuous match.
         self.assertTrue(via_fallback)
 
