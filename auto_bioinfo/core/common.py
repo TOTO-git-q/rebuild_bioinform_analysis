@@ -27,7 +27,7 @@ import json
 import re
 from dataclasses import dataclass, fields, is_dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, get_origin
 
 from .ids import hash_payload
 
@@ -221,19 +221,27 @@ _JSON_TYPES: dict[type, str] = {str: "string", int: "integer", float: "number", 
 def _json_type_for(annotation: Any) -> str:
     """Best-effort JSON-schema type for a dataclass field annotation.
 
-    Annotations may be runtime types or (with ``from __future__ import
-    annotations``) strings; both are handled without importing typing machinery.
+    Annotations may be runtime types, parametrised generics (``list[str]``,
+    ``dict[str, Any]``), or — with ``from __future__ import annotations`` —
+    strings; all three are handled.  ``typing.get_origin`` is used for generics
+    so the result is stable across Python versions (the ``str()`` form of a
+    generic alias is not).
     """
+    if isinstance(annotation, str):
+        text = annotation
+        if text.startswith(("list", "List")):
+            return "array"
+        if text.startswith(("dict", "Dict")):
+            return "object"
+        for py_type, name in _JSON_TYPES.items():
+            if text.startswith(py_type.__name__):
+                return name
+        return "string"
+    origin = get_origin(annotation)
+    if origin is not None:
+        return _JSON_TYPES.get(origin, "string")
     if isinstance(annotation, type):
         return _JSON_TYPES.get(annotation, "string")
-    text = str(annotation)
-    if text.startswith("list") or text.startswith("List"):
-        return "array"
-    if text.startswith("dict") or text.startswith("Dict"):
-        return "object"
-    for py_type, name in _JSON_TYPES.items():
-        if text.startswith(py_type.__name__):
-            return name
     return "string"
 
 
