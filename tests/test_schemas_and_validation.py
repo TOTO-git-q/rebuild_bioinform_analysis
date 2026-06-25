@@ -11,6 +11,7 @@ from auto_bioinfo.core.schemas import (
     AnalysisTaskPacket,
     ApprovalDecision,
     ApprovalRequest,
+    ArtifactManifest,
     CompatibilityDecision,
     DataPreparationTaskPacket,
     DatasetFeasibilityReport,
@@ -18,6 +19,7 @@ from auto_bioinfo.core.schemas import (
     DependencyGraph,
     EngineeringTaskPacket,
     EvidenceGap,
+    EvidenceItem,
     EvidencePlan,
     MethodContract,
     MethodContractRef,
@@ -25,6 +27,7 @@ from auto_bioinfo.core.schemas import (
     OriginalRequest,
     Project,
     ProjectPolicy,
+    QCReport,
     ResearchSpec,
     ResourceCandidate,
     ReviewTaskPacket,
@@ -1524,6 +1527,267 @@ class TaskRunContractTest(unittest.TestCase):
         for flag in flags:
             clean[flag] = False
         self.assertEqual(validation.validate_task_run(clean), [])
+
+
+_VALID_SHA256 = "a" * 64
+
+
+class ArtifactManifestContractTest(unittest.TestCase):
+    """WP-02g / T-02-12: ArtifactManifest structured fact record (REQ-OBJ-13)."""
+
+    def _manifest(self, **kw):
+        base = dict(
+            artifact_id="artifact_deg_table",
+            project_id="proj_demo",
+            path="state/deg_results.csv",
+            exists=True,
+            checksum_sha256=_VALID_SHA256,
+            is_placeholder=False,
+            qc_status="pass",
+            artifact_type="deg_results_table",
+            producer_agent_or_task="analysis_task_1",
+            producer_run_id="task_run_1",
+            source_refs=["dataset_profile_1"],
+            output_name="deg_results.csv",
+            size_bytes=2048,
+        )
+        base.update(kw)
+        return ArtifactManifest(**base)
+
+    def test_well_formed_manifest_validates_with_stable_id(self):
+        data = self._manifest(artifact_id="").to_dict()
+        self.assertTrue(data["artifact_id"].startswith("artifact_"))
+        self.assertEqual(validation.validate_artifact_manifest(data), [])
+        # content-addressed: same facts -> same id, a different path -> a new id
+        again = self._manifest(artifact_id="").to_dict()
+        self.assertEqual(data["artifact_id"], again["artifact_id"])
+        changed = self._manifest(artifact_id="", path="state/other.csv").to_dict()
+        self.assertNotEqual(data["artifact_id"], changed["artifact_id"])
+
+    def test_blank_identity_or_path_rejected(self):
+        blank_proj = self._manifest(project_id="").to_dict()
+        self.assertTrue(any("project_id" in e for e in validation.validate_artifact_manifest(blank_proj)))
+        blank_path = self._manifest(path="   ").to_dict()
+        self.assertTrue(any("path" in e for e in validation.validate_artifact_manifest(blank_path)))
+
+    def test_existing_artifact_requires_valid_checksum(self):
+        missing = self._manifest(checksum_sha256="").to_dict()
+        self.assertTrue(any("checksum_sha256" in e for e in validation.validate_artifact_manifest(missing)))
+        invalid = self._manifest(checksum_sha256="not-a-hash").to_dict()
+        self.assertTrue(any("checksum_sha256" in e for e in validation.validate_artifact_manifest(invalid)))
+
+    def test_placeholder_and_nonexistent_and_failed_cannot_support_evidence(self):
+        placeholder = self._manifest(is_placeholder=True).to_dict()
+        self.assertTrue(any("is_placeholder=true" in e for e in validation.validate_artifact_manifest(placeholder)))
+        nonexistent = self._manifest(exists=False, checksum_sha256="").to_dict()
+        self.assertTrue(any("exists=false" in e for e in validation.validate_artifact_manifest(nonexistent)))
+        failed = self._manifest(qc_status="fail").to_dict()
+        self.assertTrue(any("qc_status=fail" in e for e in validation.validate_artifact_manifest(failed)))
+
+    def test_invalid_qc_status_rejected(self):
+        bad = self._manifest(qc_status="omniscient").to_dict()
+        self.assertTrue(any("qc_status: must be one of" in e for e in validation.validate_artifact_manifest(bad)))
+
+    def test_negative_size_and_duplicate_source_refs_rejected(self):
+        neg = self._manifest(size_bytes=-1).to_dict()
+        self.assertTrue(any("size_bytes" in e and "negative" in e for e in validation.validate_artifact_manifest(neg)))
+        dup = self._manifest(source_refs=["dataset_profile_1", "dataset_profile_1"]).to_dict()
+        self.assertTrue(any("source_refs" in e and "duplicate" in e for e in validation.validate_artifact_manifest(dup)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = (
+            "authorizes_real_execution",
+            "real_execution_authorized",
+            "creates_formal_evidence",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "locks_dataset",
+            "dataset_locked",
+            "bypasses_gates",
+            "raises_claim_level",
+            "claim_level_raised",
+            "authorizes_export",
+            "publishes",
+        )
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._manifest().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_artifact_manifest(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._manifest().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_artifact_manifest(clean), [])
+
+
+class QCReportContractTest(unittest.TestCase):
+    """WP-02g / T-02-13: QCReport four-layer fact record (REQ-OBJ-14)."""
+
+    def _checks(self):
+        return [
+            {"check_id": "execution.method_succeeded", "layer": "execution", "status": "pass", "reason": "method succeeded"},
+            {"check_id": "data.nonempty_matrix", "layer": "data", "status": "pass", "reason": "n_genes>0"},
+            {"check_id": "statistical.min_replicates", "layer": "statistical", "status": "pass", "reason": "all groups >= 2"},
+            {"check_id": "biological.claim_capability", "layer": "biological", "status": "pass", "reason": "RNA capped at association"},
+        ]
+
+    def _report(self, **kw):
+        base = dict(qc_report_id="qc_report_1", overall_status="pass", checks=self._checks(), artifact_id="artifact_deg_table")
+        base.update(kw)
+        return QCReport(**base)
+
+    def test_well_formed_four_layer_report_validates_with_stable_id(self):
+        data = self._report(qc_report_id="").to_dict()
+        self.assertTrue(data["qc_report_id"].startswith("qc_report_"))
+        self.assertEqual(validation.validate_qc_report(data), [])
+
+    def test_engine_detail_is_accepted_as_reason(self):
+        # the deterministic QC engine records its reason under ``detail``.
+        checks = [{"check_id": "execution.output_exists", "layer": "execution", "status": "fail", "detail": "size_bytes=0"}]
+        data = self._report(overall_status="fail", checks=checks).to_dict()
+        self.assertEqual(validation.validate_qc_report(data), [])
+
+    def test_bare_boolean_qc_is_rejected(self):
+        bare = self._report(checks=True).to_dict()
+        self.assertTrue(any("bare boolean" in e for e in validation.validate_qc_report(bare)))
+        bare_item = self._report(checks=[True, False]).to_dict()
+        self.assertTrue(any("bare boolean" in e for e in validation.validate_qc_report(bare_item)))
+
+    def test_unknown_layer_or_status_rejected(self):
+        bad_layer = self._report(checks=[{"check_id": "x", "layer": "spiritual", "status": "pass", "reason": "r"}]).to_dict()
+        self.assertTrue(any("layer: must be one of" in e for e in validation.validate_qc_report(bad_layer)))
+        bad_status = self._report(checks=[{"check_id": "x", "layer": "data", "status": "maybe", "reason": "r"}]).to_dict()
+        self.assertTrue(any("status: must be one of" in e for e in validation.validate_qc_report(bad_status)))
+
+    def test_fail_or_warn_without_reason_rejected(self):
+        no_reason_fail = self._report(overall_status="fail", checks=[{"check_id": "x", "layer": "data", "status": "fail"}]).to_dict()
+        self.assertTrue(any("must record an explicit reason" in e for e in validation.validate_qc_report(no_reason_fail)))
+        no_reason_warn = self._report(overall_status="pass_with_warnings", checks=[{"check_id": "x", "layer": "data", "status": "warn"}]).to_dict()
+        self.assertTrue(any("must record an explicit reason" in e for e in validation.validate_qc_report(no_reason_warn)))
+
+    def test_duplicate_check_ids_rejected(self):
+        dup = [
+            {"check_id": "data.same", "layer": "data", "status": "pass", "reason": "r"},
+            {"check_id": "data.same", "layer": "data", "status": "pass", "reason": "r"},
+        ]
+        data = self._report(checks=dup).to_dict()
+        self.assertTrue(any("duplicate check id" in e for e in validation.validate_qc_report(data)))
+
+    def test_overall_status_contradictions_rejected(self):
+        # overall pass but a check failed
+        fail_check = self._checks()
+        fail_check[0] = {"check_id": "execution.method_succeeded", "layer": "execution", "status": "fail", "reason": "crash"}
+        contradiction = self._report(overall_status="pass", checks=fail_check).to_dict()
+        self.assertTrue(any("contradicts a failing check" in e for e in validation.validate_qc_report(contradiction)))
+        # overall pass but a check warned
+        warn_check = self._checks()
+        warn_check[1] = {"check_id": "data.nonempty_matrix", "layer": "data", "status": "warn", "reason": "low"}
+        warn_contradiction = self._report(overall_status="pass", checks=warn_check).to_dict()
+        self.assertTrue(any("contradicts a warning check" in e for e in validation.validate_qc_report(warn_contradiction)))
+        # overall fail but every check passed
+        clean_fail = self._report(overall_status="fail").to_dict()
+        self.assertTrue(any("contradicts all-passing checks" in e for e in validation.validate_qc_report(clean_fail)))
+
+    def test_qc_report_carries_no_export_or_claim_authority(self):
+        for flag in ("creates_evidence", "raises_claim_level", "authorizes_export", "authorizes_publishing", "publishes", "bypasses_gates"):
+            data = self._report().to_dict()
+            data[flag] = True
+            self.assertTrue(any(flag in e for e in validation.validate_qc_report(data)), f"{flag} should be rejected")
+
+
+class EvidenceItemContractTest(unittest.TestCase):
+    """WP-02g / T-02-14: EvidenceItem evidence-fact record (REQ-OBJ-15)."""
+
+    def _item(self, **kw):
+        base = dict(
+            evidence_item_id="evidence_item_1",
+            artifact_id="artifact_deg_table",
+            review_status="audited",
+            subquestion_ids=["subquestion_1"],
+            source_dataset_ids=["dataset_1"],
+            source_task_run_ids=["task_run_1"],
+            observation="120 of 18000 genes are significantly differentially expressed between A and B.",
+            effect_summary={"n_significant": 120, "max_abs_log2_fold_change": 3.1},
+            uncertainty={"statistical_test": "welch_t_test", "fdr_method": "benjamini_hochberg"},
+            evidence_type="bulk_rna_differential_expression",
+            scope={"species": ["human"], "tissue": ["liver"]},
+            qc_status="pass",
+            allowed_claim_level="association",
+            supports_or_opposes="supports",
+            replication_status="single_dataset",
+            limitations=["Single dataset; results are not independently replicated."],
+        )
+        base.update(kw)
+        return EvidenceItem(**base)
+
+    def test_well_formed_evidence_validates_with_stable_id(self):
+        data = self._item(evidence_item_id="").to_dict()
+        self.assertTrue(data["evidence_item_id"].startswith("evidence_item_"))
+        self.assertEqual(validation.validate_evidence_item(data), [])
+
+    def test_missing_lineage_rejected(self):
+        for list_field in ("subquestion_ids", "source_dataset_ids", "source_task_run_ids"):
+            data = self._item(**{list_field: []}).to_dict()
+            self.assertTrue(
+                any(list_field in e for e in validation.validate_evidence_item(data)),
+                f"empty {list_field} should be rejected",
+            )
+
+    def test_non_qc_passed_evidence_rejected(self):
+        for bad_status in ("fail", "pending", "warn"):
+            data = self._item(qc_status=bad_status).to_dict()
+            self.assertTrue(any("QC-passed status" in e for e in validation.validate_evidence_item(data)), f"qc_status={bad_status} should be rejected")
+
+    def test_invalid_claim_level_and_blank_observation_or_type_rejected(self):
+        bad_level = self._item(allowed_claim_level="omniscient").to_dict()
+        self.assertTrue(any("allowed_claim_level" in e for e in validation.validate_evidence_item(bad_level)))
+        blank_obs = self._item(observation="   ").to_dict()
+        self.assertTrue(any("observation" in e for e in validation.validate_evidence_item(blank_obs)))
+        blank_type = self._item(evidence_type="").to_dict()
+        self.assertTrue(any("evidence_type" in e for e in validation.validate_evidence_item(blank_type)))
+
+    def test_missing_or_invalid_direction_rejected(self):
+        bad_dir = self._item(supports_or_opposes="vibes").to_dict()
+        self.assertTrue(any("supports_or_opposes" in e for e in validation.validate_evidence_item(bad_dir)))
+
+    def test_single_dataset_cannot_claim_replication(self):
+        replicated = self._item(replication_status="replicated").to_dict()
+        self.assertTrue(any("independent replication" in e for e in validation.validate_evidence_item(replicated)))
+        # multi-dataset evidence may legitimately claim replication
+        multi = self._item(source_dataset_ids=["dataset_1", "dataset_2"], replication_status="multi_dataset").to_dict()
+        self.assertEqual(validation.validate_evidence_item(multi), [])
+
+    def test_single_dataset_must_keep_limitations_visible(self):
+        no_limits = self._item(limitations=[]).to_dict()
+        self.assertTrue(any("limitations" in e for e in validation.validate_evidence_item(no_limits)))
+
+    def test_external_validation_requires_supporting_refs(self):
+        unsupported = self._item(externally_validated=True, external_validation_refs=[]).to_dict()
+        self.assertTrue(any("external_validation_refs" in e for e in validation.validate_evidence_item(unsupported)))
+        supported = self._item(externally_validated=True, external_validation_refs=["pmid:12345678"]).to_dict()
+        self.assertEqual(validation.validate_evidence_item(supported), [])
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = (
+            "raises_claim_level",
+            "claim_level_raised",
+            "bypasses_qc",
+            "bypasses_gates",
+            "creates_claim",
+            "creates_formal_evidence",
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+        )
+        for flag in flags:
+            for truthy in (True, 1, "yes", ["x"]):
+                data = self._item().to_dict()
+                data[flag] = truthy
+                self.assertTrue(any(flag in e for e in validation.validate_evidence_item(data)), f"{flag}={truthy!r} should be rejected")
+        clean = self._item().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_evidence_item(clean), [])
 
 
 if __name__ == "__main__":
