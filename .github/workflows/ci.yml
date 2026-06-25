@@ -1,0 +1,45 @@
+# CI quality gate (WP-01 CI slice / T-01-08).
+#
+# Runs the SAME repo-native gates as local development so CI and local stay
+# aligned (T-01-07 / WP-01c). Every step invokes a Makefile target — the single
+# source of truth for lint / format / type-check / test / coverage — installed
+# from the repo packaging (WP-01a). The suite is fully offline and deterministic:
+# no network, no database, no paid service, no external LLM.
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package and dev tooling
+        run: make install
+
+      - name: Lint (ruff)
+        run: make lint
+
+      - name: Format check (ruff)
+        run: make format-check
+
+      - name: Type check (mypy, advisory)
+        run: make typecheck
+
+      - name: Tests (offline, deterministic — no network, no paid LLM)
+        run: make test
+
+      - name: Coverage report
+        run: make coverage
