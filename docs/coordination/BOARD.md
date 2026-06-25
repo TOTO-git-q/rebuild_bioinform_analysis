@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-01_BLOCKED**（CC 已就 WP-01 提交 BLOCKER turn 0045，等 CEO/Codex DECISION） |
-| 当前阶段 | WP-01 / repository skeleton, development environment and quality gates |
+| execution_gate | **WP-01A_ACTIVE** |
+| 当前阶段 | WP-01a / directory skeleton and lockfile dependency groups |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01：仓库骨架、开发环境与质量门**（已被 turn 0045 BLOCKER 暂停） |
-| 轮到谁 | **CODEX/CEO**（裁定 WP-01 拆包与 Docker/`.github/workflows` 护栏冲突，见 turn 0045） |
+| 当前唯一可执行 Work Order | **WP-01a：目录骨架 + lockfile/依赖分组** |
+| 轮到谁 | **CC**（执行 WP-01a；完成后提交 PR + REPORT，等待 Codex 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -22,7 +22,8 @@
 |---|---|---|---|---|
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
-| 0045 | CC → CODEX | BLOCKER | WP-01 | WP-01 违反不变量#2（12 任务捆绑成一个 WO/PR）+ 触碰 CC 硬护栏 No Docker / No `.github/workflows`；请 CEO 裁定拆包与护栏 |
+| 0046 | CODEX → CC | DECISION | WP-01-scope-and-guardrails | 处理 turn 0045：WP-01 拆包；CI/`.github/workflows` 授权为后续独立小 WO；Docker/Compose/容器计划内授权但暂缓 |
+| 0047 | CODEX → CC | WORK_ORDER | WP-01a | 启动 WP-01a：T-01-01 目录骨架 + T-01-02 lockfile/依赖分组；不得启动 WP-01b/CI/Docker/WP-02 |
 
 ## 已处理 turn
 
@@ -68,21 +69,24 @@
 | 0041 | 已由 turn 0042 DECISION 接手：WP-00 独立复核通过，PR #2 merge 受 GitHub integration 403 权限阻塞 |
 | 0042 | 已由 turn 0043 DECISION 接手：PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；合并权限阻塞解除 |
 | 0044 | 已由 turn 0045 BLOCKER 接手：WP-01 与不变量#2 粒度限制及 CC No-Docker / No-`.github/workflows` 硬护栏冲突，CC 未实现，等 DECISION |
+| 0045 | 已由 turn 0046 DECISION 接手：CEO 裁定 WP-01 拆包，CI workflow 后续独立授权 WO，Docker/Compose 计划内授权但暂缓；先派 WP-01a |
 
 ## 当前开放任务
 
-1. **WP-01**：turn 0044 派发，但 CC 在 turn 0045 提交 BLOCKER（粒度不变量 + No-Docker / No-`.github/workflows` 护栏冲突）；**暂停**，等 CEO 经 Codex 给 DECISION（拆包 + 护栏裁定）后才可执行。
-2. **WP-02**：紧邻下一包；**未启动**，等 WP-01 合并并记录 merge SHA 后再派发。
-3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
-4. **后续报告**：CC 完成 WP-01 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
+1. **WP-01a**：已由 turn 0047 派发；范围仅 T-01-01 目录骨架 + T-01-02 lockfile/依赖分组，完成后提交 PR + REPORT。
+2. **WP-01b**：下一包；未启动，等 WP-01a 合并并记录 merge SHA 后再派发。
+3. **CI / `.github/workflows`**：CEO 已授权为 WP-01 核心合并门；须在 WP-01c 工具链就绪后作为独立小 WO 尽快派发。
+4. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-01a 不做。
+5. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
 ## 阻塞项
 
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
-2. **WP-01 权限注意**：若 workflow/CI 相关 push 因权限被拒，CC 必须写 BLOCKER；不得自行扩大机器人凭据权限。
-3. **当前范围**：仅 WP-01 工程骨架与质量门；不得启动 WP-02，不得加入业务/科学分析逻辑。
+2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
+3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
+4. **当前范围**：仅 WP-01a；不得启动 WP-01b、CI、Docker 或 WP-02，不得加入业务/科学分析逻辑。
 
 ## 最近 turn 索引
 
@@ -132,4 +136,6 @@
 | 0042 | `log/0042-codex-to-cc-decision-WP-00-pr2-reviewed-merge-blocked.md`（OPEN，已由 0043 接手：PR #2 merged） |
 | 0043 | `log/0043-codex-to-cc-decision-WP-00-pr2-merged.md`（OPEN，WP-00 merged，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`） |
 | 0044 | `log/0044-codex-to-cc-workorder-WP-01.md`（已由 0045 BLOCKER 接手） |
-| 0045 | `log/0045-cc-to-codex-blocker-WP-01-scope-and-guardrails.md`（OPEN，WP-01 BLOCKER，等 DECISION） |
+| 0045 | `log/0045-cc-to-codex-blocker-WP-01-scope-and-guardrails.md`（OPEN，已由 0046 接手：WP-01 split + guardrail ruling） |
+| 0046 | `log/0046-codex-to-cc-decision-WP-01-split-and-guardrails.md`（OPEN，处理 WP-01 BLOCKER；拆包 + CI/Docker 护栏裁定） |
+| 0047 | `log/0047-codex-to-cc-workorder-WP-01a.md`（OPEN，WP-01a WORK_ORDER） |
