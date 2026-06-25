@@ -6,16 +6,24 @@ from .schemas import (
     AMBIGUITY_STATES,
     APPROVAL_DECISIONS,
     APPROVAL_STATES,
+    ARTIFACT_QC_STATUSES,
     AUTOMATION_LEVELS,
     CLAIM_LEVELS,
     COMPATIBILITY_ACCEPTED_DECISIONS,
     COMPATIBILITY_DECISIONS,
+    EVIDENCE_DIRECTIONS,
     EVIDENCE_GAP_STATES,
     EVIDENCE_GAP_TYPES,
+    EVIDENCE_REPLICATED_STATUSES,
+    EVIDENCE_REPLICATION_STATUSES,
     FEASIBILITY_ACCEPTED_DECISIONS,
     FEASIBILITY_DECISIONS,
     ONTOLOGY_CONFIDENCE_FLOOR,
     ONTOLOGY_MAPPING_STATES,
+    QC_CHECK_LAYERS,
+    QC_CHECK_STATUSES,
+    QC_OVERALL_STATUSES,
+    QC_PASSED_OVERALL_STATUSES,
     TASK_RUN_RESULT_STATUSES,
     DependencyGraph,
     WorkflowPlan,
@@ -59,16 +67,78 @@ def validate_claim_ceiling(claim: dict[str, Any], max_allowed: str) -> list[str]
 
 
 def validate_artifact_manifest(manifest: dict[str, Any]) -> list[str]:
+    """Validate an ArtifactManifest as a structured artifact fact record (REQ-OBJ-13).
+
+    Identity (``artifact_id`` / ``project_id``) must be present and well-formed and
+    ``path`` must be a non-blank recorded fact.  ``qc_status`` must be a bounded
+    :data:`ARTIFACT_QC_STATUSES` value and ``size_bytes`` (a recorded fact) must be
+    a non-negative integer.  Reference lists (``source_refs`` /
+    ``expected_by_task_ids`` / ``supports_subquestion_ids`` / ``evidence_item_refs``)
+    must hold distinct, non-blank facts — a duplicate source ref is rejected.  An
+    artifact that *claims to exist* must carry a real content checksum (a valid
+    lowercase sha-256), and the evidence-readiness contract is kept: a
+    non-existent, placeholder, or QC-failed artifact may not support evidence.  The
+    manifest records facts only; any truthy authority-like flag (under any alias
+    spelling) is rejected — a manifest never computes a checksum, registers a file,
+    or grants authority.
+    """
     errors = validate_required_fields(
         manifest,
         ["artifact_id", "project_id", "path", "exists", "checksum_sha256", "is_placeholder", "qc_status"],
     )
-    if manifest.get("exists") is not True:
+    errors += common.validate_identifier(manifest.get("artifact_id", ""), "artifact_id")
+    errors += common.validate_identifier(manifest.get("project_id", ""), "project_id")
+    path = manifest.get("path")
+    if path is not None and not (isinstance(path, str) and path.strip()):
+        errors.append("path: an artifact must record a non-blank path fact")
+
+    qc_status = manifest.get("qc_status")
+    if qc_status is not None and qc_status not in ARTIFACT_QC_STATUSES:
+        errors.append(f"qc_status: must be one of {', '.join(ARTIFACT_QC_STATUSES)}")
+
+    size = manifest.get("size_bytes")
+    if size is not None:
+        if isinstance(size, bool) or not isinstance(size, int):
+            errors.append("size_bytes: expected a non-negative integer")
+        elif size < 0:
+            errors.append("size_bytes: must not be negative")
+
+    # Reference list facts must be distinct, non-blank strings — the same source
+    # ref (or expected-by / supports / evidence ref) may not be recorded twice.
+    for list_field in ("source_refs", "expected_by_task_ids", "supports_subquestion_ids", "evidence_item_refs", "limitations"):
+        if manifest.get(list_field) is not None:
+            errors += _string_list_errors(manifest.get(list_field), list_field, require_unique=True)
+
+    # An artifact that claims to exist must carry a real content checksum (recorded
+    # fact only; never computed here).  Evidence-readiness: a non-existent,
+    # placeholder, or QC-failed artifact may not support evidence.
+    if manifest.get("exists") is True:
+        errors += common.validate_hash(manifest.get("checksum_sha256"), "checksum_sha256")
+    else:
         errors.append("artifact cannot support evidence when exists=false")
     if manifest.get("is_placeholder") is True:
         errors.append("artifact cannot support evidence when is_placeholder=true")
-    if manifest.get("qc_status") == "fail":
+    if qc_status == "fail":
         errors.append("artifact cannot support evidence when qc_status=fail")
+
+    errors += _reject_truthy_authority_flags(
+        manifest,
+        (
+            "authorizes_real_execution",
+            "real_execution_authorized",
+            "creates_formal_evidence",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "locks_dataset",
+            "dataset_locked",
+            "bypasses_gates",
+            "raises_claim_level",
+            "claim_level_raised",
+            "authorizes_export",
+            "publishes",
+        ),
+        "artifact manifest",
+    )
     return errors
 
 
@@ -1252,4 +1322,190 @@ def validate_task_run(run: dict[str, Any]) -> list[str]:
         errors += _validate_task_run_status_facts(run, status, exit_code)
 
     errors += _reject_truthy_authority_flags(run, _TASK_RUN_AUTHORITY_FLAGS, "task run")
+    return errors
+
+
+# --- WP-02g / T-02-13..14: QCReport & EvidenceItem contract validators ---------
+
+
+def _qc_check_reason(check: dict[str, Any]) -> str:
+    """The recorded reason of a QC check (``reason`` or the engine's ``detail``)."""
+    return str(check.get("reason", check.get("detail", "")) or "").strip()
+
+
+def validate_qc_report(report: dict[str, Any]) -> list[str]:
+    """Validate a QCReport four-layer fact record (REQ-OBJ-14).
+
+    Identity (``qc_report_id``) is required and well-formed and ``overall_status``
+    must be one of the bounded :data:`QC_OVERALL_STATUSES`.  ``checks`` must be a
+    non-empty list of structured check facts — never a bare boolean: every check
+    is an object carrying a ``layer`` (:data:`QC_CHECK_LAYERS`) and a ``status``
+    (:data:`QC_CHECK_STATUSES`), a failing or warning check must record an explicit
+    reason (``reason`` or the engine's ``detail``), and any present check id must be
+    unique.  The overall status may not contradict the recorded checks (any fail ->
+    ``fail``; a warn with no fail -> ``pass_with_warnings``; otherwise ``pass``).
+    A QC report records facts only: any truthy authority-like flag — creating
+    evidence, raising a claim level, or authorising export/publishing — is
+    rejected.  This validates the contract record only; it never runs QC.
+    """
+    errors = validate_required_fields(report, ["schema_version", "qc_report_id", "overall_status", "checks"])
+    errors += common.validate_identifier(report.get("qc_report_id", ""), "qc_report_id")
+
+    overall = report.get("overall_status")
+    if overall is not None and overall not in QC_OVERALL_STATUSES:
+        errors.append(f"overall_status: must be one of {', '.join(QC_OVERALL_STATUSES)}")
+
+    checks = report.get("checks")
+    # A QC report is structured findings, never a bare boolean verdict.
+    if isinstance(checks, bool) or not isinstance(checks, list):
+        return errors + ["checks: a QC report must record a list of structured check facts, not a bare boolean"]
+
+    seen_ids: set[str] = set()
+    saw_fail = False
+    saw_warn = False
+    for idx, check in enumerate(checks):
+        if isinstance(check, bool) or not isinstance(check, dict):
+            errors.append(f"checks[{idx}]: each check must be a structured fact object, not a bare boolean")
+            continue
+        if check.get("layer") not in QC_CHECK_LAYERS:
+            errors.append(f"checks[{idx}].layer: must be one of {', '.join(QC_CHECK_LAYERS)}")
+        status = check.get("status")
+        if status not in QC_CHECK_STATUSES:
+            errors.append(f"checks[{idx}].status: must be one of {', '.join(QC_CHECK_STATUSES)}")
+        else:
+            saw_fail = saw_fail or status == "fail"
+            saw_warn = saw_warn or status == "warn"
+            if status in ("fail", "warn") and not _qc_check_reason(check):
+                errors.append(f"checks[{idx}]: a {status} check must record an explicit reason (a QC finding is never a bare flag)")
+        check_id = str(check.get("check_id", check.get("id", "")) or "").strip()
+        if check_id:
+            if check_id in seen_ids:
+                errors.append(f"checks[{idx}]: duplicate check id {check_id!r} — check ids must be unique")
+            else:
+                seen_ids.add(check_id)
+
+    # The overall status must agree with the recorded checks (no contradiction).
+    if overall in QC_OVERALL_STATUSES:
+        if saw_fail and overall != "fail":
+            errors.append(f"overall_status {overall!r} contradicts a failing check; a report with any fail is 'fail'")
+        elif not saw_fail and saw_warn and overall != "pass_with_warnings":
+            errors.append(f"overall_status {overall!r} contradicts a warning check; a report with a warn (and no fail) is 'pass_with_warnings'")
+        elif not saw_fail and not saw_warn and overall != "pass":
+            errors.append(f"overall_status {overall!r} contradicts all-passing checks; a report with no warn/fail is 'pass'")
+
+    errors += _reject_truthy_authority_flags(
+        report,
+        (
+            "creates_evidence",
+            "creates_formal_evidence",
+            "raises_claim_level",
+            "claim_level_raised",
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+            "bypasses_gates",
+        ),
+        "QC report",
+    )
+    return errors
+
+
+def validate_evidence_item(item: dict[str, Any]) -> list[str]:
+    """Validate an EvidenceItem evidence-fact record (REQ-OBJ-15).
+
+    Identity (``evidence_item_id`` / ``artifact_id``) must be present and
+    well-formed.  Lineage is mandatory: an evidence record must bind non-empty
+    ``subquestion_ids`` / ``source_dataset_ids`` / ``source_task_run_ids`` (each a
+    list of distinct, non-blank ids).  ``observation`` and ``evidence_type`` must be
+    non-blank, ``allowed_claim_level`` must be a valid :data:`CLAIM_LEVELS` value,
+    and ``supports_or_opposes`` must record an explicit :data:`EVIDENCE_DIRECTIONS`
+    direction.  Formal evidence must be QC-passed (``qc_status`` in
+    :data:`QC_PASSED_OVERALL_STATUSES`); ``effect_summary`` / ``uncertainty`` /
+    ``scope`` must be structured fact objects.  Single-dataset evidence may not
+    claim independent replication and must keep its limitations visible.  External
+    validation may only be asserted with recorded ``external_validation_refs``, and
+    any truthy authority-like flag (raising a claim level, bypassing QC, creating a
+    Claim, or authorising export/publishing) is rejected — an EvidenceItem never
+    raises a claim, bypasses QC, creates a Claim, or publishes.  This validates the
+    contract record only; it never changes evidence admission or claim synthesis.
+    """
+    errors = validate_required_fields(
+        item,
+        [
+            "schema_version",
+            "evidence_item_id",
+            "artifact_id",
+            "subquestion_ids",
+            "source_dataset_ids",
+            "source_task_run_ids",
+            "observation",
+            "evidence_type",
+            "qc_status",
+            "allowed_claim_level",
+        ],
+    )
+    errors += common.validate_identifier(item.get("evidence_item_id", ""), "evidence_item_id")
+    errors += common.validate_identifier(item.get("artifact_id", ""), "artifact_id")
+
+    # Lineage: evidence must bind a sub-question, a dataset and a task run.
+    for list_field in ("subquestion_ids", "source_dataset_ids", "source_task_run_ids"):
+        if not _has_nonblank_entry(item.get(list_field)):
+            errors.append(f"{list_field}: evidence must record non-empty lineage to its {list_field}")
+        elif item.get(list_field) is not None:
+            errors += _string_list_errors(item.get(list_field), list_field, require_unique=True)
+
+    if not str(item.get("observation", "") or "").strip():
+        errors.append("observation: evidence must record a non-blank observation")
+    if not str(item.get("evidence_type", "") or "").strip():
+        errors.append("evidence_type: evidence must record a non-blank evidence type")
+
+    if item.get("allowed_claim_level") not in CLAIM_LEVELS:
+        errors.append(f"allowed_claim_level: must be one of {', '.join(CLAIM_LEVELS)}")
+
+    if item.get("supports_or_opposes") not in EVIDENCE_DIRECTIONS:
+        errors.append(f"supports_or_opposes: must be one of {', '.join(EVIDENCE_DIRECTIONS)} (an explicit support direction is required)")
+
+    # Formal evidence must be QC-passed: a non-passing QC status is not evidence.
+    qc_status = item.get("qc_status")
+    if qc_status not in QC_PASSED_OVERALL_STATUSES:
+        errors.append(f"qc_status: formal evidence requires a QC-passed status ({', '.join(QC_PASSED_OVERALL_STATUSES)}), not {qc_status!r}")
+
+    for map_field in ("effect_summary", "uncertainty", "scope"):
+        value = item.get(map_field)
+        if value is not None and not isinstance(value, dict):
+            errors.append(f"{map_field}: expected an object of recorded facts")
+
+    if item.get("limitations") is not None:
+        errors += _string_list_errors(item.get("limitations"), "limitations")
+
+    replication = item.get("replication_status")
+    if replication is not None and replication not in EVIDENCE_REPLICATION_STATUSES:
+        errors.append(f"replication_status: must be one of {', '.join(EVIDENCE_REPLICATION_STATUSES)}")
+    datasets = item.get("source_dataset_ids")
+    single_dataset = isinstance(datasets, list) and len({d for d in datasets if isinstance(d, str) and d.strip()}) == 1
+    if single_dataset:
+        if replication in EVIDENCE_REPLICATED_STATUSES:
+            errors.append(f"replication_status {replication!r}: single-dataset evidence may not claim independent replication by default")
+        if not _has_nonblank_entry(item.get("limitations")):
+            errors.append("limitations: single-dataset evidence must keep its limitations visible (e.g. not independently replicated)")
+
+    # External validation is a recorded fact, not a self-assertion.
+    if item.get("externally_validated") and not _has_nonblank_entry(item.get("external_validation_refs")):
+        errors.append("externally_validated: a true external-validation flag requires recorded external_validation_refs")
+
+    errors += _reject_truthy_authority_flags(
+        item,
+        (
+            "raises_claim_level",
+            "claim_level_raised",
+            "bypasses_qc",
+            "bypasses_gates",
+            "creates_claim",
+            "creates_formal_evidence",
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+        ),
+        "evidence item",
+    )
     return errors

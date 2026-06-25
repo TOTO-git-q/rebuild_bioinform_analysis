@@ -79,6 +79,35 @@ TASK_RUN_TERMINAL_STATUSES = ("completed", "failed")
 # Incomplete records: the run has not produced a terminal exit.
 TASK_RUN_INCOMPLETE_STATUSES = ("pending", "running", "skipped")
 
+# --- WP-02g / T-02-12..14: Artifact / QC / Evidence contract vocabularies -----
+
+# Bounded artifact QC status (REQ-OBJ-13): an artifact's recorded QC verdict.
+# ``pending`` is a pre-QC fact; ``pass`` / ``pass_with_warnings`` are QC-passed;
+# ``fail`` blocks the artifact from supporting evidence (validated by
+# :func:`auto_bioinfo.core.validation.validate_artifact_manifest`).
+ARTIFACT_QC_STATUSES = ("pending", "pass", "pass_with_warnings", "fail")
+# The two QC verdicts that let an artifact support evidence.
+ARTIFACT_QC_PASSED_STATUSES = ("pass", "pass_with_warnings")
+
+# Four-layer QC vocabulary (REQ-OBJ-14): the QC layers, the bounded per-check
+# status, and the bounded overall-report status.  Kept in sync with the
+# deterministic engine in :mod:`auto_bioinfo.quality.qc_engine` (which this WO
+# does not change); the validator only checks the *shape* of a recorded report.
+QC_CHECK_LAYERS = ("execution", "data", "statistical", "biological")
+QC_CHECK_STATUSES = ("pass", "warn", "fail")
+QC_OVERALL_STATUSES = ("pass", "pass_with_warnings", "fail")
+# The overall verdicts that count as QC-passed for downstream evidence.
+QC_PASSED_OVERALL_STATUSES = ("pass", "pass_with_warnings")
+
+# Evidence direction and replication vocabularies (REQ-OBJ-15).  ``supports`` /
+# ``opposes`` / ``neutral`` is the explicit support direction; the replication
+# vocabulary keeps single- vs multi-dataset replication honest.
+EVIDENCE_DIRECTIONS = ("supports", "opposes", "neutral")
+EVIDENCE_REPLICATION_STATUSES = ("single_dataset", "multi_dataset", "replicated", "not_replicated")
+# Replication statuses that *assert* independent replication; a single-dataset
+# evidence record may not claim one of these by default.
+EVIDENCE_REPLICATED_STATUSES = ("multi_dataset", "replicated")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -945,6 +974,25 @@ class TaskRun:
 
 @dataclass
 class ArtifactManifest:
+    """A structured factual record of one file artifact (REQ-OBJ-13).
+
+    The legacy seven-field construction
+    (``artifact_id`` / ``project_id`` / ``path`` / ``exists`` /
+    ``checksum_sha256`` / ``is_placeholder`` / ``qc_status``) is preserved and
+    stays first.  The record is hardened with the artifact *facts* a registry
+    needs — its content ``artifact_type`` / ``content_role``, the
+    ``producer_agent_or_task`` / ``producer_run_id`` that produced it, the
+    ``source_refs`` it derives from, its declared ``output_name`` /
+    ``schema_name`` / ``media_type`` and ``size_bytes`` — so an artifact can be
+    audited from the record alone.
+
+    Every field is a recorded fact or reference, never an action.  Checksum and
+    path are recorded facts only: this object never computes a checksum, creates,
+    moves, or registers a file.  The authority-like flags are pinned ``False`` and
+    :func:`auto_bioinfo.core.validation.validate_artifact_manifest` rejects any
+    attempt to make them truthy — a manifest is never authorisation.
+    """
+
     artifact_id: str
     project_id: str
     path: str
@@ -956,10 +1004,60 @@ class ArtifactManifest:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "registered"
+    # --- WP-02g / T-02-12: structured artifact facts (REQ-OBJ-13) ---
+    artifact_type: str = ""
+    content_role: str = ""
+    producer_agent_or_task: str = ""
+    producer_run_id: str = ""
+    source_refs: list[str] = field(default_factory=list)
+    output_name: str = ""
+    schema_name: str = ""
+    media_type: str = ""
+    size_bytes: int = 0
+    expected_by_task_ids: list[str] = field(default_factory=list)
+    supports_subquestion_ids: list[str] = field(default_factory=list)
+    evidence_item_refs: list[str] = field(default_factory=list)
+    limitations: list[str] = field(default_factory=list)
+    # The manifest records facts only; it confers no authority. These stay False.
+    authorizes_real_execution: bool = False
+    creates_formal_evidence: bool = False
+    locks_dataset: bool = False
+    bypasses_gates: bool = False
+    raises_claim_level: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id."""
+        return {
+            "project_id": self.project_id,
+            "path": self.path,
+            "checksum_sha256": self.checksum_sha256,
+            "is_placeholder": self.is_placeholder,
+            "artifact_type": self.artifact_type,
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["artifact_id"]:
+            data["artifact_id"] = make_stable_id("artifact", self.canonical())
+        return data
 
 
 @dataclass
 class QCReport:
+    """A structured four-layer QC fact record (REQ-OBJ-14).
+
+    The legacy ``QCReport(qc_report_id, overall_status, checks, ...)`` shape is
+    preserved.  ``overall_status`` uses the bounded :data:`QC_OVERALL_STATUSES`
+    vocabulary and ``checks`` is a list of structured check facts — each carrying
+    a ``layer`` (:data:`QC_CHECK_LAYERS`), a ``status`` (:data:`QC_CHECK_STATUSES`),
+    a ``reason`` (or ``detail``) and an optional metric / artifact ref — never a
+    bare boolean.  ``artifact_id`` binds the report to the artifact it concerns.
+
+    The report only *records* QC facts: it never creates evidence, raises a claim
+    level, or authorises export/publishing
+    (validated by :func:`auto_bioinfo.core.validation.validate_qc_report`).
+    """
+
     qc_report_id: str
     overall_status: str
     checks: list[dict[str, Any]]
@@ -967,6 +1065,27 @@ class QCReport:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "recorded"
+    # --- WP-02g / T-02-13: subject binding and authority pins (REQ-OBJ-14) ---
+    artifact_id: str = ""
+    # The report records facts only; it confers no authority. These stay False.
+    creates_evidence: bool = False
+    raises_claim_level: bool = False
+    authorizes_export: bool = False
+    bypasses_gates: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id."""
+        return {
+            "artifact_id": self.artifact_id,
+            "overall_status": self.overall_status,
+            "checks": [c.get("check_id", c.get("id", "")) for c in self.checks if isinstance(c, dict)],
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["qc_report_id"]:
+            data["qc_report_id"] = make_stable_id("qc_report", self.canonical())
+        return data
 
 
 @dataclass
@@ -1016,6 +1135,31 @@ class EvidenceItem:
     source_class: str = "LEGACY_UNKNOWN"
     scientific_eligibility_decision_id: str = ""
     scientific_output_eligible: bool = False
+    # --- WP-02g / T-02-14: evidence-record hardening (REQ-OBJ-15) ---
+    # External validation is a recorded fact, not a self-assertion: the flag may
+    # only be truthy when backed by recorded ``external_validation_refs``.
+    externally_validated: bool = False
+    external_validation_refs: list[str] = field(default_factory=list)
+    # The record confers no authority of its own; these stay False.  (Note:
+    # ``scientific_output_eligible`` above is a legitimate cached projection, not
+    # an authority flag, and is recomputed by the admission gate.)
+    raises_claim_level: bool = False
+    bypasses_qc: bool = False
+    creates_claim: bool = False
+    authorizes_export: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id.
+
+        Mirrors the id derivation used by the evidence synthesiser so a recorded
+        observation always addresses to the same evidence id."""
+        return {"artifact_id": self.artifact_id, "observation": self.observation}
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["evidence_item_id"]:
+            data["evidence_item_id"] = make_stable_id("evidence_item", self.canonical())
+        return data
 
 
 @dataclass
