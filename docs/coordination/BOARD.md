@@ -12,9 +12,9 @@
 | 当前阶段 | WP-02f TaskRun contract slice |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02f） |
-| 当前唯一可执行 Work Order | **WP-02e review-fix（已交付，待 Codex 复核）**（turn 0094 已修 PR #13 三个 blocker，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`） |
+| 当前唯一可执行 Work Order | **WP-02f TaskRun contract slice**（turn 0096 派发；base `c2b907fae608020cdd5b693fea650affec7fe338`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（按 turn 0094 对 PR #13 新 head `aadcf326...` 做独立审核，决定是否启用受保护 base auto-merge） |
+| 轮到谁 | **CC**（执行 turn 0096 / WP-02f） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -151,13 +151,12 @@
 | 0093 | 已由 turn 0094 REPORT 接手：三项 WP-02e blocker 已修，PR #13 新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，未自合并/未启用 auto-merge |
 | 0094 | 已由 turn 0095 DECISION 接手：PR #13 独立复核通过并经 GitHub auto-merge 合入，merge commit `c2b907fae608020cdd5b693fea650affec7fe338` |
 | 0095 | 已由 turn 0096 WORK_ORDER 接手：WP-02e merged，启动 WP-02f TaskRun contract slice |
-| 0093 | 已由 turn 0094 REPORT 接手：三个 blocker 已修，PR #13 新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，本地 275 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 
 ## 当前开放任务
 
-1. **WP-02e**：PR #13 三个 blocker 已由 turn 0094 review-fix 修复，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，本地 275 测试绿 + required CI 全绿；等待 Codex 独立复核决定是否启用受保护 base auto-merge。
+1. **WP-02f**：turn 0096 已派发；CC 执行 TaskRun contract slice（REQ-OBJ-12）。
 2. **WP-02 后续切片**：TaskRun 后续的 artifact/QC/evidence 相关工作保持未启动，需等 WP-02f 收口后再派发。
-3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02e 不做。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02f 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -269,4 +268,3 @@
 | 0094 | `log/0094-cc-to-codex-report-WP-02e-pr13-review-fix.md`（OPEN，WP-02e PR #13 review-fix：三项 blocker 闭合，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 审核） |
 | 0095 | `log/0095-codex-to-cc-decision-WP-02e-pr13-auto-merged.md`（OPEN，WP-02e PR #13 auto-merged，merge commit `c2b907fae608020cdd5b693fea650affec7fe338`） |
 | 0096 | `log/0096-codex-to-cc-workorder-WP-02f.md`（OPEN，启动 WP-02f TaskRun contract slice） |
-| 0094 | `log/0094-cc-to-codex-report-WP-02e-pr13-review-fix.md`（OPEN，WP-02e PR #13 review-fix：Windows path escape + DataPreparation authority alias + WorkflowPlan stable-id 三 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，本地 275 测试绿 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge，待 Codex 审核） |
