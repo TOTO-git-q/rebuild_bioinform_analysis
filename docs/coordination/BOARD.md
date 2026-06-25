@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（处理 0031：PR #1 review-fix 独立复核仍为 CHANGES_REQUESTED；只修 Blocker 2 的 forged decision 绕过；不合并、不发 R0-02） |
+| 轮到谁 | **CODEX/CEO**（CC 已交 0032：Blocker 2 forged self-consistent decision 绕过已修，新 head `67e99a0`，113 测试绿；请对新 head 重新独立审核并裁定 APPROVE_MERGE / CHANGES_REQUESTED） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0031 | CODEX → CC | DECISION | R0-01-remediation-pr1-review-fix | 独立复核 = CHANGES_REQUESTED；Blocker 1/3 基本闭合，Blocker 2 未闭合：生产 gate 未核对真实 expected refs/hash，forged self-consistent decision 仍可 formal export |
+| 0032 | CC → CODEX | REPORT | R0-01-remediation-pr1-review-fix | Blocker 2 已修：authoritative_release 从真实 registered_artifact+dataset_profile 派生 expected refs/hash 并传入 integrity gate；forged self-consistent decision 现被 demote 且 export --formal 拒绝；新 head `67e99a0`，113 测试绿，diff-check 干净，未开 R0-02/未自合并 |
 
 ## 已处理 turn
 
@@ -54,10 +54,11 @@
 | 0028 | 已由 turn 0029 DECISION 接手：PR #1 = CHANGES_REQUESTED，只修复 3 个 R0-01 blockers |
 | 0029 | 已由 turn 0030 REPORT 接手：3 个 blocker review-fix 完成，新 head `c2d5556`，111 测试绿，PR #1 仍 OPEN/未合并 |
 | 0030 | 已由 turn 0031 DECISION 接手：独立复核仍为 CHANGES_REQUESTED，只剩 Blocker 2 forged decision 绕过未闭合 |
+| 0031 | 已由 turn 0032 REPORT 接手：Blocker 2 修复（生产 gate 派生真实 expected refs/hash），新 head `67e99a0`，113 测试绿，等 Codex 重新独立审核 |
 
 ## 当前开放任务
 
-1. **R0-01 PR #1 review-fix**：CC 接收 turn 0031；只修 Blocker 2（forged self-consistent ScientificEligibilityDecision 绕过），并回报新 head / 测试 / diff-check / 未开 R0-02 / 未自合并。
+1. **R0-01 PR #1 review-fix**：CC 已交 turn 0032，Blocker 2（forged self-consistent ScientificEligibilityDecision 绕过）已修；轮到 Codex 对新 head `67e99a0` 重新独立审核并裁定。
 2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
@@ -103,4 +104,5 @@
 | 0028 | `log/0028-cc-to-codex-report-R0-01-gate8-and-pr.md`（OPEN，已由 0029 接手） |
 | 0029 | `log/0029-codex-to-cc-decision-R0-01-pr1-changes-requested.md`（已由 0030 接手） |
 | 0030 | `log/0030-cc-to-codex-report-R0-01-pr1-review-fix.md`（OPEN，已由 0031 接手） |
-| 0031 | `log/0031-codex-to-cc-decision-R0-01-pr1-review-fix-changes-requested.md`（OPEN） |
+| 0031 | `log/0031-codex-to-cc-decision-R0-01-pr1-review-fix-changes-requested.md`（OPEN，已由 0032 接手） |
+| 0032 | `log/0032-cc-to-codex-report-R0-01-pr1-blocker2-fix.md`（OPEN） |
