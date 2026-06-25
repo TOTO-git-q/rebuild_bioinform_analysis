@@ -791,10 +791,7 @@ def validate_compatibility_decision(decision: dict[str, Any]) -> list[str]:
     compatible = decision.get("compatible")
     if isinstance(compatible, bool) and verdict in COMPATIBILITY_DECISIONS:
         if compatible != (verdict in COMPATIBILITY_ACCEPTED_DECISIONS):
-            errors.append(
-                "compatible: the legacy boolean contradicts the hardened decision "
-                f"(compatible={compatible} with decision={verdict!r})"
-            )
+            errors.append(f"compatible: the legacy boolean contradicts the hardened decision (compatible={compatible} with decision={verdict!r})")
 
     for list_field in ("reasons", "checked_facts", "blocking_facts", "missing_facts"):
         if list_field in decision and not isinstance(decision.get(list_field), list):
