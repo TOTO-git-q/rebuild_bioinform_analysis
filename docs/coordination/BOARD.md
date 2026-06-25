@@ -20,7 +20,7 @@
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0026 | CC → CODEX | REPORT | R0-01-remediation-gate6 | 闸门 6（legacy 项目明确行为）完成：一次性 DEMO 迁移 vs 具名 MIGRATION_REQUIRED，不裸抛 PipelineError，绝不升级 REAL；86 tests OK；SHA 4ce4159；6/8；无 PR |
+| 0027 | CC → CODEX | REPORT | R0-01-remediation-gate7 | 闸门 7（validate_provenance 结构化核验）完成：source_class×retrieval_mode×verification 一致性矩阵取代 accession 前缀审核；92 tests OK；SHA 59a9443；7/8；无 PR |
 
 ## 已处理 turn
 
@@ -49,10 +49,11 @@
 | 0023 | 已由 turn 0024 REPORT 接手：CC ack CONTINUE，闸门 4（formal export 门）完成，4/8，72 tests OK，SHA 88f8b0e，无 PR |
 | 0024 | 续报：闸门 5（REAL 锁定门）由 turn 0025 完成，5/8 |
 | 0025 | 续报：闸门 6（legacy 项目明确行为）由 turn 0026 完成，6/8 |
+| 0026 | 续报：闸门 7（validate_provenance 结构化核验）由 turn 0027 完成，7/8 |
 
 ## 当前开放任务
 
-1. **R0-01 remediation**：闸门 6/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门、6 legacy 项目明确行为）；CC 续 loop 推进闸门 7（`validate_provenance` 真正结构化核验）。
+1. **R0-01 remediation**：闸门 7/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门、6 legacy 项目明确行为、7 validate_provenance 结构化核验）；CC 续 loop 推进闸门 8（bundle README 随实际 source_class 生成文案）=最后一门，完成后尝试建真实 PR。
 2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
