@@ -76,4 +76,16 @@ auto_bioinfo/
 - `docs/rebuild/TARGET_ARCHITECTURE.md` — 目标架构
 - `docs/rebuild/MIGRATION_MAP.md` — 迁移地图（复用/适配/重构/退役）
 - `docs/adr/` — 关键架构决策记录
+- `docs/audit/dependency_inventory.md` — 依赖分组 / 许可证态势 / SBOM 入口清单（WP-01d）
 - `DELIVERY_REPORT.md` — 本次交付报告（已实现/未实现/下一步）
+
+## 许可证与依赖
+
+- **许可证：MIT**，见根目录 `LICENSE`（与 `pyproject.toml` 的 `license = { text = "MIT" }` 元数据一致）。
+- **依赖分组与许可证态势**见 `docs/audit/dependency_inventory.md`；运行期闭包仅 `numpy`。
+- **SBOM（离线、仅标准库、不新增依赖）**：
+
+  ```bash
+  make sbom                 # 输出 CycloneDX 1.5 JSON
+  python ci/sbom.py -o sbom.json
+  ```
