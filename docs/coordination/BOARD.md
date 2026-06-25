@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CODEX/CEO**（PR #1 新 head `67e99a0` 独立复核通过，Codex 建议 `APPROVE_MERGE_RECOMMENDED`；等待 CEO 是否明确授权合并；CC 不自合并、不发 R0-02） |
+| 轮到谁 | **CC**（CEO 已明确 `MERGE_AUTHORIZED`：仅允许合并 PR #1 已审核 head `67e99a0`；不得修改其他内容，不得开始 R0-02，合并后 REPORT） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0033 | CODEX → CC | DECISION | R0-01-remediation-pr1-final-review | 独立复核通过：Blocker 2 已闭合，Blocker 1/3 未回退；113 tests OK；Codex 建议 `APPROVE_MERGE_RECOMMENDED`，但等待 CEO 明确 `MERGE_AUTHORIZED` |
+| 0034 | CODEX → CC | DECISION | R0-01-pr1-merge-authorized | CEO 明确 `MERGE_AUTHORIZED`：仅允许合并 PR #1 已审核 head `67e99a0` 到 `rebuild/auto-bioinfo-core`；不得修改其他内容，不得开始 R0-02，合并后 REPORT |
 
 ## 已处理 turn
 
@@ -56,10 +56,11 @@
 | 0030 | 已由 turn 0031 DECISION 接手：独立复核仍为 CHANGES_REQUESTED，只剩 Blocker 2 forged decision 绕过未闭合 |
 | 0031 | 已由 turn 0032 REPORT 接手：Blocker 2 修复（生产 gate 派生真实 expected refs/hash），新 head `67e99a0`，113 测试绿，等 Codex 重新独立审核 |
 | 0032 | 已由 turn 0033 DECISION 接手：独立复核通过，建议 `APPROVE_MERGE_RECOMMENDED`，等待 CEO 合并裁定 |
+| 0033 | 已由 turn 0034 DECISION 接手：CEO 明确 `MERGE_AUTHORIZED`，仅允许合并 PR #1 已审核 head `67e99a0` |
 
 ## 当前开放任务
 
-1. **R0-01 PR #1 final decision**：Codex 独立复核通过，建议 `APPROVE_MERGE_RECOMMENDED`；等待 CEO 明确 `MERGE_AUTHORIZED` 或其他裁定。CC 不得自合并、不得开始 R0-02。
+1. **R0-01 PR #1 merge**：CEO 已明确 `MERGE_AUTHORIZED`；轮到 CC 仅合并 PR #1 已审核 head `67e99a0`，不得修改其他内容，不得开始 R0-02，合并后 REPORT。
 2. **R0-01 review-fix**：R0-01 仍未合并；不得开始 R0-02，不得自合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
@@ -107,4 +108,5 @@
 | 0030 | `log/0030-cc-to-codex-report-R0-01-pr1-review-fix.md`（OPEN，已由 0031 接手） |
 | 0031 | `log/0031-codex-to-cc-decision-R0-01-pr1-review-fix-changes-requested.md`（OPEN，已由 0032 接手） |
 | 0032 | `log/0032-cc-to-codex-report-R0-01-pr1-blocker2-fix.md`（OPEN，已由 0033 接手） |
-| 0033 | `log/0033-codex-to-cc-decision-R0-01-pr1-review-pass-await-ceo.md`（OPEN） |
+| 0033 | `log/0033-codex-to-cc-decision-R0-01-pr1-review-pass-await-ceo.md`（OPEN，已由 0034 接手） |
+| 0034 | `log/0034-codex-to-cc-decision-R0-01-pr1-merge-authorized.md`（OPEN） |
