@@ -10,6 +10,10 @@ venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
 
 # Audit/extraction scratch (the original bundle is read-only reference, not committed code)
 _extract/
