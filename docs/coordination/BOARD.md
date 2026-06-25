@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-00_ACCEPTED_PENDING_MERGE** |
-| 当前阶段 | WP-00 / architecture baseline and audit |
+| execution_gate | **WP-01_ACTIVE** |
+| 当前阶段 | WP-01 / repository skeleton, development environment and quality gates |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-00） |
-| 当前唯一可执行 Work Order | **WP-00：已通过复核，PR #2 待有权限 actor 合并** |
-| 轮到谁 | **CEO / 有权限合并者**（PR #2 已复核通过；Codex GitHub integration 合并返回 403，需有权限 actor 合并或授权 integration） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
+| 当前唯一可执行 Work Order | **WP-01：仓库骨架、开发环境与质量门** |
+| 轮到谁 | **CC**（执行 WP-01；完成后提交 PR + REPORT，等待 Codex 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -21,7 +21,8 @@
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
-| 0042 | CODEX → CC | DECISION | WP-00-pr2-review | WP-00 独立复核通过：docs-only、三表 77/77 一致、D-01..D-06 CONFIRMED、diff --check clean、113 tests OK；PR #2 merge 被 GitHub integration 403 阻塞，等有权限 actor 合并 |
+| 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
+| 0044 | CODEX → CC | WORK_ORDER | WP-01 | 启动 WP-01：仓库骨架、开发环境与质量门；仅限 WP-01，完成后提交 PR + REPORT |
 
 ## 已处理 turn
 
@@ -65,21 +66,22 @@
 | 0038 | 已由 turn 0039/0040 接手：CEO 冻结架构基线并启动 WP-00 |
 | 0040 | 已由 turn 0041 REPORT 接手：WP-00 仅文档审计交付，head `c25b22b0`，PR #2 OPEN，113 测试绿，未改业务代码/未启动 WP-01 |
 | 0041 | 已由 turn 0042 DECISION 接手：WP-00 独立复核通过，PR #2 merge 受 GitHub integration 403 权限阻塞 |
+| 0042 | 已由 turn 0043 DECISION 接手：PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；合并权限阻塞解除 |
 
 ## 当前开放任务
 
-1. **WP-00**：已独立复核通过，PR #2（仅文档审计）OPEN；当前阻塞于合并权限（GitHub integration 403），无 CC 修改项。
-2. **WP-01**：紧邻下一包；**未启动**，等 PR #2 合并并记录 merge SHA 后再派发。
+1. **WP-01**：已由 turn 0044 派发；范围为仓库骨架、开发环境与质量门，完成后提交 PR + REPORT。
+2. **WP-02**：紧邻下一包；**未启动**，等 WP-01 合并并记录 merge SHA 后再派发。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
-4. **后续报告**：CC 完成 WP-00 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
+4. **后续报告**：CC 完成 WP-01 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
 ## 阻塞项
 
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
-2. **PR #2 合并权限**：Codex GitHub integration merge 返回 403 `Resource not accessible by integration`；需 CEO/有权限 actor 合并 PR #2 或授权 integration。
-3. **普通产品开发范围**：当前仅 WP-00 审计/文档/ADR；不得修改业务代码，不得启动 WP-01。
+2. **WP-01 权限注意**：若 workflow/CI 相关 push 因权限被拒，CC 必须写 BLOCKER；不得自行扩大机器人凭据权限。
+3. **当前范围**：仅 WP-01 工程骨架与质量门；不得启动 WP-02，不得加入业务/科学分析逻辑。
 
 ## 最近 turn 索引
 
@@ -126,4 +128,6 @@
 | 0039 | `log/0039-codex-to-cc-decision-architecture-baseline-wp-route.md`（OPEN） |
 | 0040 | `log/0040-codex-to-cc-workorder-WP-00.md`（已由 0041 接手） |
 | 0041 | `log/0041-cc-to-codex-report-WP-00.md`（OPEN，已由 0042 接手） |
-| 0042 | `log/0042-codex-to-cc-decision-WP-00-pr2-reviewed-merge-blocked.md`（OPEN，WP-00 accepted pending merge；merge blocked by GitHub integration 403） |
+| 0042 | `log/0042-codex-to-cc-decision-WP-00-pr2-reviewed-merge-blocked.md`（OPEN，已由 0043 接手：PR #2 merged） |
+| 0043 | `log/0043-codex-to-cc-decision-WP-00-pr2-merged.md`（OPEN，WP-00 merged，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`） |
+| 0044 | `log/0044-codex-to-cc-workorder-WP-01.md`（OPEN，WP-01 WORK_ORDER） |
