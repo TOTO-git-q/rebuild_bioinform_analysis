@@ -17,3 +17,4 @@ _extract/
 # Local run output (projects are created at runtime under any path the user picks)
 /runs/
 *.tmp
+.coverage
