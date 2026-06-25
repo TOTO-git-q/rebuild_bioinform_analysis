@@ -42,6 +42,18 @@ ONTOLOGY_CONFIDENCE_FLOOR = 0.5
 EVIDENCE_GAP_TYPES = ("missing", "insufficient", "unverifiable")
 EVIDENCE_GAP_STATES = ("open", "mitigated", "accepted")
 
+# --- WP-02c / T-02-05..06: resource & dataset feasibility vocabularies --------
+
+# Bounded per-(dataset, sub-question) feasibility verdict: can this dataset
+# actually answer the question?  ``usable`` and ``conditionally_usable`` assert
+# the dataset can (at least under stated conditions) be used; ``not_usable`` and
+# ``insufficient`` must keep their reasons and missing facts instead of pretending
+# success (validated by
+# :func:`auto_bioinfo.core.validation.validate_dataset_feasibility_report`).
+FEASIBILITY_DECISIONS = ("usable", "conditionally_usable", "not_usable", "insufficient")
+# The two verdicts that claim a dataset is (at least conditionally) usable.
+FEASIBILITY_ACCEPTED_DECISIONS = ("usable", "conditionally_usable")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -408,6 +420,21 @@ class ResourceCandidate:
 
 @dataclass
 class DatasetProfile:
+    """Tool-verifiable factual profile of a candidate dataset (REQ-OBJ-05).
+
+    The four R0-01 provenance markers (``source_class`` / ``retrieval_mode`` /
+    ``verification_level`` / ``legacy_verified_assertion``) keep *how* the facts
+    were obtained truthful; the WP-02c factual fields below
+    (samples/platform/species/grouping/files/license/metadata) carry the actual
+    dataset facts.  Every factual field is optional and defaults to an unknown
+    value, so an explicitly unverified profile is valid but stays
+    non-authoritative; :func:`auto_bioinfo.core.validation.validate_dataset_profile`
+    only rejects *blank* or *internally contradictory* facts (e.g. a sample_count
+    that disagrees with the recorded samples, or a group referencing an unknown
+    sample), and never treats ``legacy_verified_assertion`` as authorisation on
+    its own.
+    """
+
     dataset_id: str
     modality: str
     organism: str
@@ -421,6 +448,77 @@ class DatasetProfile:
     retrieval_mode: str = "LOCAL_CACHE"
     verification_level: str = "UNVERIFIED"
     legacy_verified_assertion: bool = False
+    # --- WP-02c / T-02-05: tool-verifiable factual metadata (REQ-OBJ-05) ---
+    accession: str = ""
+    platform: str = ""
+    species: list[str] = field(default_factory=list)
+    sample_count: int = 0
+    samples: list[dict[str, Any]] = field(default_factory=list)
+    grouping: dict[str, Any] = field(default_factory=dict)
+    files: list[dict[str, Any]] = field(default_factory=list)
+    license: str = ""
+    metadata_facts: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["dataset_profile_id"]:
+            data["dataset_profile_id"] = make_stable_id("dataset_profile", {"dataset_id": self.dataset_id})
+        return data
+
+
+@dataclass
+class DatasetFeasibilityReport:
+    """Whether a dataset can answer a sub-question / evidence plan (REQ-OBJ-06).
+
+    Binds a feasibility verdict to the exact ``dataset_profile_id`` /
+    ``research_spec_id`` / ``subquestion_id`` (and, for an accepted verdict, the
+    ``evidence_plan_id`` it satisfies).  ``decision`` is one of
+    :data:`FEASIBILITY_DECISIONS`; ``reasons`` and ``required_facts_checked`` keep
+    the verdict's basis explicit, while ``missing_facts`` / ``blocking_gaps`` keep
+    a negative verdict honest.  ``imposed_claim_ceiling`` records the conservative
+    claim/evidence bound that applies when feasibility is conditional or
+    insufficient.
+
+    The report only *observes* feasibility: it never locks a dataset, authorises
+    REAL execution, authorises formal scientific evidence, or bypasses later
+    gates.  The ``locks_dataset`` / ``authorizes_real_execution`` /
+    ``authorizes_formal_evidence`` flags are pinned ``False`` and the validator
+    rejects any attempt to flip them — a boolean here is never authority.
+    """
+
+    research_spec_id: str
+    subquestion_id: str
+    dataset_profile_id: str
+    decision: str
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    feasibility_report_id: str = ""
+    evidence_plan_id: str = ""
+    reasons: list[str] = field(default_factory=list)
+    required_facts_checked: list[str] = field(default_factory=list)
+    missing_facts: list[str] = field(default_factory=list)
+    blocking_gaps: list[str] = field(default_factory=list)
+    conditional_use_notes: list[str] = field(default_factory=list)
+    imposed_claim_ceiling: str = "descriptive"
+    # The report confers no authority of its own; these stay False.
+    locks_dataset: bool = False
+    authorizes_real_execution: bool = False
+    authorizes_formal_evidence: bool = False
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "draft"
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["feasibility_report_id"]:
+            data["feasibility_report_id"] = make_stable_id(
+                "dataset_feasibility_report",
+                {
+                    "research_spec_id": self.research_spec_id,
+                    "subquestion_id": self.subquestion_id,
+                    "dataset_profile_id": self.dataset_profile_id,
+                },
+            )
+        return data
 
 
 @dataclass

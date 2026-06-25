@@ -10,6 +10,8 @@ from .schemas import (
     CLAIM_LEVELS,
     EVIDENCE_GAP_STATES,
     EVIDENCE_GAP_TYPES,
+    FEASIBILITY_ACCEPTED_DECISIONS,
+    FEASIBILITY_DECISIONS,
     ONTOLOGY_CONFIDENCE_FLOOR,
     ONTOLOGY_MAPPING_STATES,
     DependencyGraph,
@@ -472,4 +474,196 @@ def validate_evidence_gap(gap: dict[str, Any]) -> list[str]:
         prior = gap.get("prior_claim_level")
         if prior in CLAIM_LEVELS and CLAIM_LEVELS.index(ceiling) > CLAIM_LEVELS.index(prior):
             errors.append(f"imposed_claim_ceiling {ceiling} would raise the claim above prior {prior}; a gap may only cap a claim")
+    return errors
+
+
+# --- WP-02c / T-02-05..06: resource & dataset feasibility validators ----------
+
+# The minimum verification level at which a recorded "verified" assertion is
+# more than a bare boolean; kept in sync with the R0-01 truthful-execution gate
+# in :mod:`auto_bioinfo.core.provenance`.
+_MIN_VERIFICATION_FOR_VERIFIED_FACT = "METADATA_VERIFIED"
+
+
+def _validate_provenance_markers(obj: dict[str, Any]) -> list[str]:
+    """Validate the four R0-01 provenance markers and reject a bare "verified".
+
+    ``source_class`` / ``retrieval_mode`` / ``verification_level`` must use the
+    canonical provenance vocabularies when present.  A ``verified=True`` or
+    ``legacy_verified_assertion=True`` flag is *not* authorisation on its own: it
+    is rejected unless ``verification_level`` is at least
+    ``METADATA_VERIFIED`` — a boolean never substitutes for verified facts.
+    """
+    # Imported lazily to avoid the provenance <-> schema import cycle.
+    from .provenance import (
+        RETRIEVAL_MODES,
+        SOURCE_CLASSES,
+        VERIFICATION_LEVELS,
+        verification_at_least,
+    )
+
+    errors: list[str] = []
+    marker_checks = (
+        ("source_class", SOURCE_CLASSES),
+        ("retrieval_mode", RETRIEVAL_MODES),
+        ("verification_level", VERIFICATION_LEVELS),
+    )
+    for field_name, allowed in marker_checks:
+        if field_name in obj and obj.get(field_name) not in allowed:
+            errors.append(f"{field_name}: must be one of {', '.join(allowed)}")
+    asserted = obj.get("verified") is True or obj.get("legacy_verified_assertion") is True
+    if asserted and not verification_at_least(str(obj.get("verification_level", "UNVERIFIED")), _MIN_VERIFICATION_FOR_VERIFIED_FACT):
+        errors.append(
+            f"a verified assertion requires verification_level >= {_MIN_VERIFICATION_FOR_VERIFIED_FACT} (a boolean is not authorisation without verified facts)"
+        )
+    return errors
+
+
+def validate_resource_candidate(candidate: dict[str, Any]) -> list[str]:
+    """A candidate resource must name itself, a type and a source status, keep its
+    R0-01 provenance markers honest, and never present an unverifiable mock /
+    placeholder / ``AUTO_``-accession resource as ``verified``."""
+    errors = validate_required_fields(candidate, ["schema_version", "resource_name", "resource_type", "source_status"])
+    errors += validate_no_unknown_verified_dataset(candidate)
+    errors += _validate_provenance_markers(candidate)
+    return errors
+
+
+def validate_dataset_profile(profile: dict[str, Any]) -> list[str]:
+    """Validate a dataset's factual profile (REQ-OBJ-05).
+
+    ``dataset_id`` and ``modality`` are required; the R0-01 provenance markers are
+    checked and a bare "verified" assertion is rejected.  Factual fields may be
+    absent (an unverified profile stays valid but non-authoritative), but a field
+    that is *present* must not be blank or internally contradictory: species facts
+    must be distinct non-blank strings, samples and files must be objects carrying
+    a non-blank id/name, ``sample_count`` must agree with the recorded samples, and
+    a grouping may not reference a sample id that is not in ``samples``.
+    """
+    errors = validate_required_fields(profile, ["schema_version", "dataset_id", "modality"])
+    errors += common.validate_identifier(profile.get("dataset_id", ""), "dataset_id")
+    errors += _validate_provenance_markers(profile)
+
+    species = profile.get("species")
+    if species is not None:
+        if not isinstance(species, list):
+            errors.append("species: expected a list")
+        else:
+            if any((not isinstance(item, str)) or not item.strip() for item in species):
+                errors.append("species: facts must be non-empty strings (a blank fact is not a fact)")
+            if len(set(species)) != len(species):
+                errors.append("species: contradictory — the same species is listed more than once")
+
+    samples = profile.get("samples")
+    sample_ids: set[str] = set()
+    if samples is not None:
+        if not isinstance(samples, list):
+            errors.append("samples: expected a list")
+            samples = None
+        else:
+            for idx, sample in enumerate(samples):
+                if not isinstance(sample, dict):
+                    errors.append(f"samples[{idx}]: each sample must be an object")
+                    continue
+                sample_id = str(sample.get("sample_id", "") or "").strip()
+                if not sample_id:
+                    errors.append(f"samples[{idx}]: missing required sample_id")
+                else:
+                    sample_ids.add(sample_id)
+
+    count = profile.get("sample_count")
+    if isinstance(count, bool) or not isinstance(count, int):
+        if count is not None:
+            errors.append("sample_count: expected an integer")
+    elif count < 0:
+        errors.append("sample_count: must not be negative")
+    elif isinstance(samples, list) and samples and count != len(samples):
+        errors.append(f"sample_count {count} contradicts the {len(samples)} recorded samples")
+
+    files = profile.get("files")
+    if files is not None:
+        if not isinstance(files, list):
+            errors.append("files: expected a list")
+        else:
+            for idx, item in enumerate(files):
+                if not isinstance(item, dict):
+                    errors.append(f"files[{idx}]: each file must be an object")
+                elif not str(item.get("name", "") or "").strip():
+                    errors.append(f"files[{idx}]: missing required file name")
+
+    grouping = profile.get("grouping")
+    if grouping is not None and not isinstance(grouping, dict):
+        errors.append("grouping: expected an object")
+    elif isinstance(grouping, dict) and sample_ids:
+        for label, members in grouping.items():
+            if isinstance(members, list):
+                for member in members:
+                    if str(member) not in sample_ids:
+                        errors.append(f"grouping[{label!r}]: references unknown sample_id {member!r}")
+
+    metadata_facts = profile.get("metadata_facts")
+    if metadata_facts is not None and not isinstance(metadata_facts, dict):
+        errors.append("metadata_facts: expected an object")
+    return errors
+
+
+def validate_dataset_feasibility_report(report: dict[str, Any]) -> list[str]:
+    """Validate a dataset feasibility verdict for a sub-question (REQ-OBJ-06).
+
+    The verdict must bind its dataset profile / research spec / sub-question and
+    use a value from :data:`FEASIBILITY_DECISIONS`, and must always record at
+    least one non-blank reason.  An *accepted* verdict (usable /
+    conditionally_usable) additionally needs the evidence-plan binding it
+    satisfies and the dataset facts it checked; a conditional verdict needs its
+    conditions plus a conservative claim ceiling.  A *negative* verdict
+    (not_usable / insufficient) must keep its missing facts / blocking gaps
+    instead of pretending success, and an insufficient verdict records a
+    conservative ceiling.  The report never carries locking / REAL / formal-
+    evidence authority — those flags are rejected if set.
+    """
+    errors = validate_required_fields(report, ["schema_version", "dataset_profile_id", "research_spec_id", "subquestion_id", "decision"])
+    errors += common.validate_identifier(report.get("dataset_profile_id", ""), "dataset_profile_id")
+    errors += common.validate_identifier(report.get("research_spec_id", ""), "research_spec_id")
+    errors += common.validate_identifier(report.get("subquestion_id", ""), "subquestion_id")
+
+    decision = report.get("decision")
+    if decision not in FEASIBILITY_DECISIONS:
+        errors.append(f"decision: must be one of {', '.join(FEASIBILITY_DECISIONS)}")
+
+    for list_field in ("reasons", "required_facts_checked", "missing_facts", "blocking_gaps", "conditional_use_notes"):
+        if list_field in report and not isinstance(report.get(list_field), list):
+            errors.append(f"{list_field}: expected a list")
+
+    # The report observes feasibility; it confers no authority on its own.
+    for flag in ("locks_dataset", "authorizes_real_execution", "authorizes_formal_evidence", "bypasses_gates"):
+        if report.get(flag) is True:
+            errors.append(f"{flag}: a feasibility report confers no such authority and may not set {flag}=true")
+
+    ceiling = report.get("imposed_claim_ceiling")
+    has_ceiling = ceiling in CLAIM_LEVELS
+    if ceiling not in (None, "") and not has_ceiling:
+        errors.append(f"imposed_claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+
+    # Every verdict must record an honest, non-blank reason.
+    if not _has_nonblank_entry(report.get("reasons")):
+        errors.append("reasons: a feasibility decision must record at least one explicit, non-blank reason")
+
+    if decision in FEASIBILITY_ACCEPTED_DECISIONS:
+        evidence_plan_id = str(report.get("evidence_plan_id", "") or "").strip()
+        if not evidence_plan_id:
+            errors.append("evidence_plan_id: an accepted feasibility decision must bind the evidence plan it satisfies")
+        else:
+            errors += common.validate_identifier(evidence_plan_id, "evidence_plan_id")
+        if not _has_nonblank_entry(report.get("required_facts_checked")):
+            errors.append("required_facts_checked: a usable/conditionally-usable decision must record the dataset facts it checked")
+        if decision == "conditionally_usable":
+            if not _has_nonblank_entry(report.get("conditional_use_notes")):
+                errors.append("conditional_use_notes: a conditionally-usable decision must record its conditions")
+            if not has_ceiling:
+                errors.append("imposed_claim_ceiling: a conditional decision must record a conservative claim ceiling")
+    elif decision in FEASIBILITY_DECISIONS:
+        if not (_has_nonblank_entry(report.get("missing_facts")) or _has_nonblank_entry(report.get("blocking_gaps"))):
+            errors.append("a not-usable/insufficient decision must record the missing facts or blocking gaps behind it")
+        if decision == "insufficient" and not has_ceiling:
+            errors.append("imposed_claim_ceiling: an insufficient decision must record a conservative claim ceiling")
     return errors

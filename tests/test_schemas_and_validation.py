@@ -5,9 +5,12 @@ from auto_bioinfo.core.common import Actor, ExternalIdentifier, SchemaValidation
 from auto_bioinfo.core.ids import make_stable_id
 from auto_bioinfo.core.schemas import (
     CLAIM_LEVELS,
+    FEASIBILITY_DECISIONS,
     AmbiguityReport,
     ApprovalDecision,
     ApprovalRequest,
+    DatasetFeasibilityReport,
+    DatasetProfile,
     DependencyGraph,
     EvidenceGap,
     EvidencePlan,
@@ -16,6 +19,7 @@ from auto_bioinfo.core.schemas import (
     Project,
     ProjectPolicy,
     ResearchSpec,
+    ResourceCandidate,
     ScopeBundle,
     SubQuestion,
 )
@@ -522,6 +526,223 @@ class EvidenceGapContractTest(unittest.TestCase):
         self.assertTrue(validation.validate_evidence_gap(self._gap(gap_type="vibes").to_dict()))
         self.assertTrue(validation.validate_evidence_gap(self._gap(status="ignored").to_dict()))
         self.assertTrue(validation.validate_evidence_gap(self._gap(imposed_claim_ceiling="omniscient").to_dict()))
+
+
+# --- WP-02c / T-02-05: ResourceCandidate & DatasetProfile factual coverage ---
+
+
+class ResourceCandidateContractTest(unittest.TestCase):
+    def _candidate(self, **kw):
+        base = dict(resource_name="GSE12345", resource_type="dataset_candidate", verified=False, source_status="committed_fixture")
+        base.update(kw)
+        return ResourceCandidate(**base)
+
+    def test_legacy_unverified_candidate_still_constructs_and_validates(self):
+        # backward compatibility: the original four-field candidate is still valid
+        from dataclasses import asdict
+
+        data = asdict(self._candidate())
+        self.assertEqual(data["source_class"], "LEGACY_UNKNOWN")
+        self.assertEqual(data["verification_level"], "UNVERIFIED")
+        self.assertEqual(validation.validate_resource_candidate(data), [])
+
+    def test_verified_without_provenance_facts_is_rejected(self):
+        # a bare verified=True with no real accession / verification level is demoted
+        from dataclasses import asdict
+
+        bad = asdict(self._candidate(verified=True, accession="AUTO_X", source_status="mock_placeholder"))
+        errors = validation.validate_resource_candidate(bad)
+        self.assertTrue(errors)
+        # even a non-mock candidate cannot claim verified while UNVERIFIED
+        bad2 = asdict(self._candidate(verified=True, accession="GSE12345", source_status="public", verification_level="UNVERIFIED"))
+        self.assertTrue(any("verified assertion" in e for e in validation.validate_resource_candidate(bad2)))
+
+    def test_verified_with_metadata_verification_passes(self):
+        from dataclasses import asdict
+
+        good = asdict(
+            self._candidate(
+                verified=True,
+                accession="GSE12345",
+                source_status="public_database",
+                source_class="PUBLIC_DATABASE",
+                retrieval_mode="RECORDED_REPLAY",
+                verification_level="METADATA_VERIFIED",
+            )
+        )
+        self.assertEqual(validation.validate_resource_candidate(good), [])
+
+    def test_bad_provenance_marker_rejected(self):
+        from dataclasses import asdict
+
+        bad = asdict(self._candidate(source_class="MADE_UP"))
+        self.assertTrue(any("source_class" in e for e in validation.validate_resource_candidate(bad)))
+
+
+class DatasetProfileContractTest(unittest.TestCase):
+    def _profile(self, **kw):
+        base = dict(dataset_id="ds_gse12345", modality="bulk_expression_matrix", organism="human", tissue="liver")
+        base.update(kw)
+        return DatasetProfile(**base)
+
+    def test_legacy_minimal_profile_still_constructs_and_validates(self):
+        # backward compatibility: the original four-field profile remains valid and
+        # stays explicitly non-authoritative (UNVERIFIED), never rejected for being
+        # merely unverified
+        data = self._profile().to_dict()
+        self.assertTrue(data["dataset_profile_id"].startswith("dataset_profile_"))
+        self.assertEqual(data["verification_level"], "UNVERIFIED")
+        self.assertEqual(validation.validate_dataset_profile(data), [])
+
+    def test_populated_factual_profile_validates(self):
+        data = self._profile(
+            accession="GSE12345",
+            platform="Illumina NovaSeq 6000",
+            species=["Homo sapiens"],
+            sample_count=4,
+            samples=[
+                {"sample_id": "GSM1", "group": "condition_a"},
+                {"sample_id": "GSM2", "group": "condition_a"},
+                {"sample_id": "GSM3", "group": "condition_b"},
+                {"sample_id": "GSM4", "group": "condition_b"},
+            ],
+            grouping={"condition_a": ["GSM1", "GSM2"], "condition_b": ["GSM3", "GSM4"]},
+            files=[{"name": "counts.tsv", "sha256": "a" * 64}],
+            license="CC-BY-4.0",
+            metadata_facts={"library_strategy": "RNA-Seq"},
+            source_class="PUBLIC_DATABASE",
+            retrieval_mode="RECORDED_REPLAY",
+            verification_level="METADATA_VERIFIED",
+        ).to_dict()
+        self.assertEqual(validation.validate_dataset_profile(data), [])
+
+    def test_blank_critical_fact_is_rejected(self):
+        # a present-but-blank species fact is not a fact
+        data = self._profile(species=["  "]).to_dict()
+        self.assertTrue(any("species" in e for e in validation.validate_dataset_profile(data)))
+        # a sample without an id is rejected
+        data2 = self._profile(samples=[{"group": "condition_a"}]).to_dict()
+        self.assertTrue(any("sample_id" in e for e in validation.validate_dataset_profile(data2)))
+
+    def test_contradictory_facts_are_rejected(self):
+        # sample_count disagreeing with the recorded samples is contradictory
+        data = self._profile(sample_count=10, samples=[{"sample_id": "GSM1"}]).to_dict()
+        self.assertTrue(any("contradicts" in e for e in validation.validate_dataset_profile(data)))
+        # a grouping referencing an unknown sample id is contradictory
+        data2 = self._profile(samples=[{"sample_id": "GSM1"}], grouping={"g": ["GSM_MISSING"]}).to_dict()
+        self.assertTrue(any("unknown sample_id" in e for e in validation.validate_dataset_profile(data2)))
+        # a duplicated species value is contradictory
+        data3 = self._profile(species=["human", "human"]).to_dict()
+        self.assertTrue(any("contradictory" in e for e in validation.validate_dataset_profile(data3)))
+
+    def test_legacy_verified_assertion_without_facts_is_demoted(self):
+        # a True legacy_verified_assertion is not authorisation while UNVERIFIED
+        data = self._profile(legacy_verified_assertion=True, verification_level="UNVERIFIED").to_dict()
+        self.assertTrue(any("verified assertion" in e for e in validation.validate_dataset_profile(data)))
+
+
+# --- WP-02c / T-02-06: DatasetFeasibilityReport ------------------------------
+
+
+class DatasetFeasibilityReportContractTest(unittest.TestCase):
+    def _report(self, **kw):
+        base = dict(
+            research_spec_id="rs_1",
+            subquestion_id="sq_1",
+            dataset_profile_id="dataset_profile_abc",
+            decision="usable",
+            evidence_plan_id="ep_1",
+            reasons=["Design matches the requested two-group contrast"],
+            required_facts_checked=["sample_count", "grouping", "platform"],
+        )
+        base.update(kw)
+        return DatasetFeasibilityReport(**base)
+
+    def test_well_formed_usable_report_validates(self):
+        data = self._report().to_dict()
+        self.assertTrue(data["feasibility_report_id"].startswith("dataset_feasibility_report_"))
+        self.assertEqual(validation.validate_dataset_feasibility_report(data), [])
+
+    def test_decision_vocabulary_is_bounded(self):
+        self.assertEqual(set(FEASIBILITY_DECISIONS), {"usable", "conditionally_usable", "not_usable", "insufficient"})
+        data = self._report(decision="definitely").to_dict()
+        self.assertTrue(any("decision" in e for e in validation.validate_dataset_feasibility_report(data)))
+
+    def test_accepted_decision_requires_bindings_and_reasons(self):
+        # missing evidence-plan binding
+        no_plan = self._report(evidence_plan_id="").to_dict()
+        self.assertTrue(any("evidence_plan_id" in e for e in validation.validate_dataset_feasibility_report(no_plan)))
+        # blank reasons
+        no_reason = self._report(reasons=["  "]).to_dict()
+        self.assertTrue(any("reason" in e for e in validation.validate_dataset_feasibility_report(no_reason)))
+        # missing fact basis
+        no_facts = self._report(required_facts_checked=[]).to_dict()
+        self.assertTrue(any("required_facts_checked" in e for e in validation.validate_dataset_feasibility_report(no_facts)))
+        # missing subquestion binding
+        no_sub = self._report(subquestion_id="").to_dict()
+        self.assertTrue(any("subquestion_id" in e for e in validation.validate_dataset_feasibility_report(no_sub)))
+
+    def test_conditionally_usable_requires_conditions_and_ceiling(self):
+        good = self._report(
+            decision="conditionally_usable",
+            conditional_use_notes=["Only the bulk contrast; single-cell resolution not available"],
+            imposed_claim_ceiling="association",
+        ).to_dict()
+        self.assertEqual(validation.validate_dataset_feasibility_report(good), [])
+        # no conditions recorded
+        no_notes = self._report(decision="conditionally_usable", imposed_claim_ceiling="association").to_dict()
+        self.assertTrue(any("conditional_use_notes" in e for e in validation.validate_dataset_feasibility_report(no_notes)))
+        # conditional verdict without a conservative ceiling
+        no_ceiling = self._report(
+            decision="conditionally_usable",
+            conditional_use_notes=["bulk only"],
+            imposed_claim_ceiling="",
+        ).to_dict()
+        self.assertTrue(any("imposed_claim_ceiling" in e for e in validation.validate_dataset_feasibility_report(no_ceiling)))
+
+    def test_negative_decision_preserves_reasons_and_missing_facts(self):
+        not_usable = self._report(
+            decision="not_usable",
+            evidence_plan_id="",
+            reasons=["No control group present"],
+            required_facts_checked=["grouping"],
+            missing_facts=["control_group_samples"],
+        ).to_dict()
+        self.assertEqual(validation.validate_dataset_feasibility_report(not_usable), [])
+        # a negative verdict that records nothing missing is pretending success
+        empty_negative = self._report(
+            decision="not_usable",
+            evidence_plan_id="",
+            reasons=["unusable"],
+            missing_facts=[],
+            blocking_gaps=[],
+        ).to_dict()
+        self.assertTrue(any("missing facts" in e for e in validation.validate_dataset_feasibility_report(empty_negative)))
+
+    def test_insufficient_decision_requires_conservative_ceiling(self):
+        good = self._report(
+            decision="insufficient",
+            evidence_plan_id="",
+            reasons=["Too few replicates to be conclusive"],
+            missing_facts=["additional_replicates"],
+            imposed_claim_ceiling="descriptive",
+        ).to_dict()
+        self.assertEqual(validation.validate_dataset_feasibility_report(good), [])
+        no_ceiling = self._report(
+            decision="insufficient",
+            evidence_plan_id="",
+            reasons=["Too few replicates"],
+            missing_facts=["additional_replicates"],
+            imposed_claim_ceiling="",
+        ).to_dict()
+        self.assertTrue(any("imposed_claim_ceiling" in e for e in validation.validate_dataset_feasibility_report(no_ceiling)))
+
+    def test_report_carries_no_locking_or_real_authority(self):
+        for flag in ("locks_dataset", "authorizes_real_execution", "authorizes_formal_evidence"):
+            data = self._report().to_dict()
+            data[flag] = True
+            errors = validation.validate_dataset_feasibility_report(data)
+            self.assertTrue(any(flag in e for e in errors), flag)
 
 
 if __name__ == "__main__":
