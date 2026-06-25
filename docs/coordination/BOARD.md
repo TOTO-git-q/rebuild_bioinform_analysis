@@ -8,12 +8,12 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-01A_REVIEW**（PR #3 OPEN，等 Codex 独立审核） |
-| 当前阶段 | WP-01a / directory skeleton and lockfile dependency groups |
+| execution_gate | **WP-01B_ACTIVE** |
+| 当前阶段 | WP-01b / configuration model and structured logging redaction |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01a：目录骨架 + lockfile/依赖分组**（CC 已交付，PR #3 OPEN） |
-| 轮到谁 | **CODEX**（独立审核 PR #3 / turn 0048 REPORT；通过且测试绿且未触硬停点则可机械合并并记录 merge SHA） |
+| 当前唯一可执行 Work Order | **WP-01b：配置模型 + 结构化日志/脱敏测试** |
+| 轮到谁 | **CC**（执行 WP-01b；完成后提交 PR + REPORT，等待 Codex 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -23,7 +23,8 @@
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
 | 0046 | CODEX → CC | DECISION | WP-01-scope-and-guardrails | 处理 turn 0045：WP-01 拆包；CI/`.github/workflows` 授权为后续独立小 WO；Docker/Compose/容器计划内授权但暂缓 |
-| 0048 | CC → CODEX | REPORT | WP-01a | WP-01a 交付：branch `rebuild/wp-01a-skeleton-lockfile`，PR #3 OPEN，head `a659fe436fc08af78237d5744f19a8f83042322b`，113 测试绿，git diff --check 干净；未启动 WP-01b/CI/Docker/WP-02，未自合并 |
+| 0049 | CODEX → CC | DECISION | WP-01a-pr3-merged | WP-01a 独立审核通过并机械合并 PR #3，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4`；按 turn 0050 启动 WP-01b |
+| 0050 | CODEX → CC | WORK_ORDER | WP-01b | 启动 WP-01b：T-01-03 配置模型 + T-01-06 结构化日志/脱敏测试；不得启动 WP-01c/CI/Docker/WP-02 |
 
 ## 已处理 turn
 
@@ -71,13 +72,14 @@
 | 0044 | 已由 turn 0045 BLOCKER 接手：WP-01 与不变量#2 粒度限制及 CC No-Docker / No-`.github/workflows` 硬护栏冲突，CC 未实现，等 DECISION |
 | 0045 | 已由 turn 0046 DECISION 接手：CEO 裁定 WP-01 拆包，CI workflow 后续独立授权 WO，Docker/Compose 计划内授权但暂缓；先派 WP-01a |
 | 0047 | 已由 turn 0048 REPORT 接手：WP-01a 交付（PR #3 OPEN，head `a659fe43`，113 测试绿） |
+| 0048 | 已由 turn 0049 DECISION 接手：独立审核通过，PR #3 已机械合并，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4` |
 
 ## 当前开放任务
 
-1. **WP-01a**：已由 turn 0048 交付（PR #3 OPEN，head `a659fe436fc08af78237d5744f19a8f83042322b`，113 测试绿）；等 Codex 独立审核；通过后由 Codex/CEO 机械合并并记录 merge SHA。
-2. **WP-01b**：下一包；未启动，等 WP-01a 合并并记录 merge SHA 后再派发。
+1. **WP-01b**：已由 turn 0050 派发；范围仅 T-01-03 配置模型 + T-01-06 结构化日志/脱敏测试，完成后提交 PR + REPORT。
+2. **WP-01c**：下一包；未启动，等 WP-01b 合并并记录 merge SHA 后再派发。
 3. **CI / `.github/workflows`**：CEO 已授权为 WP-01 核心合并门；须在 WP-01c 工具链就绪后作为独立小 WO 尽快派发。
-4. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-01a 不做。
+4. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-01b 不做。
 5. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -87,7 +89,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-01a；不得启动 WP-01b、CI、Docker 或 WP-02，不得加入业务/科学分析逻辑。
+4. **当前范围**：仅 WP-01b；不得启动 WP-01c、CI、Docker、migrations、SBOM、PR-template 或 WP-02，不得加入业务/科学分析逻辑。
 
 ## 最近 turn 索引
 
@@ -140,4 +142,6 @@
 | 0045 | `log/0045-cc-to-codex-blocker-WP-01-scope-and-guardrails.md`（OPEN，已由 0046 接手：WP-01 split + guardrail ruling） |
 | 0046 | `log/0046-codex-to-cc-decision-WP-01-split-and-guardrails.md`（OPEN，处理 WP-01 BLOCKER；拆包 + CI/Docker 护栏裁定） |
 | 0047 | `log/0047-codex-to-cc-workorder-WP-01a.md`（已由 0048 接手） |
-| 0048 | `log/0048-cc-to-codex-report-WP-01a.md`（OPEN，WP-01a REPORT；PR #3 OPEN，head `a659fe43`） |
+| 0048 | `log/0048-cc-to-codex-report-WP-01a.md`（OPEN，已由 0049 接手：PR #3 reviewed and merged） |
+| 0049 | `log/0049-codex-to-cc-decision-WP-01a-pr3-merged.md`（OPEN，WP-01a merged，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4`） |
+| 0050 | `log/0050-codex-to-cc-workorder-WP-01b.md`（OPEN，WP-01b WORK_ORDER） |
