@@ -12,8 +12,8 @@
 | 当前阶段 | WP-01 CI workflow gate |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01 CI workflow gate：GitHub Actions 质量门** |
-| 轮到谁 | **CC**（执行 WP-01 CI workflow gate；完成后提交 PR + REPORT，等待 Codex 独立审核） |
+| 当前唯一可执行 Work Order | **WP-01 CI workflow gate：GitHub Actions 质量门**（已交付，PR #6 OPEN，GitHub Actions 全绿，等待独立审核） |
+| 轮到谁 | **CODEX/CEO**（独立审核 WP-01 CI PR #6；CC 已停） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -26,7 +26,7 @@
 | 0049 | CODEX → CC | DECISION | WP-01a-pr3-merged | WP-01a 独立审核通过并机械合并 PR #3，merge commit `d8311272eab40c3e0038459dd41671ade7536ce4`；按 turn 0050 启动 WP-01b |
 | 0052 | CODEX → CC | DECISION | WP-01b-pr4-merged | WP-01b 独立审核通过并机械合并 PR #4，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8`；按 turn 0053 启动 WP-01c |
 | 0055 | CODEX → CC | DECISION | WP-01c-pr5-merged | WP-01c 独立审核 + WSL 补验通过并机械合并 PR #5，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b`；按 turn 0056 启动 CI workflow 专包 |
-| 0056 | CODEX → CC | WORK_ORDER | WP-01-ci | 启动 WP-01 CI workflow gate；本 WO 明确授权 `.github/workflows`；不得启动 Docker/WP-02 |
+| 0057 | CC → CODEX | REPORT | WP-01-ci | WP-01 CI gate 交付：PR #6 OPEN，head `f2df834df6d3c7a0b33975ccbb5a391348ff11e4`，`.github/workflows/ci.yml` 经 make 目标跑 lint/format-check/typecheck/test/coverage（矩阵 3.10/3.11/3.12），本地 147 测试绿 + 86% coverage，GitHub Actions PR CI 全绿；未自合并，R0-02 未启动 |
 
 ## 已处理 turn
 
@@ -79,10 +79,11 @@
 | 0051 | 已由 turn 0052 DECISION 接手：独立审核通过，PR #4 已机械合并，merge commit `e90b1a40b57c3fe81ca4cfc4a177c99303ba9fd8` |
 | 0053 | 已由 turn 0054 REPORT 接手：WP-01c 交付（PR #5 OPEN，head `ab46aefb9f305732038129713dcce42d5b2f8463`，147 测试绿，coverage 86%） |
 | 0054 | 已由 turn 0055 DECISION 接手：独立审核 + WSL 补验通过，PR #5 已机械合并，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b` |
+| 0056 | 已由 turn 0057 REPORT 接手：WP-01 CI gate 交付（PR #6 OPEN，head `f2df834df6d3c7a0b33975ccbb5a391348ff11e4`，GitHub Actions 全绿，147 测试 + 86% coverage） |
 
 ## 当前开放任务
 
-1. **WP-01 CI workflow gate**：已由 turn 0056 派发；本 WO 明确授权 `.github/workflows`，范围仅 GitHub Actions 质量门。
+1. **WP-01 CI workflow gate**：已由 turn 0056 派发并由 turn 0057 交付（PR #6 OPEN，head `f2df834df6d3c7a0b33975ccbb5a391348ff11e4`，GitHub Actions PR CI 全绿）；等待 Codex 独立审核与 CEO 合并裁定。
 2. **WP-01d/e**：未启动；等 CI 小 WO 合并并记录 merge SHA 后按拆包路线继续。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 CI WO 不做。
 4. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
@@ -155,4 +156,5 @@
 | 0053 | `log/0053-codex-to-cc-workorder-WP-01c.md`（已由 0054 接手） |
 | 0054 | `log/0054-cc-to-codex-report-WP-01c.md`（OPEN，已由 0055 接手：PR #5 reviewed and merged） |
 | 0055 | `log/0055-codex-to-cc-decision-WP-01c-pr5-merged.md`（OPEN，WP-01c merged，merge commit `92e865e04bb9ae4e838b9ad00fe9b755f6e3a06b`） |
-| 0056 | `log/0056-codex-to-cc-workorder-WP-01-ci.md`（OPEN，WP-01 CI WORK_ORDER） |
+| 0056 | `log/0056-codex-to-cc-workorder-WP-01-ci.md`（OPEN，已由 0057 接手） |
+| 0057 | `log/0057-cc-to-codex-report-WP-01-ci.md`（OPEN，WP-01 CI REPORT，PR #6，GitHub Actions 全绿） |
