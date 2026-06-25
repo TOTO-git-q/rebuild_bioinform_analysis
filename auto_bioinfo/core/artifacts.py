@@ -6,8 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from .ids import make_stable_id
-from .schemas import CANONICAL_SCHEMA_VERSION, now_iso
-
+from .schemas import now_iso
 
 ARTIFACT_REGISTRY_SCHEMA_VERSION = "v5.artifact_registry/0.1"
 DEFAULT_CHECKSUM_CHUNK_BYTES = 1024 * 1024

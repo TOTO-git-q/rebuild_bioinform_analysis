@@ -1,8 +1,8 @@
 import unittest
 
+from auto_bioinfo.core import validation
 from auto_bioinfo.core.ids import make_stable_id
 from auto_bioinfo.core.schemas import CLAIM_LEVELS, ResearchSpec
-from auto_bioinfo.core import validation
 
 
 class SchemaTest(unittest.TestCase):

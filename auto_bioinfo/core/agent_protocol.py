@@ -5,7 +5,6 @@ from typing import Any
 from .agent_specs import build_agent_specs
 from .schemas import CLAIM_LEVELS
 
-
 HANDOFF_SCHEMA_VERSION = "v5.agent_handoff/0.1"
 
 REQUIRED_HANDOFF_FIELDS = [
@@ -69,7 +68,16 @@ def validate_agent_handoff(handoff: dict[str, Any], from_agent: str, to_agent: s
     elif CLAIM_LEVELS.index(max_allowed) > CLAIM_LEVELS.index(specs[from_agent]["max_claim_level"]):
         errors.append(f"{from_agent} cannot emit claim ceiling above {specs[from_agent]['max_claim_level']}")
 
-    for field in ["input_object_refs", "output_object_refs", "evidence_refs", "artifact_refs", "assumptions", "open_questions", "blocking_issues", "audit_notes"]:
+    for field in [
+        "input_object_refs",
+        "output_object_refs",
+        "evidence_refs",
+        "artifact_refs",
+        "assumptions",
+        "open_questions",
+        "blocking_issues",
+        "audit_notes",
+    ]:
         if not isinstance(handoff.get(field), list):
             errors.append(f"{field}: expected list")
 

@@ -166,7 +166,8 @@ def build_reproduction_bundle(project_dir: str | Path, *, formal: bool = False) 
         f"# Reproduction bundle for project `{project_dir.name}`\n\n"
         + demo_banner
         + "Self-contained, offline, deterministic. See `run_order.md` and `comparison_spec.json`.\n"
-        + origin_line + "\n",
+        + origin_line
+        + "\n",
         encoding="utf-8",
     )
 
@@ -210,6 +211,7 @@ def compare_bundle(bundle_dir: str | Path) -> dict[str, Any]:
 
 
 # --- helpers ----------------------------------------------------------------
+
 
 def _dump(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)

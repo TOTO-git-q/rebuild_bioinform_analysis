@@ -16,7 +16,6 @@ from typing import Any
 from .ids import make_stable_id
 from .schemas import CANONICAL_SCHEMA_VERSION, ProjectState, now_iso
 
-
 # --- Main happy-path stages, in order ---------------------------------------
 MAIN_SEQUENCE = [
     "INTAKE",

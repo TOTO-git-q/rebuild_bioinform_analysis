@@ -4,7 +4,6 @@ from typing import Any
 
 from .ids import make_stable_id
 
-
 CANONICAL_SCHEMA_VERSION = "v5.canonical/0.1"
 
 CLAIM_LEVELS = [

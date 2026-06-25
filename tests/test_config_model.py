@@ -1,12 +1,12 @@
 import unittest
 
 from auto_bioinfo.config import (
+    CONFIG_FIELDS,
+    SECRET_FIELDS,
     AppConfig,
     ConfigError,
     FieldKind,
     SecretRef,
-    CONFIG_FIELDS,
-    SECRET_FIELDS,
     load_config,
 )
 

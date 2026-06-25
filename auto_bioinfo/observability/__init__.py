@@ -7,13 +7,13 @@ and is passed through key/value redaction so secrets and secret-like values are
 never written to logs.
 """
 
-from .redaction import REDACTED, SENSITIVE_KEY_PATTERN, is_sensitive_key, redact
 from .logging import (
     CANONICAL_FIELDS,
     JsonFormatter,
     build_log_payload,
     get_logger,
 )
+from .redaction import REDACTED, SENSITIVE_KEY_PATTERN, is_sensitive_key, redact
 
 __all__ = [
     "REDACTED",

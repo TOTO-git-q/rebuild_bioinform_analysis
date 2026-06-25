@@ -16,7 +16,16 @@ class ReproductionTest(unittest.TestCase):
     def test_bundle_has_required_contents(self):
         with tempfile.TemporaryDirectory() as d:
             bundle = self._run(d) / "reproduction_bundle"
-            for required in ["checksums.sha256", "run_order.md", "comparison_spec.json", "research_spec.json", "dataset_manifest.json", "parameters.json", "environment.json", "claims.json"]:
+            for required in [
+                "checksums.sha256",
+                "run_order.md",
+                "comparison_spec.json",
+                "research_spec.json",
+                "dataset_manifest.json",
+                "parameters.json",
+                "environment.json",
+                "claims.json",
+            ]:
                 self.assertTrue((bundle / required).exists(), required)
             self.assertTrue((bundle / "inputs" / "counts.tsv").exists())
             self.assertTrue(any((bundle / "outputs").iterdir()))

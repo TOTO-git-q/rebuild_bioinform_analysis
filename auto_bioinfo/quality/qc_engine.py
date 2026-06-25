@@ -39,7 +39,12 @@ def run_four_layer_qc(
 
     # --- Execution QC -------------------------------------------------------
     add("execution.method_succeeded", "execution", method_result.get("status") == "succeeded", f"method status={method_result.get('status')}")
-    add("execution.output_exists", "execution", artifact_manifest.get("exists") is True and artifact_manifest.get("size_bytes", 0) > 0, f"size_bytes={artifact_manifest.get('size_bytes', 0)}")
+    add(
+        "execution.output_exists",
+        "execution",
+        artifact_manifest.get("exists") is True and artifact_manifest.get("size_bytes", 0) > 0,
+        f"size_bytes={artifact_manifest.get('size_bytes', 0)}",
+    )
     add("execution.expected_outputs_present", "execution", "deg_results_table" in (method_result.get("outputs") or {}), "deg_results_table present")
 
     # --- Data QC ------------------------------------------------------------
@@ -49,8 +54,18 @@ def run_four_layer_qc(
 
     # --- Statistical QC -----------------------------------------------------
     below = {g: n for g, n in group_sizes.items() if n < min_rep}
-    add("statistical.min_replicates", "statistical", not below, f"groups below {min_rep} replicates: {below}" if below else f"all groups >= {min_rep} replicates")
-    add("statistical.unit_is_sample", "statistical", contract.get("statistical_unit") == "sample", f"statistical_unit={contract.get('statistical_unit')}; sample-level avoids pseudo-replication")
+    add(
+        "statistical.min_replicates",
+        "statistical",
+        not below,
+        f"groups below {min_rep} replicates: {below}" if below else f"all groups >= {min_rep} replicates",
+    )
+    add(
+        "statistical.unit_is_sample",
+        "statistical",
+        contract.get("statistical_unit") == "sample",
+        f"statistical_unit={contract.get('statistical_unit')}; sample-level avoids pseudo-replication",
+    )
     add("statistical.multiple_testing", "statistical", True, "Benjamini-Hochberg FDR applied across all genes")
 
     # --- Biological QC ------------------------------------------------------

@@ -11,7 +11,7 @@ without taking scipy as a dependency.  Everything here is pure and deterministic
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 
