@@ -54,6 +54,18 @@ FEASIBILITY_DECISIONS = ("usable", "conditionally_usable", "not_usable", "insuff
 # The two verdicts that claim a dataset is (at least conditionally) usable.
 FEASIBILITY_ACCEPTED_DECISIONS = ("usable", "conditionally_usable")
 
+# --- WP-02d / T-02-07..08: method & compatibility contract vocabularies -------
+
+# Bounded compatibility verdict between a method and a dataset for a sub-question.
+# ``compatible`` and ``conditionally_compatible`` assert the method can (at least
+# under stated conditions) run on the dataset to answer the sub-question;
+# ``incompatible`` and ``insufficient_information`` must keep their reasons and
+# blocking facts/gaps instead of an ambiguous bare boolean (validated by
+# :func:`auto_bioinfo.core.validation.validate_compatibility_decision`).
+COMPATIBILITY_DECISIONS = ("compatible", "conditionally_compatible", "incompatible", "insufficient_information")
+# The two verdicts that assert the method is (at least conditionally) usable.
+COMPATIBILITY_ACCEPTED_DECISIONS = ("compatible", "conditionally_compatible")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -544,8 +556,84 @@ class MethodContractRef:
     status: str = "active"
 
 
+# --- WP-02d / T-02-07: MethodContract standalone object (REQ-OBJ-08) ----------
+
+
+@dataclass
+class MethodContract:
+    """The scientific boundary of an analysis method, made a standalone object.
+
+    Promotes the ad hoc method-contract dict (today living inside
+    ``auto_bioinfo.methods.bulk_deg``) to a structured, content-hashable contract
+    *without* changing method execution, selection policy or the runtime registry.
+    A lightweight :class:`MethodContractRef` can still point at this object by its
+    ``method_contract_id``.
+
+    The contract states stable method identity (``method_id`` / ``method_name`` /
+    ``version``) and the applicability facts that bound what the method may do:
+    the modalities it supports, the inputs / metadata / design facts it requires,
+    the outputs it produces, its statistical assumptions, its hard claim
+    capability and claim ceiling, the conditions under which it is applicable or
+    forbidden, and its QC requirements.  The contract only *describes* a method's
+    boundary; it never selects, executes, or authorises a method
+    (validated by :func:`auto_bioinfo.core.validation.validate_method_contract`).
+    """
+
+    method_id: str
+    method_name: str
+    version: str
+    scientific_purpose: str = ""
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    method_contract_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "active"
+    # Applicability facts (REQ-OBJ-08): supported modality, required inputs /
+    # metadata / design facts, outputs, statistical assumptions, QC requirements.
+    supported_modalities: list[str] = field(default_factory=list)
+    required_inputs: list[str] = field(default_factory=list)
+    required_metadata: list[str] = field(default_factory=list)
+    minimum_design_facts: list[str] = field(default_factory=list)
+    outputs: list[str] = field(default_factory=list)
+    statistical_assumptions: list[str] = field(default_factory=list)
+    required_qc: list[str] = field(default_factory=list)
+    known_limitations: list[str] = field(default_factory=list)
+    # The scientific boundary: what the method can claim, the hard ceiling it may
+    # never cross, and the conditions under which it is applicable vs forbidden.
+    claim_capability: str = "descriptive"
+    claim_ceiling: str = "association"
+    applicable_conditions: list[str] = field(default_factory=list)
+    forbidden_conditions: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["method_contract_id"]:
+            data["method_contract_id"] = make_stable_id(
+                "method_contract",
+                {"method_id": self.method_id, "version": self.version},
+            )
+        return data
+
+
 @dataclass
 class CompatibilityDecision:
+    """Records whether a method may run on a dataset to answer a sub-question.
+
+    The legacy four-field form (``dataset_id`` / ``method_contract_id`` /
+    ``compatible`` / ``reason``) still constructs and serialises; ``to_dict``
+    derives the bounded :data:`COMPATIBILITY_DECISIONS` ``decision`` from the
+    ``compatible`` boolean and mirrors a singular ``reason`` into ``reasons`` so an
+    ambiguous bare boolean never stands alone.  The hardened fields bind the
+    decision to its method / dataset profile / sub-question / evidence plan and
+    keep the checked facts and any blocking facts/gaps explicit.
+
+    A CompatibilityDecision only *observes* compatibility: it never authorises
+    execution, locks a dataset, creates evidence, or raises a claim level.  The
+    ``authorizes_execution`` / ``locks_dataset`` / ``creates_evidence`` /
+    ``raises_claim_level`` flags are pinned ``False`` and the validator rejects any
+    attempt to make them truthy — a boolean here is never authority.
+    """
+
     dataset_id: str
     method_contract_id: str
     compatible: bool
@@ -555,6 +643,39 @@ class CompatibilityDecision:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    # --- WP-02d / T-02-08: hardened bindings and bounded verdict (REQ-OBJ-09) ---
+    decision: str = ""
+    method_id: str = ""
+    dataset_profile_id: str = ""
+    subquestion_id: str = ""
+    evidence_plan_id: str = ""
+    reasons: list[str] = field(default_factory=list)
+    checked_facts: list[str] = field(default_factory=list)
+    blocking_facts: list[str] = field(default_factory=list)
+    missing_facts: list[str] = field(default_factory=list)
+    imposed_claim_ceiling: str = ""
+    # The decision confers no authority of its own; these stay False.
+    authorizes_execution: bool = False
+    locks_dataset: bool = False
+    creates_evidence: bool = False
+    raises_claim_level: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["decision"]:
+            data["decision"] = "compatible" if self.compatible else "incompatible"
+        if not data["reasons"] and str(self.reason or "").strip():
+            data["reasons"] = [self.reason]
+        if not data["compatibility_decision_id"]:
+            data["compatibility_decision_id"] = make_stable_id(
+                "compatibility_decision",
+                {
+                    "method_contract_id": self.method_contract_id,
+                    "dataset_id": self.dataset_id,
+                    "subquestion_id": self.subquestion_id,
+                },
+            )
+        return data
 
 
 @dataclass

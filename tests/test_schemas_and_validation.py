@@ -5,15 +5,19 @@ from auto_bioinfo.core.common import Actor, ExternalIdentifier, SchemaValidation
 from auto_bioinfo.core.ids import make_stable_id
 from auto_bioinfo.core.schemas import (
     CLAIM_LEVELS,
+    COMPATIBILITY_DECISIONS,
     FEASIBILITY_DECISIONS,
     AmbiguityReport,
     ApprovalDecision,
     ApprovalRequest,
+    CompatibilityDecision,
     DatasetFeasibilityReport,
     DatasetProfile,
     DependencyGraph,
     EvidenceGap,
     EvidencePlan,
+    MethodContract,
+    MethodContractRef,
     OntologyMapping,
     OriginalRequest,
     Project,
@@ -792,6 +796,203 @@ class DatasetFeasibilityReportContractTest(unittest.TestCase):
         for flag in flags:
             absent.pop(flag, None)
         self.assertEqual(validation.validate_dataset_feasibility_report(absent), [])
+
+
+# --- WP-02d / T-02-07: MethodContract standalone object ----------------------
+
+
+class MethodContractContractTest(unittest.TestCase):
+    def _contract(self, **kw):
+        base = dict(
+            method_id="bulk_deg",
+            method_name="Bulk differential expression",
+            version="0.1.0",
+            scientific_purpose="Identify genes whose bulk RNA expression differs between two groups.",
+            supported_modalities=["bulk_expression_matrix"],
+            required_inputs=["counts_matrix", "sample_group_labels"],
+            required_metadata=["sample_group_labels"],
+            minimum_design_facts=["two groups", "min 2 replicates per group"],
+            outputs=["deg_results_table"],
+            statistical_assumptions=["independent samples", "approximately log-normal expression"],
+            required_qc=["execution", "data", "statistical", "biological"],
+            claim_capability="association",
+            claim_ceiling="association",
+            applicable_conditions=["two sample groups with replicates"],
+            forbidden_conditions=["fewer than 2 replicates in any group", "interpreting results as causal evidence"],
+        )
+        base.update(kw)
+        return MethodContract(**base)
+
+    def test_legacy_method_contract_ref_still_works(self):
+        # backward compatibility: the lightweight reference can point at a contract id
+        contract = self._contract().to_dict()
+        self.assertTrue(contract["method_contract_id"].startswith("method_contract_"))
+        ref = MethodContractRef(method_contract_id=contract["method_contract_id"], method_name="Bulk differential expression")
+        self.assertEqual(ref.method_contract_id, contract["method_contract_id"])
+        self.assertEqual(ref.status, "active")
+
+    def test_well_formed_contract_validates_and_is_stable(self):
+        a = self._contract().to_dict()
+        b = self._contract().to_dict()
+        self.assertEqual(validation.validate_method_contract(a), [])
+        # stable id is content-addressed over method identity (method_id + version)
+        self.assertEqual(a["method_contract_id"], b["method_contract_id"])
+
+    def test_blank_identity_is_rejected(self):
+        self.assertTrue(validation.validate_method_contract(self._contract(method_id="").to_dict()))
+        self.assertTrue(validation.validate_method_contract(self._contract(method_name="").to_dict()))
+        self.assertTrue(validation.validate_method_contract(self._contract(version="").to_dict()))
+        # a non-identifier method_id is rejected too
+        self.assertTrue(any("method_id" in e for e in validation.validate_method_contract(self._contract(method_id="Bulk DEG").to_dict())))
+
+    def test_invalid_claim_capability_or_ceiling_rejected(self):
+        self.assertTrue(any("claim_capability" in e for e in validation.validate_method_contract(self._contract(claim_capability="telepathy").to_dict())))
+        self.assertTrue(any("claim_ceiling" in e for e in validation.validate_method_contract(self._contract(claim_ceiling="omniscient").to_dict())))
+        # capability may never exceed the ceiling
+        over = self._contract(claim_capability="causal_support", claim_ceiling="association").to_dict()
+        self.assertTrue(any("exceeds claim_ceiling" in e for e in validation.validate_method_contract(over)))
+
+    def test_active_contract_requires_input_and_output_facts(self):
+        no_inputs = self._contract(required_inputs=[]).to_dict()
+        self.assertTrue(any("required_inputs" in e for e in validation.validate_method_contract(no_inputs)))
+        no_outputs = self._contract(outputs=[]).to_dict()
+        self.assertTrue(any("outputs" in e for e in validation.validate_method_contract(no_outputs)))
+        no_modality = self._contract(supported_modalities=[]).to_dict()
+        self.assertTrue(any("supported_modalities" in e for e in validation.validate_method_contract(no_modality)))
+
+    def test_duplicate_requirements_are_rejected(self):
+        dup = self._contract(required_inputs=["counts_matrix", "counts_matrix"]).to_dict()
+        self.assertTrue(any("duplicate requirement" in e for e in validation.validate_method_contract(dup)))
+        blank = self._contract(outputs=["deg_results_table", "  "]).to_dict()
+        self.assertTrue(any("outputs" in e for e in validation.validate_method_contract(blank)))
+
+    def test_contradictory_applicable_and_forbidden_conditions_rejected(self):
+        data = self._contract(
+            applicable_conditions=["two sample groups with replicates"],
+            forbidden_conditions=["Two Sample Groups With Replicates"],  # same condition, different case
+        ).to_dict()
+        self.assertTrue(any("contradictory conditions" in e for e in validation.validate_method_contract(data)))
+
+
+# --- WP-02d / T-02-08: CompatibilityDecision hardening -----------------------
+
+
+class CompatibilityDecisionContractTest(unittest.TestCase):
+    def _decision(self, **kw):
+        base = dict(
+            dataset_id="ds_gse12345",
+            method_contract_id="method_contract_bulk_deg",
+            compatible=True,
+            reason="modality and two-group design match the contract",
+            decision="compatible",
+            method_id="bulk_deg",
+            dataset_profile_id="dataset_profile_abc",
+            subquestion_id="sq_1",
+            evidence_plan_id="ep_1",
+            reasons=["modality bulk_expression_matrix matches", "two groups with >=2 replicates each"],
+            checked_facts=["modality", "sample_count", "grouping"],
+        )
+        base.update(kw)
+        return CompatibilityDecision(**base)
+
+    def test_legacy_four_field_decision_still_constructs(self):
+        # backward compatibility: the original positional form still works, and
+        # to_dict derives a bounded decision + mirrors the singular reason
+        legacy = CompatibilityDecision("ds_x", "method_contract_bulk_deg", True, "looks fine").to_dict()
+        self.assertEqual(legacy["decision"], "compatible")
+        self.assertEqual(legacy["reasons"], ["looks fine"])
+        self.assertTrue(legacy["compatibility_decision_id"].startswith("compatibility_decision_"))
+        incompatible = CompatibilityDecision("ds_x", "method_contract_bulk_deg", False, "no control group").to_dict()
+        self.assertEqual(incompatible["decision"], "incompatible")
+
+    def test_well_formed_compatible_decision_validates(self):
+        data = self._decision().to_dict()
+        self.assertEqual(validation.validate_compatibility_decision(data), [])
+
+    def test_decision_vocabulary_is_bounded(self):
+        self.assertEqual(set(COMPATIBILITY_DECISIONS), {"compatible", "conditionally_compatible", "incompatible", "insufficient_information"})
+        data = self._decision(decision="definitely").to_dict()
+        self.assertTrue(any("decision" in e for e in validation.validate_compatibility_decision(data)))
+
+    def test_accepted_decision_requires_bindings_and_reasons(self):
+        no_sub = self._decision(subquestion_id="").to_dict()
+        self.assertTrue(any("subquestion_id" in e for e in validation.validate_compatibility_decision(no_sub)))
+        no_plan = self._decision(evidence_plan_id="").to_dict()
+        self.assertTrue(any("evidence_plan_id" in e for e in validation.validate_compatibility_decision(no_plan)))
+        no_facts = self._decision(checked_facts=[]).to_dict()
+        self.assertTrue(any("checked_facts" in e for e in validation.validate_compatibility_decision(no_facts)))
+        no_reason = self._decision(reason="", reasons=["  "]).to_dict()
+        self.assertTrue(any("reason" in e for e in validation.validate_compatibility_decision(no_reason)))
+
+    def test_conditionally_compatible_requires_conservative_ceiling(self):
+        good = self._decision(decision="conditionally_compatible", imposed_claim_ceiling="association").to_dict()
+        self.assertEqual(validation.validate_compatibility_decision(good), [])
+        no_ceiling = self._decision(decision="conditionally_compatible", imposed_claim_ceiling="").to_dict()
+        self.assertTrue(any("imposed_claim_ceiling" in e for e in validation.validate_compatibility_decision(no_ceiling)))
+
+    def test_incompatible_decision_preserves_reasons_and_blocking_facts(self):
+        not_compatible = self._decision(
+            compatible=False,
+            decision="incompatible",
+            evidence_plan_id="",
+            subquestion_id="",
+            checked_facts=[],
+            reasons=["single comparison group; method needs two"],
+            blocking_facts=["only one sample group present"],
+        ).to_dict()
+        self.assertEqual(validation.validate_compatibility_decision(not_compatible), [])
+        # a negative verdict that records nothing blocking is pretending compatibility
+        empty_negative = self._decision(
+            compatible=False,
+            decision="incompatible",
+            evidence_plan_id="",
+            subquestion_id="",
+            checked_facts=[],
+            reasons=["unusable"],
+            blocking_facts=[],
+            missing_facts=[],
+        ).to_dict()
+        self.assertTrue(any("blocking facts" in e for e in validation.validate_compatibility_decision(empty_negative)))
+
+    def test_insufficient_information_requires_conservative_ceiling(self):
+        good = self._decision(
+            decision="insufficient_information",
+            evidence_plan_id="",
+            subquestion_id="",
+            checked_facts=[],
+            reasons=["grouping metadata missing"],
+            missing_facts=["sample_group_labels"],
+            imposed_claim_ceiling="descriptive",
+        ).to_dict()
+        self.assertEqual(validation.validate_compatibility_decision(good), [])
+        no_ceiling = self._decision(
+            decision="insufficient_information",
+            evidence_plan_id="",
+            subquestion_id="",
+            checked_facts=[],
+            reasons=["grouping metadata missing"],
+            missing_facts=["sample_group_labels"],
+            imposed_claim_ceiling="",
+        ).to_dict()
+        self.assertTrue(any("imposed_claim_ceiling" in e for e in validation.validate_compatibility_decision(no_ceiling)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = ("authorizes_execution", "locks_dataset", "creates_evidence", "raises_claim_level")
+        for flag in flags:
+            for truthy in (True, 1, "true", ["yes"]):
+                data = self._decision().to_dict()
+                data[flag] = truthy
+                errors = validation.validate_compatibility_decision(data)
+                self.assertTrue(any(flag in e for e in errors), f"{flag}={truthy!r} should be rejected")
+        # explicit false / absent flags stay accepted
+        clean = self._decision().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_compatibility_decision(clean), [])
+        absent = self._decision().to_dict()
+        for flag in flags:
+            absent.pop(flag, None)
+        self.assertEqual(validation.validate_compatibility_decision(absent), [])
 
 
 if __name__ == "__main__":
