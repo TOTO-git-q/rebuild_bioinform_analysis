@@ -36,7 +36,7 @@ from auto_bioinfo.reproduction.bundle import (
     build_reproduction_bundle,
     compute_project_release,
 )
-from tests._helpers import DEMO_QUESTION, fixture_adapter
+from tests._helpers import DEMO_QUESTION, fixture_adapter, real_like_fixture_adapter
 
 
 def _policy(mode="DEMO"):
@@ -673,6 +673,224 @@ class BundleReadmeSourceClassTest(unittest.TestCase):
             self.assertNotIn("fixture", readme.lower())
             self.assertIn("public database", readme.lower())
             self.assertIn("GSE45678", readme)
+
+
+def _eligible_real_decision():
+    """A genuinely-eligible decision whose policy binding matches ``_policy('REAL')``."""
+    return evaluate_scientific_eligibility(
+        execution_mode="REAL", source_class="PUBLIC_DATABASE", retrieval_mode="LIVE",
+        verification_level="FILES_CHECKSUM_VERIFIED", qc_status="pass",
+        evaluated_input_refs=["ev1"], evaluated_input_hashes=["h1"],
+        policy_id="pp1", policy_version=1,
+    )
+
+
+def _rewrite_jsonl(path: Path, mutate) -> None:
+    rows = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    for row in rows:
+        mutate(row)
+    path.write_text("\n".join(json.dumps(r, sort_keys=True) for r in rows) + "\n")
+
+
+class AuthoritativeGateUncachedBindingBypassTest(unittest.TestCase):
+    """Blocker 1 (R0-01 review-fix): under an eligible/formal release EVERY Claim
+    and EvidenceItem must reference the one authoritative ScientificEligibility
+    decision — checked independently of the cached ``scientific_output_eligible``
+    flag.  A missing or foreign decision id forces a DEMONSTRATION_ONLY release
+    even when the cached flag is false/absent, and the check runs through the real
+    downstream entry (``export --formal`` / ``compute_project_release``), not a
+    helper in isolation."""
+
+    def _run_eligible_real_project(self, d: str) -> Path:
+        proj = Path(d) / "p"
+        res = Pipeline(resources=real_like_fixture_adapter()).run(proj, DEMO_QUESTION, execution_mode="REAL")
+        # Sanity: the genuine REAL run really is eligible before we tamper it.
+        self.assertTrue(res["scientific_output_eligible"])
+        self.assertEqual(res["release_status"], "RESEARCH_PRELIMINARY")
+        return proj
+
+    def test_formal_export_succeeds_for_genuine_eligible_real_project(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["export", "--project", str(proj), "--formal"])
+            self.assertEqual(code, 0)
+            self.assertIn("FORMAL export", buf.getvalue())
+
+    def test_formal_export_refused_when_claim_missing_decision_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            _rewrite_jsonl(proj / "state" / "claims.jsonl", lambda r: r.pop("scientific_eligibility_decision_id", None))
+            self.assertFalse(compute_project_release(proj)["scientific_output_eligible"])
+            buf = io.StringIO()
+            with redirect_stdout(buf):
+                code = main(["export", "--project", str(proj), "--formal"])
+            self.assertEqual(code, 1)
+            self.assertIn("FORMAL EXPORT REFUSED", buf.getvalue())
+
+    def test_formal_export_refused_when_evidence_missing_decision_id(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            _rewrite_jsonl(proj / "state" / "evidence_items.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": ""}))
+            self.assertFalse(compute_project_release(proj)["scientific_output_eligible"])
+            with redirect_stdout(io.StringIO()):
+                code = main(["export", "--project", str(proj), "--formal"])
+            self.assertEqual(code, 1)
+
+    def test_formal_export_refused_when_claim_references_foreign_decision(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            _rewrite_jsonl(proj / "state" / "claims.jsonl", lambda r: r.update({"scientific_eligibility_decision_id": "scientific_eligibility_decision_forged"}))
+            release = compute_project_release(proj)
+            self.assertFalse(release["scientific_output_eligible"])
+            self.assertIn("OBJECT_REFERENCES_FOREIGN_DECISION", release["reasons"])
+            with redirect_stdout(io.StringIO()):
+                code = main(["export", "--project", str(proj), "--formal"])
+            self.assertEqual(code, 1)
+
+    def test_release_demotes_on_missing_binding_regardless_of_cached_flag(self):
+        # The old short-circuit only checked binding when the cached flag was true.
+        # Here the cached flag is FALSE and the decision id is absent — the release
+        # must still demote (the flag is never trusted for authorisation).
+        decision = _eligible_real_decision()
+        unbound = {"scientific_output_eligible": False}  # no decision id at all
+        release = authoritative_release(decision, policy=_policy("REAL"), evidence_items=[unbound])
+        self.assertFalse(release["scientific_output_eligible"])
+        self.assertEqual(release["release_status"], "DEMONSTRATION_ONLY")
+        self.assertIn("OBJECT_MISSING_DECISION_ID", release["reasons"])
+
+
+class DecisionIntegrityDownstreamRefusalTest(unittest.TestCase):
+    """Blocker 2 (R0-01 review-fix): tampering the persisted ScientificEligibility
+    decision's content, id, or evaluated_input_hashes must make the *real*
+    downstream formal export refuse (non-zero exit, no artifact) — proven through
+    ``export --formal``, not only at the helper layer."""
+
+    def _run_eligible_real_project(self, d: str) -> Path:
+        proj = Path(d) / "p"
+        res = Pipeline(resources=real_like_fixture_adapter()).run(proj, DEMO_QUESTION, execution_mode="REAL")
+        self.assertTrue(res["scientific_output_eligible"])
+        return proj
+
+    def _tamper_decision(self, proj: Path, mutate) -> None:
+        path = proj / "state" / "objects" / "scientific_eligibility_decision.json"
+        decision = json.loads(path.read_text())
+        mutate(decision)
+        path.write_text(json.dumps(decision))
+
+    def _assert_formal_export_refused(self, proj: Path) -> None:
+        self.assertFalse(compute_project_release(proj)["scientific_output_eligible"])
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            code = main(["export", "--project", str(proj), "--formal"])
+        self.assertEqual(code, 1)
+        self.assertIn("FORMAL EXPORT REFUSED", buf.getvalue())
+
+    def test_formal_export_nonzero_when_decision_content_tampered(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            # Flip a fact (source_class) without re-deriving the id — caught by the
+            # decision-id recomputation in the downstream authoritative gate.
+            self._tamper_decision(proj, lambda dec: dec.update({"source_class": "SYNTHETIC_FIXTURE"}))
+            self._assert_formal_export_refused(proj)
+
+    def test_formal_export_nonzero_when_decision_id_tampered(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            self._tamper_decision(proj, lambda dec: dec.update({"scientific_eligibility_decision_id": "scientific_eligibility_decision_deadbeef"}))
+            self._assert_formal_export_refused(proj)
+
+    def test_formal_export_refused_when_evaluated_input_hashes_tampered(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_eligible_real_project(d)
+            self._tamper_decision(proj, lambda dec: dec.update({"evaluated_input_hashes": ["forged_hash"]}))
+            self._assert_formal_export_refused(proj)
+
+
+class LockedManifestResumeChecksumGateTest(unittest.TestCase):
+    """Blocker 3 (R0-01 review-fix): once a dataset is locked, a resume must
+    re-verify the DatasetManifest before compile/execution.  Emptying or altering
+    a checksum, deleting a materialized file, or adding an unexpected extra file
+    must make ``Pipeline.run()`` (resume) fail — for every execution mode — rather
+    than continue to COMPLETED off an unverified manifest."""
+
+    _MANIFEST = ("state", "objects", "dataset_manifest.json")
+
+    def _run_demo(self, d: str) -> Path:
+        proj = Path(d) / "p"
+        Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+        return proj
+
+    def _edit_manifest(self, proj: Path, mutate) -> None:
+        path = proj.joinpath(*self._MANIFEST)
+        manifest = json.loads(path.read_text())
+        mutate(manifest)
+        path.write_text(json.dumps(manifest))
+
+    def test_untampered_resume_still_completes(self):
+        # Regression: a clean NON-REAL (DEMO) resume must still pass the new gate,
+        # because a legitimately-locked DEMO manifest always carries non-empty
+        # checksums (see _lock_datasets / test_demo_lock_unaffected...).
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_demo(d)
+            res = Pipeline(resources=fixture_adapter()).run(proj)  # resume, no tamper
+            self.assertEqual(res["current_stage"], "COMPLETED")
+
+    def test_resume_fails_when_manifest_checksums_emptied(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_demo(d)
+            self._edit_manifest(proj, lambda m: m.update({"file_checksums": {}}))
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=fixture_adapter()).run(proj)
+
+    def test_resume_fails_when_a_checksum_is_tampered(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_demo(d)
+
+            def _bend(m):
+                name = next(iter(m["file_checksums"]))
+                m["file_checksums"][name] = "0" * 64
+
+            self._edit_manifest(proj, _bend)
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=fixture_adapter()).run(proj)
+
+    def test_resume_fails_when_materialized_file_deleted(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_demo(d)
+            manifest = json.loads(proj.joinpath(*self._MANIFEST).read_text())
+            rel = next(iter(manifest["materialized_files"].values()))
+            (proj / rel).unlink()
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=fixture_adapter()).run(proj)
+
+    def test_resume_rejects_unexpected_extra_file(self):
+        with tempfile.TemporaryDirectory() as d:
+            proj = self._run_demo(d)
+            extra_rel = "state/inputs/_unexpected_extra.tsv"
+            (proj / extra_rel).parent.mkdir(parents=True, exist_ok=True)
+            (proj / extra_rel).write_text("gene\tvalue\nX\t1\n", encoding="utf-8")
+            # Register it as materialized but leave it OUT of file_checksums.
+            self._edit_manifest(proj, lambda m: m["materialized_files"].update({"extra": extra_rel}))
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=fixture_adapter()).run(proj)
+
+    def test_real_project_resume_revalidates_locked_manifest(self):
+        # REAL is the critical case: a genuine eligible REAL project, once locked,
+        # must re-verify its manifest on resume and refuse a tampered checksum.
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            res = Pipeline(resources=real_like_fixture_adapter()).run(proj, DEMO_QUESTION, execution_mode="REAL")
+            self.assertTrue(res["scientific_output_eligible"])
+
+            def _bend(m):
+                name = next(iter(m["file_checksums"]))
+                m["file_checksums"][name] = "f" * 64
+
+            self._edit_manifest(proj, _bend)
+            with self.assertRaises(PipelineError):
+                Pipeline(resources=real_like_fixture_adapter()).run(proj)
 
 
 if __name__ == "__main__":

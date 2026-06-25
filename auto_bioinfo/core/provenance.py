@@ -679,11 +679,20 @@ def authoritative_release(
     reasons: list[str] = list(verify_decision_integrity(decision, policy=policy))
     eligible = decision_is_authoritatively_eligible(decision, policy=policy)
 
-    authoritative_id = decision.get("scientific_eligibility_decision_id")
-    for obj in list(claims or []) + list(evidence_items or []):
-        if obj.get("scientific_output_eligible") and obj.get("scientific_eligibility_decision_id") != authoritative_id:
-            eligible = False
-            reasons.append("OBJECT_REFERENCES_FOREIGN_DECISION")
+    # When (and only when) the decision is authoritatively ELIGIBLE, a formal
+    # release is on the table — so *every* Claim/EvidenceItem must reference this
+    # exact authoritative decision id.  This binding is enforced independently of
+    # the cached ``scientific_output_eligible`` flag on the objects: that flag is
+    # a display cache and is never trusted for authorisation.  An object that is
+    # missing the decision id, or references a foreign one, forces
+    # DEMONSTRATION_ONLY even when its cached flag is false or absent (Blocker 1).
+    if eligible:
+        authoritative_id = decision.get("scientific_eligibility_decision_id")
+        for obj in list(claims or []) + list(evidence_items or []):
+            ref = obj.get("scientific_eligibility_decision_id")
+            if ref != authoritative_id:
+                eligible = False
+                reasons.append("OBJECT_MISSING_DECISION_ID" if not ref else "OBJECT_REFERENCES_FOREIGN_DECISION")
 
     if not eligible and not reasons:
         reasons = list(decision.get("reason_codes", [])) or ["INELIGIBLE"]

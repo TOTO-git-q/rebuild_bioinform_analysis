@@ -276,3 +276,48 @@ requirement → 代码 → 测试：
 全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 63 tests, OK**（53 基线 + 6 闸门2 + 4 闸门1，全离线确定性）。
 
 > 闸门进度更新为 **2/8 → 3/8**（闸门 1、2 完成）。下一步闸门 3：`ProjectPolicy` 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出）。
+
+## R0-01 PR #1 review-fix（turn 0029 — 3 个 blocker）
+
+承 turn 0029（PR #1 独立审核 = CHANGES_REQUESTED），本轮**只修复 3 个 R0-01 blocker，不扩大范围、不开 R0-02、不自合并、不增 `.github/workflows/`、不碰 bulk_deg 算法 / coordination / ruleset**。
+
+### Blocker 1 — authoritative gate 仍被缓存字段短路
+- 根因：`core/provenance.py::authoritative_release` 的 Claim/Evidence 绑定校验被 `obj.get("scientific_output_eligible")` 短路——缓存 flag 为 false/缺失时，缺 decision-id 或引用外来 id 的对象被跳过。
+- 修复（`core/provenance.py::authoritative_release`）：当决策为 ELIGIBLE 时，**无条件**要求每个 Claim/EvidenceItem 引用权威 decision id，完全不读缓存 flag；缺失 → `OBJECT_MISSING_DECISION_ID`，外来 → `OBJECT_REFERENCES_FOREIGN_DECISION`，任一即强制 `DEMONSTRATION_ONLY`。四输出面（inspect/report/bundle/`export --formal`）已共享此门，一处修复全面生效。
+- 新增测试 `tests/test_r0_01_truthful_mode.py::AuthoritativeGateUncachedBindingBypassTest`（5 条，走 CLI `export --formal` 真实下游）：
+  1. `test_formal_export_succeeds_for_genuine_eligible_real_project`
+  2. `test_formal_export_refused_when_claim_missing_decision_id`
+  3. `test_formal_export_refused_when_evidence_missing_decision_id`
+  4. `test_formal_export_refused_when_claim_references_foreign_decision`
+  5. `test_release_demotes_on_missing_binding_regardless_of_cached_flag`
+
+### Blocker 2 — decision integrity 缺真实下游测试
+- 核查：`verify_decision_integrity`（重算 id / verdict / policy 绑定 / refs / hashes）逻辑完备，且 `export --formal → compute_project_release → authoritative_release(decision, policy=...)` 已带 policy 调用它；篡改 decision 内容/id/hashes 均因 id 重算不匹配在 formal export 时被拒。**本 blocker 无需改产品代码**，补的是穿过真实下游的测试。
+- 新增测试 `tests/test_r0_01_truthful_mode.py::DecisionIntegrityDownstreamRefusalTest`（3 条，走 CLI `export --formal`）：
+  1. `test_formal_export_nonzero_when_decision_content_tampered`
+  2. `test_formal_export_nonzero_when_decision_id_tampered`
+  3. `test_formal_export_refused_when_evaluated_input_hashes_tampered`
+
+### Blocker 3 — DATASETS_LOCKED 后 resume 绕过 manifest checksum gate
+- 根因：checksum 校验只在 `pipeline.py::_lock_datasets`；resume 从 `DATASETS_LOCKED` 进入直接走 `_compile_workflow`→`_execute`，不重验 manifest。
+- 修复（`pipeline.py`）：在 `Pipeline.run()` 起始处（policy 完整性校验后、驱动 steps 前）新增 `_verify_locked_manifest(project_dir, manifest, execution_mode)`——仅当 manifest 已 `locked` 时触发；逐个重算 `materialized_files` 实际 sha256 与记录值比对；`file_checksums` 空、空值、mismatch、缺失文件、多出未登记文件全部拒绝并抛 `PipelineError`；**所有执行模式都重验**（损坏的已锁 manifest 无论模式都该拒），REAL 额外复用 `validate_real_mode_lock` 纵深防御。resume 必经 run() 入口，故「跳过 lock 阶段」被覆盖。
+- 取舍说明：合法锁定的 DEMO/TEST manifest 也带非空 checksum（`_lock_datasets` 对所有模式无条件计算），故全模式重验不误伤干净 resume；回归用例 `test_untampered_resume_still_completes` 用 DEMO 干净 resume 验证。
+- 新增测试 `tests/test_r0_01_truthful_mode.py::LockedManifestResumeChecksumGateTest`（6 条，走 `Pipeline.run()` resume）：
+  1. `test_untampered_resume_still_completes`（DEMO 干净 resume 回归）
+  2. `test_resume_fails_when_manifest_checksums_emptied`
+  3. `test_resume_fails_when_a_checksum_is_tampered`
+  4. `test_resume_fails_when_materialized_file_deleted`
+  5. `test_resume_rejects_unexpected_extra_file`（明确策略:多出未登记文件 → 拒绝）
+  6. `test_real_project_resume_revalidates_locked_manifest`（REAL 尤其阻断）
+
+### 本轮修改文件
+- `auto_bioinfo/core/provenance.py`（Blocker 1）
+- `auto_bioinfo/pipeline.py`（Blocker 3）
+- `tests/test_r0_01_truthful_mode.py`、`tests/_helpers.py`（14 个新测试 + `real_like_fixture_adapter` 测试 double）
+- `docs/rebuild/WO-R0-01-REPORT.md`（本节）
+
+### 本轮真实结果
+- `python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 111 tests, OK**（97 基线 + 14 本轮，全离线确定性，约 0.65s，退出码 0）。
+- `git diff --check` → 干净（无空白/冲突标记）。
+- ruff：改动文件中 `provenance.py`、`_helpers.py` 全过;`pipeline.py`(F401 `is_eligible` 未用 + I001)与 `test_r0_01_truthful_mode.py`(I001)的告警**与 HEAD 基线逐字相同,为既存问题,非本轮引入**,按"不扩大范围"未顺手修。验收门为 unittest 套件。
+- 未开始 R0-02;未自合并;未新增 `.github/workflows/`。

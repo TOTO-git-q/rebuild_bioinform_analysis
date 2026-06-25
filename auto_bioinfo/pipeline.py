@@ -113,6 +113,17 @@ class Pipeline:
         if integrity:
             raise PipelineError(f"project policy integrity failure: {integrity}")
 
+        # Gate 5 resume defence (R0-01 review-fix, Blocker 3): once a dataset is
+        # locked, a resume re-enters here *after* ``_lock_datasets`` and would
+        # otherwise reach compile/execution without re-checking the manifest.
+        # Re-verify the locked DatasetManifest against the materialized files
+        # before driving any further step, so tampering it between runs (emptying
+        # or altering checksums, deleting or adding a materialized file) cannot
+        # slip an unverified dataset through.  Enforced for every execution mode.
+        locked_manifest = read_object(project_dir, "dataset_manifest", {})
+        if locked_manifest.get("locked"):
+            self._verify_locked_manifest(project_dir, locked_manifest, policy.get("execution_mode", "DEMO"))
+
         # Drive guarded steps until a terminal/paused stage is reached.
         steps: list[tuple[str, Callable[[Path], None]]] = [
             ("INTAKE", self._normalize_question),
@@ -454,6 +465,57 @@ class Pipeline:
         self._advance(project_dir, "COMPLETED", "system", [], "Closed loop completed end-to-end.")
 
     # -- helpers -------------------------------------------------------------
+
+    def _verify_locked_manifest(self, project_dir: Path, manifest: dict[str, Any], execution_mode: str) -> None:
+        """Re-verify an already-locked DatasetManifest on resume (Blocker 3).
+
+        The lock-time gate in :meth:`_lock_datasets` is not sufficient on its own:
+        a resume from ``DATASETS_LOCKED`` (or any later stage) would otherwise
+        continue to compile/execution without re-checking the persisted manifest.
+        This recomputes every materialized file's digest and rejects an empty
+        checksum set, an empty/missing/mismatched checksum, or an unexpected extra
+        materialized file — for *all* execution modes (a corrupt locked manifest is
+        corrupt regardless of mode).  REAL additionally re-runs the full lock gate.
+        """
+        checksums = manifest.get("file_checksums", {})
+        materialized = manifest.get("materialized_files", {})
+        errors: list[str] = []
+        if not checksums:
+            errors.append("locked dataset_manifest has empty file_checksums")
+        recomputed: dict[str, str] = {}
+        for name, rel in materialized.items():
+            fpath = project_dir / rel
+            if not fpath.exists():
+                errors.append(f"materialized file {name!r} ({rel}) is missing on disk")
+            else:
+                recomputed[name] = compute_file_sha256(str(fpath))
+        for name, digest in checksums.items():
+            if not digest:
+                errors.append(f"locked file {name!r} has an empty recorded checksum")
+            actual = recomputed.get(name)
+            if actual is None:
+                if name not in materialized:
+                    errors.append(f"locked file {name!r} has no materialized file to verify")
+            elif digest and actual != digest:
+                errors.append(f"locked dataset_manifest checksum mismatch for {name!r}")
+        for name in recomputed:
+            if name not in checksums:
+                errors.append(f"unexpected materialized file {name!r} is not covered by the locked manifest checksums")
+        # REAL-mode defence in depth: re-apply the full lock policy gate.
+        if execution_mode == "REAL":
+            for e in validate_real_mode_lock(
+                {
+                    "verification_level": manifest.get("verification_level", "UNVERIFIED"),
+                    "retrieval_mode": manifest.get("retrieval_mode", "LOCAL_CACHE"),
+                },
+                execution_mode,
+                file_checksums=checksums,
+                recomputed_checksums=recomputed,
+            ):
+                if e not in errors:
+                    errors.append(e)
+        if errors:
+            raise PipelineError(f"locked dataset manifest failed re-verification on resume: {errors}")
 
     def _execution_mode(self, project_dir: Path) -> str:
         """Authoritative execution mode comes from the immutable ProjectPolicy."""
