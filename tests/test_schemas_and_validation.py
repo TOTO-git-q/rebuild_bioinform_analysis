@@ -416,6 +416,22 @@ class SubQuestionContractTest(unittest.TestCase):
     def test_between_range_stays_single_purpose(self):
         self.assertTrue(validation.subquestion_is_single_purpose("Which genes differ between A and B?"))
 
+    def test_between_range_with_trailing_verb_stays_single_purpose(self):
+        # the range conjunction closes "between X and Y" — a finite verb after the
+        # range is the question's own predicate, not a second purpose
+        for question in (
+            "Which genes between A and B are differentially expressed?",
+            "Which pathways between HFD and ND are enriched?",
+        ):
+            self.assertTrue(validation.subquestion_is_single_purpose(question), question)
+            self.assertEqual(validation.validate_subquestion(self._sub(question)), [])
+
+    def test_compound_after_between_range_still_rejected(self):
+        # a genuine second predicate is caught even when a between-range precedes it
+        question = "Which genes between A and B change and pathways are enriched?"
+        self.assertFalse(validation.subquestion_is_single_purpose(question))
+        self.assertTrue(any("single purpose" in e for e in validation.validate_subquestion(self._sub(question))))
+
     def test_binding_to_research_spec_enforced(self):
         data = self._sub("Which genes change between A and B?")
         self.assertEqual(validation.validate_subquestion(data, research_spec_id="rs_1"), [])

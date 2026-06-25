@@ -332,7 +332,9 @@ def validate_ontology_mapping(mapping: dict[str, Any]) -> list[str]:
 # interrogative/auxiliary ("...and how are..."), and a conjunction that introduces
 # a fresh subject which then takes its own finite verb/auxiliary
 # ("...change and pathways are enriched").  A range like "between A and B" carries
-# no trailing auxiliary after the conjunction, so it stays single-purpose.
+# no second predicate — the conjunction merely closes the range — so it stays
+# single-purpose even when a finite verb follows the range
+# ("...between A and B are differentially expressed").
 _FINITE_AUX = (
     r"is|are|was|were|be|been|being|has|have|had|do|does|did"
     r"|can|could|shall|should|will|would|may|might|must"
@@ -343,6 +345,24 @@ _COMPOUND_MARKERS = re.compile(
     r"|\bas well as\b|\bin addition to\b",
     re.IGNORECASE,
 )
+# The conjunction inside a ``between X and/or Y`` range closes the range rather
+# than introducing a second predicate, so it must not count as a compound marker.
+# Match "between" up to the first following and/or and drop that conjunction
+# before scanning for compound markers — the surrounding text is preserved so a
+# genuine second predicate elsewhere ("...between A and B change and pathways are
+# enriched") is still caught.
+_BETWEEN_RANGE_CONJUNCTION = re.compile(
+    r"\bbetween\b(?:(?!\b(?:and|or)\b)[^?;])*?\b(and|or)\b",
+    re.IGNORECASE,
+)
+
+
+def _neutralize_between_range_conjunction(question: str) -> str:
+    """Blank out the range conjunction in ``between X and/or Y`` constructions."""
+    return _BETWEEN_RANGE_CONJUNCTION.sub(
+        lambda m: m.group(0)[: m.start(1) - m.start(0)] + " " * (m.end(1) - m.start(1)),
+        question,
+    )
 
 
 def subquestion_is_single_purpose(question: str) -> bool:
@@ -350,7 +370,7 @@ def subquestion_is_single_purpose(question: str) -> bool:
 
     Rejects multiple terminal questions (more than one ``?``) and clauses joined
     by a second-predicate conjunction; a range like "between A and B" stays
-    single-purpose.
+    single-purpose even when followed by a finite verb.
     """
     if not isinstance(question, str) or not question.strip():
         return False
@@ -358,7 +378,7 @@ def subquestion_is_single_purpose(question: str) -> bool:
         return False
     if ";" in question:
         return False
-    return _COMPOUND_MARKERS.search(question) is None
+    return _COMPOUND_MARKERS.search(_neutralize_between_range_conjunction(question)) is None
 
 
 def validate_subquestion(subquestion: dict[str, Any], research_spec_id: str | None = None) -> list[str]:
