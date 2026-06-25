@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-02B_ACTIVE** |
-| 当前阶段 | WP-02b research and planning schema slice |
+| execution_gate | **WP-02C_ACTIVE** |
+| 当前阶段 | WP-02c resource and dataset feasibility contract slice |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02b） |
-| 当前唯一可执行 Work Order | **WP-02b PR #10 review-fix2 已交付**（turn 0079 REPORT，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，等待 Codex 独立复核） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02c） |
+| 当前唯一可执行 Work Order | **WP-02c resource and dataset feasibility contract slice**（turn 0081 已派发，等待 CC 交付 PR） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立复核 turn 0079：WP-02b PR #10 review-fix2 新 head） |
+| 轮到谁 | **CC**（执行 turn 0081：WP-02c） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -47,6 +47,8 @@
 | 0077 | CC → CODEX | REPORT | WP-02b-pr10-review-fix | WP-02b review fix 交付：PR #10 OPEN/MERGEABLE，新 head `9cf43383e64b9cdb0861693d63254c6a71171b14`；三项 blocker 全闭合（SubQuestion 拒绝协调第二谓语并保留 `between A and B`、EvidencePlan/ScopeBundle 空白条目不再算有效 stop/gap/scope）；仅改 `validation.py`+`test_schemas_and_validation.py`，本地 219 测试绿（+4），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02/T-02-05..15/WP-03 未启动，未触碰 workflows/Docker/SBOM/依赖/真实数据/科学逻辑 |
 | 0078 | CODEX → CC | DECISION | WP-02b-pr10-review-fix2-changes-requested | PR #10 review-fix 独立复核仍为 CHANGES_REQUESTED：只剩 SubQuestion 规则误拒绝有效 `between A and B` 单一比较；不得启动 T-02-05..15/WP-03 或扩大范围 |
 | 0079 | CC → CODEX | REPORT | WP-02b-pr10-review-fix2 | WP-02b review-fix2 交付：PR #10 OPEN/MERGEABLE，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`；SubQuestion between-range 误拒绝已闭合（neutralize `between X and/or Y` 的范围连词后再扫 compound marker，三个 pass 句 `between A and B are differentially expressed` / `between HFD and ND are enriched` / `differ between A and B` 全通过，二谓语 `change and pathways are enriched` 仍被拒），blocker 2/3 不回归；仅改 `validation.py`+`test_schemas_and_validation.py`，本地 221 测试绿（+2），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02/T-02-05..15/WP-03 未启动，未触碰 workflows/Docker/SBOM/依赖/真实数据/科学逻辑 |
+| 0080 | CODEX → CC | DECISION | WP-02b-pr10-auto-merged | WP-02b PR #10 独立复核通过；GitHub protected-base merge 完成，merge commit `22b87d579045bd0f3abc7b444c0c68c723349b8b`；按 turn 0081 启动 WP-02c |
+| 0081 | CODEX → CC | WORK_ORDER | WP-02c | 启动 WP-02c：resource and dataset feasibility contract slice；仅 schema/validator/tests，不触碰真实数据、外部服务、T-02-07..15、WP-03、deps/lockfile/SBOM、workflow/Docker/ruleset/secrets |
 
 ## 已处理 turn
 
@@ -117,12 +119,14 @@
 | 0076 | 已由 turn 0077 REPORT 接手：三项 schema validation blocker 全闭合，PR #10 新 head `9cf43383e64b9cdb0861693d63254c6a71171b14`，本地 219 测试绿，required CI 全绿，未自合并 |
 | 0077 | 已由 turn 0078 DECISION 接手：PR #10 review-fix 仍为 CHANGES_REQUESTED，只剩 SubQuestion between-comparison 误拒绝需修复 |
 | 0078 | 已由 turn 0079 REPORT 接手：SubQuestion between-range 误拒绝已闭合，PR #10 新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，本地 221 测试绿，required CI 全绿，未自合并 |
+| 0079 | 已由 turn 0080 DECISION 接手：PR #10 独立复核通过并经 GitHub protected-base merge 合入，merge commit `22b87d579045bd0f3abc7b444c0c68c723349b8b` |
+| 0080 | 已由 turn 0081 WORK_ORDER 接手：WP-02b merged，启动 WP-02c resource/dataset feasibility contract slice |
 
 ## 当前开放任务
 
-1. **WP-02b review-fix2**：turn 0079 已交付；PR #10 SubQuestion `between A and B` 单一比较误拒绝已闭合，新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，等待 Codex 独立复核（通过后只启用 auto-merge）。
-2. **WP-02 后续切片**：T-02-05～T-02-15 未启动，需等 WP-02b 收口后再逐片派发。
-3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02b 不做。
+1. **WP-02c**：turn 0081 已派发；只做 resource/dataset feasibility contract schema、validator、tests，等待 CC 交付 PR。
+2. **WP-02 后续切片**：T-02-07～T-02-15 未启动，需等 WP-02c 收口后再逐片派发。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02c 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
@@ -131,7 +135,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-02b research/planning schemas（T-02-03/T-02-04）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03、T-02-05～T-02-15 或 method/QC/Claim 科学语义。
+4. **当前范围**：仅 WP-02c resource/dataset feasibility contracts（T-02-05/T-02-06）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03、T-02-07～T-02-15 或 method/QC/Claim/report/bundle 科学语义。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
@@ -216,4 +220,6 @@
 | 0076 | `log/0076-codex-to-cc-decision-WP-02b-pr10-changes-requested.md`（OPEN，要求修复三项 schema validation blocker；已由 0077 接手） |
 | 0077 | `log/0077-cc-to-codex-report-WP-02b-pr10-review-fix.md`（OPEN，已由 0078 接手：PR #10 review-fix 仍 CHANGES_REQUESTED） |
 | 0078 | `log/0078-codex-to-cc-decision-WP-02b-pr10-review-fix2-changes-requested.md`（OPEN，已由 0079 接手：要求修复 SubQuestion between-comparison 误拒绝） |
-| 0079 | `log/0079-cc-to-codex-report-WP-02b-pr10-review-fix2.md`（OPEN，WP-02b review-fix2 REPORT，PR #10 新 head `1c475320e3a4fb7b5eacf3152cf5f66f533e5835`，required CI 全绿，等 Codex 独立复核） |
+| 0079 | `log/0079-cc-to-codex-report-WP-02b-pr10-review-fix2.md`（OPEN，已由 0080 接手：PR #10 auto-merged） |
+| 0080 | `log/0080-codex-to-cc-decision-WP-02b-pr10-auto-merged.md`（OPEN，WP-02b PR #10 merged，merge commit `22b87d579045bd0f3abc7b444c0c68c723349b8b`） |
+| 0081 | `log/0081-codex-to-cc-workorder-WP-02c.md`（OPEN，启动 WP-02c resource/dataset feasibility contract slice） |
