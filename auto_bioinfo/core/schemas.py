@@ -678,8 +678,28 @@ class CompatibilityDecision:
         return data
 
 
+# --- WP-02e / T-02-09: WorkflowPlan explicit acyclic DAG (REQ-OBJ-10) ---------
+
+
 @dataclass
 class WorkflowPlan:
+    """A planned analysis workflow as an explicit, acyclic task DAG (REQ-OBJ-10).
+
+    The legacy ``WorkflowPlan(workflow_name, task_ids, ...)`` construction is
+    preserved: ``task_ids`` is still the declared list of tasks.  The DAG is made
+    explicit by ``dependencies`` — ``[from_task, to_task]`` edges meaning
+    "from_task depends on to_task", so a bare linear ``task_ids`` list no longer
+    silently implies a checked graph.  ``expected_inputs`` / ``expected_outputs``
+    map a task id to its planned input/output facts and ``gates`` are quality
+    gates bound to a task id; all are contract data, never execution behaviour.
+
+    The plan only *describes* a workflow; it never compiles, schedules, or runs a
+    task.  Cycle detection and a deterministic id are provided
+    (:func:`auto_bioinfo.core.validation.validate_workflow_plan` rejects blank /
+    duplicate task ids, dangling dependency endpoints, self-loops, cycles, and
+    gates/inputs/outputs that reference undeclared tasks).
+    """
+
     workflow_name: str
     task_ids: list[str]
     schema_version: str = CANONICAL_SCHEMA_VERSION
@@ -687,6 +707,45 @@ class WorkflowPlan:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    # --- WP-02e / T-02-09: explicit DAG contract data (REQ-OBJ-10) ---
+    dependencies: list[list[str]] = field(default_factory=list)
+    expected_inputs: dict[str, list[str]] = field(default_factory=dict)
+    expected_outputs: dict[str, list[str]] = field(default_factory=dict)
+    gates: list[dict[str, Any]] = field(default_factory=list)
+
+    def _dependency_graph(self) -> "DependencyGraph":
+        """Project the declared tasks/dependencies onto a DependencyGraph so the
+        acyclicity machinery is shared with the sub-question graph."""
+        return DependencyGraph(
+            research_spec_id="workflow_plan",
+            nodes=list(self.task_ids),
+            edges=[list(edge) for edge in self.dependencies],
+        )
+
+    def has_cycle(self) -> bool:
+        return self._dependency_graph().has_cycle()
+
+    def topological_order(self) -> list[str]:
+        """Deterministic task order (prerequisites first).  Raises on a cycle."""
+        return self._dependency_graph().topological_order()
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection (sorted dependencies)."""
+        return {
+            "workflow_name": self.workflow_name,
+            "task_ids": list(self.task_ids),
+            "dependencies": sorted([list(e) for e in self.dependencies]),
+            "expected_inputs": {k: list(v) for k, v in self.expected_inputs.items()},
+            "expected_outputs": {k: list(v) for k, v in self.expected_outputs.items()},
+            "gates": [dict(g) for g in self.gates],
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["dependencies"] = sorted([list(e) for e in self.dependencies])
+        if not data["workflow_plan_id"]:
+            data["workflow_plan_id"] = make_stable_id("workflow_plan", self.canonical())
+        return data
 
 
 @dataclass
@@ -726,6 +785,62 @@ class ReviewTaskPacket:
     created_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+
+
+# --- WP-02e / T-02-10: DataPreparationTaskPacket subtype (REQ-OBJ-11) ---------
+
+
+@dataclass
+class DataPreparationTaskPacket:
+    """A contract for *planned* data-preparation work (REQ-OBJ-11).
+
+    Completes the TaskPacket subtype coverage alongside
+    :class:`AnalysisTaskPacket`, :class:`EngineeringTaskPacket` and
+    :class:`ReviewTaskPacket`.  A data-preparation packet declares the planned
+    input facts it will consume (which may reference planned resource / dataset
+    profile ids) and the expected *materialized* outputs it intends to produce,
+    plus optional preparation steps and failure conditions.
+
+    The packet is a contract record only: it does not download data, lock a
+    dataset, authorise REAL execution, or create formal evidence.  The
+    ``downloads_data`` / ``locks_dataset`` / ``authorizes_real_execution`` /
+    ``creates_formal_evidence`` flags are pinned ``False`` and
+    :func:`auto_bioinfo.core.validation.validate_data_preparation_task_packet`
+    rejects any attempt to make them truthy — a boolean here is never authority.
+    """
+
+    task_id: str
+    subquestion_id: str
+    planned_inputs: list[str]
+    expected_outputs: list[str]
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "draft"
+    # Planned references — ids of resources / dataset profiles this prep will use.
+    planned_resource_ids: list[str] = field(default_factory=list)
+    planned_dataset_profile_ids: list[str] = field(default_factory=list)
+    preparation_steps: list[str] = field(default_factory=list)
+    failure_conditions: list[str] = field(default_factory=list)
+    # The packet confers no authority of its own; these stay False.
+    downloads_data: bool = False
+    locks_dataset: bool = False
+    authorizes_real_execution: bool = False
+    creates_formal_evidence: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        data["packet_type"] = "DataPreparationTaskPacket"
+        if not data["task_id"]:
+            data["task_id"] = make_stable_id(
+                "data_preparation_task",
+                {
+                    "subquestion_id": self.subquestion_id,
+                    "planned_inputs": list(self.planned_inputs),
+                    "expected_outputs": list(self.expected_outputs),
+                },
+            )
+        return data
 
 
 @dataclass

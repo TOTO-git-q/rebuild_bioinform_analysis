@@ -8,12 +8,15 @@ from auto_bioinfo.core.schemas import (
     COMPATIBILITY_DECISIONS,
     FEASIBILITY_DECISIONS,
     AmbiguityReport,
+    AnalysisTaskPacket,
     ApprovalDecision,
     ApprovalRequest,
     CompatibilityDecision,
+    DataPreparationTaskPacket,
     DatasetFeasibilityReport,
     DatasetProfile,
     DependencyGraph,
+    EngineeringTaskPacket,
     EvidenceGap,
     EvidencePlan,
     MethodContract,
@@ -24,8 +27,10 @@ from auto_bioinfo.core.schemas import (
     ProjectPolicy,
     ResearchSpec,
     ResourceCandidate,
+    ReviewTaskPacket,
     ScopeBundle,
     SubQuestion,
+    WorkflowPlan,
 )
 
 
@@ -1048,6 +1053,232 @@ class CompatibilityDecisionContractTest(unittest.TestCase):
         for flag in flags:
             absent.pop(flag, None)
         self.assertEqual(validation.validate_compatibility_decision(absent), [])
+
+
+# --- WP-02e / T-02-09: WorkflowPlan explicit acyclic DAG ---------------------
+
+
+class WorkflowPlanContractTest(unittest.TestCase):
+    def _plan(self, **kw):
+        base = dict(
+            workflow_name="canonical_two_stage_workflow",
+            task_ids=["prep_1", "analysis_1", "review_1"],
+            dependencies=[["analysis_1", "prep_1"], ["review_1", "analysis_1"]],
+            expected_inputs={"analysis_1": ["counts_matrix"], "review_1": ["analysis_results"]},
+            expected_outputs={"prep_1": ["counts_matrix"], "analysis_1": ["analysis_results"]},
+            gates=[{"gate": "qc_gate", "task_id": "analysis_1"}],
+        )
+        base.update(kw)
+        return WorkflowPlan(**base)
+
+    def test_legacy_minimal_workflow_plan_still_valid(self):
+        # backward compatibility: the original (workflow_name, task_ids) form with
+        # no explicit dependencies remains constructible and valid
+        legacy = WorkflowPlan(workflow_name="legacy_linear", task_ids=["t1", "t2"]).to_dict()
+        self.assertTrue(legacy["workflow_plan_id"].startswith("workflow_plan_"))
+        self.assertEqual(legacy["dependencies"], [])
+        self.assertEqual(validation.validate_workflow_plan(legacy), [])
+
+    def test_well_formed_dag_validates_and_orders_deterministically(self):
+        plan = self._plan()
+        data = plan.to_dict()
+        self.assertEqual(validation.validate_workflow_plan(data), [])
+        self.assertFalse(plan.has_cycle())
+        # prep before analysis before review
+        self.assertEqual(plan.topological_order(), ["prep_1", "analysis_1", "review_1"])
+
+    def test_serialization_is_deterministic_regardless_of_dependency_order(self):
+        a = self._plan(dependencies=[["analysis_1", "prep_1"], ["review_1", "analysis_1"]]).to_dict()
+        b = self._plan(dependencies=[["review_1", "analysis_1"], ["analysis_1", "prep_1"]]).to_dict()
+        self.assertEqual(a["dependencies"], b["dependencies"])
+        self.assertEqual(a["workflow_plan_id"], b["workflow_plan_id"])
+
+    def test_blank_or_duplicate_task_ids_rejected(self):
+        blank = self._plan(task_ids=["prep_1", "  ", "review_1"], dependencies=[], expected_inputs={}, expected_outputs={}, gates=[]).to_dict()
+        self.assertTrue(any("non-blank string" in e for e in validation.validate_workflow_plan(blank)))
+        dup = self._plan(task_ids=["prep_1", "prep_1"], dependencies=[], expected_inputs={}, expected_outputs={}, gates=[]).to_dict()
+        self.assertTrue(any("duplicate task id" in e for e in validation.validate_workflow_plan(dup)))
+
+    def test_dangling_self_loop_and_cycle_rejected(self):
+        dangling = self._plan(dependencies=[["analysis_1", "ghost"]], expected_inputs={}, expected_outputs={}, gates=[]).to_dict()
+        self.assertTrue(any("not a declared task" in e for e in validation.validate_workflow_plan(dangling)))
+        self_loop = self._plan(dependencies=[["analysis_1", "analysis_1"]], expected_inputs={}, expected_outputs={}, gates=[]).to_dict()
+        self.assertTrue(any("self-loop" in e for e in validation.validate_workflow_plan(self_loop)))
+        cycle = self._plan(
+            dependencies=[["prep_1", "analysis_1"], ["analysis_1", "review_1"], ["review_1", "prep_1"]],
+            expected_inputs={},
+            expected_outputs={},
+            gates=[],
+        ).to_dict()
+        errors = validation.validate_workflow_plan(cycle)
+        self.assertTrue(any("cycle" in e for e in errors))
+        with self.assertRaises(ValueError):
+            self._plan(
+                dependencies=[["prep_1", "analysis_1"], ["analysis_1", "review_1"], ["review_1", "prep_1"]],
+            ).topological_order()
+
+    def test_inputs_outputs_and_gates_must_reference_declared_tasks(self):
+        bad_inputs = self._plan(expected_inputs={"ghost_task": ["x"]}, gates=[]).to_dict()
+        self.assertTrue(any("expected_inputs" in e and "undeclared" in e for e in validation.validate_workflow_plan(bad_inputs)))
+        bad_outputs = self._plan(expected_outputs={"ghost_task": ["x"]}, gates=[]).to_dict()
+        self.assertTrue(any("expected_outputs" in e and "undeclared" in e for e in validation.validate_workflow_plan(bad_outputs)))
+        bad_gate = self._plan(gates=[{"gate": "qc_gate", "task_id": "ghost_task"}]).to_dict()
+        self.assertTrue(any("gates" in e and "undeclared" in e for e in validation.validate_workflow_plan(bad_gate)))
+
+    def test_duplicate_io_facts_rejected(self):
+        dup_io = self._plan(expected_inputs={"analysis_1": ["counts_matrix", "counts_matrix"]}, gates=[]).to_dict()
+        self.assertTrue(any("duplicate entries" in e for e in validation.validate_workflow_plan(dup_io)))
+
+
+# --- WP-02e / T-02-10: TaskPacket subtype coverage ---------------------------
+
+
+class DataPreparationTaskPacketContractTest(unittest.TestCase):
+    def _packet(self, **kw):
+        base = dict(
+            task_id="data_preparation_task_abc",
+            subquestion_id="sq_1",
+            planned_inputs=["resource_candidate_gse12345", "scope_bundle"],
+            expected_outputs=["normalized_counts_matrix", "sample_sheet"],
+            planned_resource_ids=["resource_candidate_gse12345"],
+            planned_dataset_profile_ids=["dataset_profile_abc"],
+            preparation_steps=["align reads", "build count matrix"],
+            failure_conditions=["no verifiable dataset available"],
+        )
+        base.update(kw)
+        return DataPreparationTaskPacket(**base)
+
+    def test_well_formed_prep_packet_validates_and_id_is_stable(self):
+        data = self._packet(task_id="").to_dict()
+        self.assertTrue(data["task_id"].startswith("data_preparation_task_"))
+        self.assertEqual(data["packet_type"], "DataPreparationTaskPacket")
+        self.assertEqual(validation.validate_data_preparation_task_packet(data), [])
+
+    def test_blank_identity_rejected(self):
+        self.assertTrue(any("subquestion_id" in e for e in validation.validate_data_preparation_task_packet(self._packet(subquestion_id="").to_dict())))
+        # a non-identifier task id is rejected too
+        self.assertTrue(any("task_id" in e for e in validation.validate_data_preparation_task_packet(self._packet(task_id="Not An Id").to_dict())))
+
+    def test_missing_planned_input_or_output_facts_rejected(self):
+        self.assertTrue(any("planned_inputs" in e for e in validation.validate_data_preparation_task_packet(self._packet(planned_inputs=[]).to_dict())))
+        self.assertTrue(any("expected_outputs" in e for e in validation.validate_data_preparation_task_packet(self._packet(expected_outputs=[]).to_dict())))
+
+    def test_duplicate_facts_rejected(self):
+        dup = self._packet(planned_inputs=["scope_bundle", "scope_bundle"]).to_dict()
+        self.assertTrue(any("duplicate entries" in e for e in validation.validate_data_preparation_task_packet(dup)))
+
+    def test_truthy_authority_flags_do_not_authorize(self):
+        flags = ("downloads_data", "locks_dataset", "authorizes_real_execution", "creates_formal_evidence")
+        for flag in flags:
+            for truthy in (True, 1, "true", ["yes"]):
+                data = self._packet().to_dict()
+                data[flag] = truthy
+                errors = validation.validate_data_preparation_task_packet(data)
+                self.assertTrue(any(flag in e for e in errors), f"{flag}={truthy!r} should be rejected")
+        clean = self._packet().to_dict()
+        for flag in flags:
+            clean[flag] = False
+        self.assertEqual(validation.validate_data_preparation_task_packet(clean), [])
+
+
+class TaskPacketSubtypeBoundaryTest(unittest.TestCase):
+    def test_analysis_packet_validator_preserves_boundary(self):
+        from dataclasses import asdict
+
+        packet = asdict(
+            AnalysisTaskPacket(
+                task_id="analysis_task_1",
+                subquestion_id="sq_1",
+                expected_inputs=["counts_matrix"],
+                expected_outputs=["deg_results_table"],
+                qc_requirements=["statistical"],
+                failure_conditions=["missing_grouping"],
+            )
+        )
+        self.assertEqual(validation.validate_analysis_task_packet(packet), [])
+        # an analysis packet may never carry code-change authority
+        packet["code_change_instructions"] = ["edit module.py"]
+        self.assertTrue(any("code-change" in e for e in validation.validate_analysis_task_packet(packet)))
+        # duplicate expected outputs are rejected
+        dup = asdict(
+            AnalysisTaskPacket(
+                task_id="analysis_task_1",
+                subquestion_id="sq_1",
+                expected_inputs=["counts_matrix"],
+                expected_outputs=["deg_results_table", "deg_results_table"],
+                qc_requirements=["statistical"],
+                failure_conditions=["missing_grouping"],
+            )
+        )
+        self.assertTrue(any("duplicate entries" in e for e in validation.validate_analysis_task_packet(dup)))
+
+    def test_engineering_packet_validator_rejects_path_escape_and_overlap(self):
+        from dataclasses import asdict
+
+        good = asdict(
+            EngineeringTaskPacket(
+                task_id="engineering_task_1",
+                allowed_paths=["auto_bioinfo/core/schemas.py"],
+                forbidden_paths=["docs/coordination"],
+                expected_patch_summary="add a field",
+                test_commands=["python -m unittest"],
+            )
+        )
+        self.assertEqual(validation.validate_engineering_task_packet(good), [])
+        # an allowed path that escapes scope (absolute / parent traversal) is rejected
+        escape = asdict(
+            EngineeringTaskPacket(
+                task_id="engineering_task_1",
+                allowed_paths=["../outside", "/etc/passwd"],
+                forbidden_paths=["docs"],
+                expected_patch_summary="x",
+                test_commands=["python -m unittest"],
+            )
+        )
+        self.assertTrue(any("escapes the packet's declared scope" in e for e in validation.validate_engineering_task_packet(escape)))
+        # a path declared both allowed and forbidden is contradictory path authority
+        overlap = asdict(
+            EngineeringTaskPacket(
+                task_id="engineering_task_1",
+                allowed_paths=["auto_bioinfo/core"],
+                forbidden_paths=["auto_bioinfo/core"],
+                expected_patch_summary="x",
+                test_commands=["python -m unittest"],
+            )
+        )
+        self.assertTrue(any("both allowed and forbidden" in e for e in validation.validate_engineering_task_packet(overlap)))
+
+    def test_review_packet_validator_requires_criteria_and_valid_ceiling(self):
+        from dataclasses import asdict
+
+        good = asdict(
+            ReviewTaskPacket(
+                task_id="review_task_1",
+                audit_scope=["workflow_plan"],
+                claim_ceiling="association",
+                required_checks=["claim_ceiling_not_loosened"],
+            )
+        )
+        self.assertEqual(validation.validate_review_task_packet(good), [])
+        bad_ceiling = asdict(
+            ReviewTaskPacket(
+                task_id="review_task_1",
+                audit_scope=["workflow_plan"],
+                claim_ceiling="omniscient",
+                required_checks=["claim_ceiling_not_loosened"],
+            )
+        )
+        self.assertTrue(any("claim_ceiling" in e for e in validation.validate_review_task_packet(bad_ceiling)))
+        # a review with no required checks is not a review
+        no_checks = asdict(
+            ReviewTaskPacket(
+                task_id="review_task_1",
+                audit_scope=["workflow_plan"],
+                claim_ceiling="association",
+                required_checks=[],
+            )
+        )
+        self.assertTrue(any("required_checks" in e for e in validation.validate_review_task_packet(no_checks)))
 
 
 if __name__ == "__main__":
