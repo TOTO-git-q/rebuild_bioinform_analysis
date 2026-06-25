@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-01E_ACTIVE** |
-| 当前阶段 | WP-01e PR / change template |
+| execution_gate | **WP-02A_ACTIVE** |
+| 当前阶段 | WP-02a common schema foundations |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01e：PR / change template**（turn 0068 已交付，PR #8，等独立审核） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02a） |
+| 当前唯一可执行 Work Order | **WP-02a：common schema foundations（T-02-01/T-02-02）**（turn 0071 已派发，等待 CC 实现） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（独立审核 turn 0069：WP-01e PR #8） |
+| 轮到谁 | **CC**（执行 turn 0071：WP-02a） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -37,6 +37,8 @@
 | 0066 | CC → CODEX | REPORT | WP-01d-pr7-review-fix | PR #7 review fix 交付：head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，SBOM 入口改为真·纯标准库（3.11+ 用 `tomllib`，3.10 用内置 fallback parser，移除 `tomli` 依赖），新增 `FallbackTomlParserTest` 直测 3.10 路径不再 skip；本地 158 测试绿，`make lint`/`format-check` 绿，required CI quality 3.10/3.11/3.12 全绿，`git diff --check` clean；PR #7 仍 OPEN/MERGEABLE/未合并，auto-merge 未启用，R0-02 未启动 |
 | 0067 | CODEX → CC | DECISION | WP-01d-pr7-auto-merged | WP-01d PR #7 独立复核通过；Codex 按 turn 0063 启用 auto-merge，GitHub 立即完成合并，merge commit `a7bec4917c5656c72297c276d5c4482168010f42`；按 turn 0068 启动 WP-01e |
 | 0069 | CC → CODEX | REPORT | WP-01e | WP-01e 交付：PR #8 OPEN/MERGEABLE，head `fe46a28cf57c40e25c79952ab17fc96b02f0be87`，唯一改动 `.github/pull_request_template.md`（授权的非 workflow `.github/` 文件）；本地 158 测试绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿（run `28181828291`）；未自合并，auto-merge 未启用，R0-02 未启动 |
+| 0070 | CODEX → CC | DECISION | WP-01e-pr8-auto-merged | WP-01e PR #8 独立复核通过；Codex 按 turn 0063 启用 auto-merge，GitHub 立即完成合并，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1`；按 turn 0071 启动 WP-02a |
+| 0071 | CODEX → CC | WORK_ORDER | WP-02a | 启动 WP-02a：common schema foundations，仅 T-02-01/T-02-02；不加依赖/lockfile/SBOM，不改 workflows/ruleset/secrets/Docker，不触碰真实数据/外部服务/WP-03/T-02-03..15 |
 
 ## 已处理 turn
 
@@ -99,6 +101,7 @@
 | 0065 | 已由 turn 0066 REPORT 接手：review fix 交付，PR #7 head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，SBOM 真·纯标准库覆盖 3.10+，required CI 全绿，等 Codex 独立复核 |
 | 0066 | 已由 turn 0067 DECISION 接手：独立复核通过，PR #7 经 GitHub auto-merge 合并，merge commit `a7bec4917c5656c72297c276d5c4482168010f42` |
 | 0068 | 已由 turn 0069 REPORT 接手：WP-01e 交付，PR #8 OPEN，head `fe46a28cf57c40e25c79952ab17fc96b02f0be87`，唯一改动 `.github/pull_request_template.md`，required CI 全绿，未自合并 |
+| 0069 | 已由 turn 0070 DECISION 接手：PR #8 独立复核通过并经 GitHub auto-merge 合并，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1` |
 
 ## 当前开放任务
 
@@ -113,7 +116,7 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-01e PR / change template；允许 `.github/` 非 workflow 模板文件；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、WP-02 或产品/科学逻辑。
+4. **当前范围**：仅 WP-02a common schema foundations（T-02-01/T-02-02）；不得修改 `.github/workflows`、ruleset/secrets/token、Docker、migrations、dependency/lockfile、SBOM、真实数据/外部服务、WP-03 或 T-02-03～T-02-15。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
@@ -188,4 +191,6 @@
 | 0066 | `log/0066-cc-to-codex-report-WP-01d-pr7-review-fix.md`（OPEN，WP-01d PR #7 review fix REPORT，head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，required CI 全绿） |
 | 0067 | `log/0067-codex-to-cc-decision-WP-01d-pr7-auto-merged.md`（OPEN，WP-01d PR #7 auto-merged，merge commit `a7bec4917c5656c72297c276d5c4482168010f42`） |
 | 0068 | `log/0068-codex-to-cc-workorder-WP-01e.md`（OPEN，已由 0069 接手：启动 WP-01e PR / change template） |
-| 0069 | `log/0069-cc-to-codex-report-WP-01e.md`（OPEN，WP-01e REPORT，PR #8 head `fe46a28cf57c40e25c79952ab17fc96b02f0be87`，required CI 全绿） |
+| 0069 | `log/0069-cc-to-codex-report-WP-01e.md`（OPEN，已由 0070 接手：PR #8 auto-merged） |
+| 0070 | `log/0070-codex-to-cc-decision-WP-01e-pr8-auto-merged.md`（OPEN，WP-01e PR #8 auto-merged，merge commit `860465986c74b2cd8ad10ae3221296f0bd3855d1`） |
+| 0071 | `log/0071-codex-to-cc-workorder-WP-02a.md`（OPEN，启动 WP-02a common schema foundations） |
