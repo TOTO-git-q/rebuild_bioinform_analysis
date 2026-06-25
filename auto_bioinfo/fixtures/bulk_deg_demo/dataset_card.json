@@ -1,0 +1,26 @@
+{
+  "dataset_id": "FIXTURE_BULK_DEG_DEMO",
+  "accession": "FIXTURE-BULK-DEG-DEMO",
+  "source_status": "committed_fixture",
+  "verified": true,
+  "modality": "bulk_expression_matrix",
+  "organism": "synthetic_fixture_organism",
+  "tissue": "tissue_x",
+  "platform": "synthetic_counts",
+  "files": {
+    "counts": "counts.tsv",
+    "samples": "samples.tsv"
+  },
+  "group_sizes": {
+    "condition_a": 3,
+    "condition_b": 3
+  },
+  "comparison_groups": ["condition_a", "condition_b"],
+  "donor_level": true,
+  "license": "fixture-only, not a real biological dataset",
+  "provenance_note": "Synthetic, committed offline fixture used by the reference end-to-end run and tests. It is honestly labelled as a fixture and must never be presented as a real verified biological dataset. Production runs must obtain datasets through the real, audited ResourceDiscoveryPort.",
+  "known_limitations": [
+    "Synthetic counts; results are for pipeline validation only, not biological discovery.",
+    "Single dataset; no independent replication."
+  ]
+}
