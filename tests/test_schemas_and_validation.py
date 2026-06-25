@@ -956,6 +956,7 @@ class CompatibilityDecisionContractTest(unittest.TestCase):
 
     def test_insufficient_information_requires_conservative_ceiling(self):
         good = self._decision(
+            compatible=False,
             decision="insufficient_information",
             evidence_plan_id="",
             subquestion_id="",
@@ -966,6 +967,7 @@ class CompatibilityDecisionContractTest(unittest.TestCase):
         ).to_dict()
         self.assertEqual(validation.validate_compatibility_decision(good), [])
         no_ceiling = self._decision(
+            compatible=False,
             decision="insufficient_information",
             evidence_plan_id="",
             subquestion_id="",
@@ -975,6 +977,59 @@ class CompatibilityDecisionContractTest(unittest.TestCase):
             imposed_claim_ceiling="",
         ).to_dict()
         self.assertTrue(any("imposed_claim_ceiling" in e for e in validation.validate_compatibility_decision(no_ceiling)))
+
+    def test_contradictory_legacy_boolean_and_decision_are_rejected(self):
+        # compatible=False but the hardened verdict claims (conditional) compatibility
+        for accepted in ("compatible", "conditionally_compatible"):
+            data = self._decision(
+                compatible=False,
+                decision=accepted,
+                imposed_claim_ceiling="association",
+            ).to_dict()
+            errors = validation.validate_compatibility_decision(data)
+            self.assertTrue(
+                any("contradicts the hardened decision" in e for e in errors),
+                f"compatible=False with decision={accepted!r} should be rejected",
+            )
+        # compatible=True but the hardened verdict is a negative one
+        for negative in ("incompatible", "insufficient_information"):
+            data = self._decision(
+                compatible=True,
+                decision=negative,
+                evidence_plan_id="",
+                subquestion_id="",
+                checked_facts=[],
+                reasons=["records a blocking fact"],
+                blocking_facts=["only one sample group present"],
+                missing_facts=["sample_group_labels"],
+                imposed_claim_ceiling="descriptive",
+            ).to_dict()
+            errors = validation.validate_compatibility_decision(data)
+            self.assertTrue(
+                any("contradicts the hardened decision" in e for e in errors),
+                f"compatible=True with decision={negative!r} should be rejected",
+            )
+
+    def test_legacy_derived_decision_stays_consistent(self):
+        # when ``decision`` is absent it is derived from ``compatible`` by to_dict;
+        # such an object is consistent by construction and the validator accepts it
+        # without any contradiction error.
+        derived = CompatibilityDecision(
+            "ds_gse12345",
+            "method_contract_bulk_deg",
+            False,
+            "no control group",
+            decision="",  # forces to_dict to derive "incompatible" from compatible=False
+            reasons=["single comparison group; method needs two"],
+            blocking_facts=["only one sample group present"],
+        ).to_dict()
+        self.assertEqual(derived["decision"], "incompatible")
+        errors = validation.validate_compatibility_decision(derived)
+        self.assertFalse(
+            any("contradicts the hardened decision" in e for e in errors),
+            f"legacy-derived decision should not be flagged contradictory: {errors}",
+        )
+        self.assertEqual(errors, [])
 
     def test_truthy_authority_flags_do_not_authorize(self):
         flags = ("authorizes_execution", "locks_dataset", "creates_evidence", "raises_claim_level")

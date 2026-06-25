@@ -780,6 +780,22 @@ def validate_compatibility_decision(decision: dict[str, Any]) -> list[str]:
     if verdict not in COMPATIBILITY_DECISIONS:
         errors.append(f"decision: must be one of {', '.join(COMPATIBILITY_DECISIONS)}")
 
+    # The legacy ``compatible`` boolean and the hardened bounded ``decision`` may
+    # not contradict each other.  When both are present, the boolean must agree
+    # with the verdict — an accepted verdict (compatible / conditionally_compatible)
+    # means compatible, a negative verdict (incompatible / insufficient_information)
+    # means not compatible — so the same object can never express opposite results
+    # to consumers that read one field versus the other.  When ``decision`` is
+    # absent it is derived from ``compatible`` (see ``CompatibilityDecision.to_dict``)
+    # and is consistent by construction, so nothing here rejects the legacy form.
+    compatible = decision.get("compatible")
+    if isinstance(compatible, bool) and verdict in COMPATIBILITY_DECISIONS:
+        if compatible != (verdict in COMPATIBILITY_ACCEPTED_DECISIONS):
+            errors.append(
+                "compatible: the legacy boolean contradicts the hardened decision "
+                f"(compatible={compatible} with decision={verdict!r})"
+            )
+
     for list_field in ("reasons", "checked_facts", "blocking_facts", "missing_facts"):
         if list_field in decision and not isinstance(decision.get(list_field), list):
             errors.append(f"{list_field}: expected a list")
