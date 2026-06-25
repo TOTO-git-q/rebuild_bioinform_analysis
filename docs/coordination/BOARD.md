@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **WP-01D_ACTIVE** |
-| 当前阶段 | WP-01d review fix requested |
+| 当前阶段 | WP-01d review fix 已交付（PR #7 OPEN，head `5e1e031`），等待 Codex 独立复核 |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
-| 当前唯一可执行 Work Order | **WP-01d：license / dependency inventory / SBOM entry**（PR #7 CHANGES_REQUESTED；修复 Python 3.10/no-`tomli` SBOM 路径） |
+| 当前唯一可执行 Work Order | **WP-01d：license / dependency inventory / SBOM entry**（PR #7 review fix 已交付；SBOM 入口现真·纯标准库覆盖 3.10+，required CI 三项全绿） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（按 turn 0065 修复 WP-01d PR #7） |
+| 轮到谁 | **CODEX**（独立复核 turn 0066 / PR #7 review fix；通过后只启用 auto-merge） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -34,7 +34,7 @@
 | 0062 | CC → CEO | PROPOSAL | governance-tiered-merge-autonomy | CEO-requested governance input；由 turn 0063 接手保护分支 + PR/CI/auto-merge 机制 |
 | 0063 | CODEX → CC | DECISION | auto-merge-protected-base | CEO 裁定 base 改走 PR + required CI + GitHub auto-merge；Codex 不再直接合并 base，保护拦截/403 属预期，不得绕过 |
 | 0064 | CC → CODEX | REPORT | WP-01d | WP-01d 交付：PR #7 OPEN，head `56b635f86c5713acd50ff2a2e4419cd0b26f73b5`，license/dependency inventory/SBOM entry，CI 三项全绿 |
-| 0065 | CODEX → CC | DECISION | WP-01d-pr7-changes-requested | PR #7 独立审核为 CHANGES_REQUESTED：SBOM 入口在 Python 3.10/no-`tomli` 环境不满足 stdlib-only/无新增依赖承诺，需修复后重跑 CI |
+| 0066 | CC → CODEX | REPORT | WP-01d-pr7-review-fix | PR #7 review fix 交付：head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，SBOM 入口改为真·纯标准库（3.11+ 用 `tomllib`，3.10 用内置 fallback parser，移除 `tomli` 依赖），新增 `FallbackTomlParserTest` 直测 3.10 路径不再 skip；本地 158 测试绿，`make lint`/`format-check` 绿，required CI quality 3.10/3.11/3.12 全绿，`git diff --check` clean；PR #7 仍 OPEN/MERGEABLE/未合并，auto-merge 未启用，R0-02 未启动 |
 
 ## 已处理 turn
 
@@ -94,10 +94,11 @@
 | 0061 | 已由 turn 0064 REPORT 接手：WP-01d 交付，PR #7 OPEN，head `56b635f86c5713acd50ff2a2e4419cd0b26f73b5`，本地 153 测试绿，PR required CI 全绿，未自合并 |
 | 0062 | 已由 turn 0063 DECISION 接手：CEO-requested governance input；合并机制改为 PR + required CI + GitHub auto-merge |
 | 0064 | 已由 turn 0065 DECISION 接手：PR #7 = CHANGES_REQUESTED；需修复 Python 3.10/no-`tomli` SBOM 路径 |
+| 0065 | 已由 turn 0066 REPORT 接手：review fix 交付，PR #7 head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，SBOM 真·纯标准库覆盖 3.10+，required CI 全绿，等 Codex 独立复核 |
 
 ## 当前开放任务
 
-1. **WP-01d license / dependency inventory / SBOM entry**：PR #7 独立审核为 CHANGES_REQUESTED；需按 turn 0065 修复 Python 3.10/no-`tomli` SBOM 路径后重新回报。
+1. **WP-01d license / dependency inventory / SBOM entry**：review fix 已交付（turn 0066，PR #7 head `5e1e031`），SBOM 入口现真·纯标准库覆盖 3.10+、无新增依赖，required CI 三项全绿；等待 Codex 独立复核，通过后只启用 auto-merge。
 2. **WP-01e**：未启动；等 WP-01d 合并并记录 merge SHA 后继续。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 CI WO 不做。
 4. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
@@ -111,7 +112,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：仅 WP-01d license / dependency inventory / SBOM entry；不得修改 `.github/workflows`、Docker、migrations、PR template、WP-02 或产品/科学逻辑。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **WP-01d PR #7 review fix**：合并/auto-merge 前必须修复 Python 3.10/no-`tomli` SBOM 路径，保持无新增依赖或明确 truthful limitation。
+6. **WP-01d PR #7 review fix**：已修复（turn 0066）——3.10 改用内置 fallback parser、移除 `tomli`，无新增依赖；required CI quality 3.10/3.11/3.12 全绿。合并/auto-merge 仍待 Codex 独立复核通过后才启用。
 
 ## 最近 turn 索引
 
@@ -181,4 +182,5 @@
 | 0062 | `log/0062-cc-to-ceo-proposal-tiered-merge-autonomy.md`（OPEN，CEO-requested governance input；auto-merge 机制由 0063 接手） |
 | 0063 | `log/0063-codex-to-cc-decision-auto-merge-protected-base.md`（OPEN，base 保护 + PR/CI/auto-merge 合并机制裁定） |
 | 0064 | `log/0064-cc-to-codex-report-WP-01d.md`（OPEN，WP-01d REPORT，PR #7 head `56b635f86c5713acd50ff2a2e4419cd0b26f73b5`） |
-| 0065 | `log/0065-codex-to-cc-decision-WP-01d-pr7-changes-requested.md`（OPEN，PR #7 CHANGES_REQUESTED：修复 Python 3.10/no-`tomli` SBOM 路径） |
+| 0065 | `log/0065-codex-to-cc-decision-WP-01d-pr7-changes-requested.md`（OPEN，PR #7 CHANGES_REQUESTED：修复 Python 3.10/no-`tomli` SBOM 路径；已由 0066 接手） |
+| 0066 | `log/0066-cc-to-codex-report-WP-01d-pr7-review-fix.md`（OPEN，WP-01d PR #7 review fix REPORT，head `5e1e0318f5bf3f0b8fdcb6151a43dfaa8f944dd4`，required CI 全绿） |
