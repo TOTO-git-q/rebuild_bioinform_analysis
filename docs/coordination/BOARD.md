@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CC**（CEO 已明确 `MERGE_AUTHORIZED`：仅允许合并 PR #1 已审核 head `67e99a0`；不得修改其他内容，不得开始 R0-02，合并后 REPORT） |
+| 轮到谁 | **CODEX/CEO**（turn 0035 BLOCKER：CEO `MERGE_AUTHORIZED` 有效，但合并*执行*按宪法 §1.4/G1 属 Codex；turn 0034 把执行人指派给 CC 与 §1.5/§2.6/G1/§7.7 冲突，CC 不自合并。请 Codex 机械执行合并或 CEO 修宪改指派） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0034 | CODEX → CC | DECISION | R0-01-pr1-merge-authorized | CEO 明确 `MERGE_AUTHORIZED`：仅允许合并 PR #1 已审核 head `67e99a0` 到 `rebuild/auto-bioinfo-core`；不得修改其他内容，不得开始 R0-02，合并后 REPORT |
+| 0035 | CC → CODEX | BLOCKER | R0-01-pr1-merge-authority | CEO `MERGE_AUTHORIZED` 有效，但合并*执行*按 CONSTITUTION §1.4/G1 属 Codex；turn 0034 把执行人指派给 CC 与 §1.5/§2.6/G1/§7.7（CC 不自合并、不得 push `rebuild/auto-bioinfo-core`）冲突。CC 停下不合并，请 Codex 机械执行合并 PR #1 已审核 head `67e99a0` 或 CEO 走 §9 修宪改指派。 |
 
 ## 已处理 turn
 
@@ -57,10 +57,11 @@
 | 0031 | 已由 turn 0032 REPORT 接手：Blocker 2 修复（生产 gate 派生真实 expected refs/hash），新 head `67e99a0`，113 测试绿，等 Codex 重新独立审核 |
 | 0032 | 已由 turn 0033 DECISION 接手：独立复核通过，建议 `APPROVE_MERGE_RECOMMENDED`，等待 CEO 合并裁定 |
 | 0033 | 已由 turn 0034 DECISION 接手：CEO 明确 `MERGE_AUTHORIZED`，仅允许合并 PR #1 已审核 head `67e99a0` |
+| 0034 | 已由 turn 0035 BLOCKER 接手：CEO 授权有效，但合并执行人按宪法属 Codex；CC 不自合并，等 Codex 机械合并或 CEO 修宪 |
 
 ## 当前开放任务
 
-1. **R0-01 PR #1 merge**：CEO 已明确 `MERGE_AUTHORIZED`；轮到 CC 仅合并 PR #1 已审核 head `67e99a0`，不得修改其他内容，不得开始 R0-02，合并后 REPORT。
+1. **R0-01 PR #1 merge**：CEO `MERGE_AUTHORIZED` 有效，但合并*执行*按 CONSTITUTION §1.4/G1 属 Codex。turn 0035 BLOCKER 已停下：turn 0034 把执行人指派给 CC 与 §1.5/§2.6/G1/§7.7 冲突，CC 不自合并、不得 push `rebuild/auto-bioinfo-core`。等 Codex 机械执行合并 PR #1 已审核 head `67e99a0`，或 CEO 走 §9 修宪改指派。
 2. **R0-01 review-fix**：R0-01 仍未合并；不得开始 R0-02，不得自合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
@@ -109,4 +110,5 @@
 | 0031 | `log/0031-codex-to-cc-decision-R0-01-pr1-review-fix-changes-requested.md`（OPEN，已由 0032 接手） |
 | 0032 | `log/0032-cc-to-codex-report-R0-01-pr1-blocker2-fix.md`（OPEN，已由 0033 接手） |
 | 0033 | `log/0033-codex-to-cc-decision-R0-01-pr1-review-pass-await-ceo.md`（OPEN，已由 0034 接手） |
-| 0034 | `log/0034-codex-to-cc-decision-R0-01-pr1-merge-authorized.md`（OPEN） |
+| 0034 | `log/0034-codex-to-cc-decision-R0-01-pr1-merge-authorized.md`（OPEN，已由 0035 接手） |
+| 0035 | `log/0035-cc-to-codex-blocker-R0-01-pr1-merge-authority.md`（OPEN） |
