@@ -1093,6 +1093,17 @@ class WorkflowPlanContractTest(unittest.TestCase):
         self.assertEqual(a["dependencies"], b["dependencies"])
         self.assertEqual(a["workflow_plan_id"], b["workflow_plan_id"])
 
+    def test_stable_id_is_independent_of_task_ids_declaration_order(self):
+        # Two equivalent DAGs — same tasks, same dependency (b depends on a) —
+        # declared with task_ids in a different order must share a stable id;
+        # the declaration order is harmless and must not affect content identity.
+        dag_a = WorkflowPlan(workflow_name="equiv", task_ids=["a", "b"], dependencies=[["b", "a"]]).to_dict()
+        dag_b = WorkflowPlan(workflow_name="equiv", task_ids=["b", "a"], dependencies=[["b", "a"]]).to_dict()
+        self.assertEqual(dag_a["workflow_plan_id"], dag_b["workflow_plan_id"])
+        # but a genuinely different dependency set still yields a different id
+        dag_c = WorkflowPlan(workflow_name="equiv", task_ids=["a", "b"], dependencies=[["a", "b"]]).to_dict()
+        self.assertNotEqual(dag_a["workflow_plan_id"], dag_c["workflow_plan_id"])
+
     def test_blank_or_duplicate_task_ids_rejected(self):
         blank = self._plan(task_ids=["prep_1", "  ", "review_1"], dependencies=[], expected_inputs={}, expected_outputs={}, gates=[]).to_dict()
         self.assertTrue(any("non-blank string" in e for e in validation.validate_workflow_plan(blank)))
@@ -1168,7 +1179,20 @@ class DataPreparationTaskPacketContractTest(unittest.TestCase):
         self.assertTrue(any("duplicate entries" in e for e in validation.validate_data_preparation_task_packet(dup)))
 
     def test_truthy_authority_flags_do_not_authorize(self):
-        flags = ("downloads_data", "locks_dataset", "authorizes_real_execution", "creates_formal_evidence")
+        # both the original authority flags and the alias / alternative spellings
+        # that express the same forbidden powers must be rejected when truthy
+        flags = (
+            "downloads_data",
+            "locks_dataset",
+            "authorizes_real_execution",
+            "creates_formal_evidence",
+            "authorizes_execution",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "bypasses_gates",
+            "dataset_locked",
+            "real_execution_authorized",
+        )
         for flag in flags:
             for truthy in (True, 1, "true", ["yes"]):
                 data = self._packet().to_dict()
@@ -1247,6 +1271,39 @@ class TaskPacketSubtypeBoundaryTest(unittest.TestCase):
             )
         )
         self.assertTrue(any("both allowed and forbidden" in e for e in validation.validate_engineering_task_packet(overlap)))
+
+    def test_engineering_packet_rejects_windows_path_escapes(self):
+        from dataclasses import asdict
+
+        # Windows-style escapes must be caught regardless of slash style: a
+        # backslash parent traversal, a drive-letter absolute path, and a mixed
+        # backslash traversal inside an otherwise in-scope prefix.
+        for escape_path in ("..\\outside", "C:\\secret\\file.txt", "auto_bioinfo\\..\\secret"):
+            packet = asdict(
+                EngineeringTaskPacket(
+                    task_id="engineering_task_1",
+                    allowed_paths=[escape_path],
+                    forbidden_paths=["docs"],
+                    expected_patch_summary="x",
+                    test_commands=["python -m unittest"],
+                )
+            )
+            errors = validation.validate_engineering_task_packet(packet)
+            self.assertTrue(
+                any("escapes the packet's declared scope" in e for e in errors),
+                f"{escape_path!r} should be rejected as a path escape",
+            )
+        # a valid relative path that stays inside the declared scope is accepted
+        good = asdict(
+            EngineeringTaskPacket(
+                task_id="engineering_task_1",
+                allowed_paths=["auto_bioinfo\\core\\schemas.py"],
+                forbidden_paths=["docs"],
+                expected_patch_summary="x",
+                test_commands=["python -m unittest"],
+            )
+        )
+        self.assertEqual(validation.validate_engineering_task_packet(good), [])
 
     def test_review_packet_validator_requires_criteria_and_valid_ceiling(self):
         from dataclasses import asdict

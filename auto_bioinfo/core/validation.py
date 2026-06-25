@@ -978,14 +978,34 @@ def validate_analysis_task_packet(packet: dict[str, Any]) -> list[str]:
     return errors
 
 
+def _path_escapes_scope(path: str) -> bool:
+    """True when ``path`` claims authority outside the packet's declared scope.
+
+    Both ``/`` and ``\\`` are treated as separators so a platform-specific path
+    syntax cannot smuggle an escape past the validator.  An escape is any of:
+    a POSIX absolute path or UNC-style absolute path (leading separator), a
+    Windows drive-letter path (``C:\\...`` / ``C:/...`` / ``C:...``), or a
+    ``..`` parent-traversal segment in any slash style.  A relative path that
+    stays inside the declared scope is not an escape.
+    """
+    normalized = path.replace("\\", "/")
+    if normalized.startswith("/"):
+        return True
+    if re.match(r"^[A-Za-z]:", normalized):
+        return True
+    return ".." in normalized.split("/")
+
+
 def validate_engineering_task_packet(packet: dict[str, Any]) -> list[str]:
     """Validate an EngineeringTaskPacket contract record (REQ-OBJ-11).
 
     Identity is required and the allowed/forbidden path lists must hold distinct,
-    non-blank paths.  An allowed path may not escape the packet's declared scope
-    (an absolute path or a ``..`` parent traversal is path authority outside scope),
-    and a path may not be declared both allowed and forbidden.  This validates the
-    contract record only; it does not change runtime packet behaviour.
+    non-blank paths.  An allowed path may not escape the packet's declared scope —
+    a POSIX or Windows absolute path (leading ``/``, UNC, or a ``C:`` drive
+    letter) or a ``..`` parent traversal in either slash style is path authority
+    outside scope — and a path may not be declared both allowed and forbidden.
+    This validates the contract record only; it does not change runtime packet
+    behaviour.
     """
     errors = validate_required_fields(packet, ["schema_version", "task_id", "allowed_paths", "forbidden_paths", "expected_patch_summary", "test_commands"])
     errors += common.validate_identifier(packet.get("task_id", ""), "task_id")
@@ -998,7 +1018,7 @@ def validate_engineering_task_packet(packet: dict[str, Any]) -> list[str]:
         errors += _string_list_errors(packet.get("test_commands"), "test_commands")
     if isinstance(allowed, list):
         for path in allowed:
-            if isinstance(path, str) and (path.startswith("/") or ".." in path.split("/")):
+            if isinstance(path, str) and _path_escapes_scope(path):
                 errors.append(f"allowed_paths: {path!r} escapes the packet's declared scope (absolute path or parent traversal)")
     if isinstance(allowed, list) and isinstance(forbidden, list):
         overlap = {p for p in allowed if isinstance(p, str)} & {p for p in forbidden if isinstance(p, str)}
@@ -1033,7 +1053,8 @@ def validate_data_preparation_task_packet(packet: dict[str, Any]) -> list[str]:
     materialized output, and those facts (plus any planned resource / dataset
     profile ids and preparation steps) must be distinct and non-blank.  The packet
     is a contract record only: it may not download data, lock a dataset, authorise
-    REAL execution, or create formal evidence, so any truthy authority-like flag is
+    REAL execution, create formal evidence, or bypass gates, so any truthy
+    authority-like flag — including alias field names for the same powers — is
     rejected.
     """
     errors = validate_required_fields(packet, ["schema_version", "task_id", "subquestion_id", "planned_inputs", "expected_outputs"])
@@ -1044,7 +1065,22 @@ def validate_data_preparation_task_packet(packet: dict[str, Any]) -> list[str]:
             errors += _string_list_errors(packet.get(list_field), list_field, require_unique=True)
     errors += _reject_truthy_authority_flags(
         packet,
-        ("downloads_data", "locks_dataset", "authorizes_real_execution", "creates_formal_evidence"),
+        (
+            "downloads_data",
+            "locks_dataset",
+            "authorizes_real_execution",
+            "creates_formal_evidence",
+            # Alias / alternative authority field names that express the same
+            # forbidden powers; a prep packet is a contract record only and may
+            # not lock datasets, authorise REAL execution, create formal
+            # evidence, or bypass gates under any spelling.
+            "authorizes_execution",
+            "creates_evidence",
+            "authorizes_formal_evidence",
+            "bypasses_gates",
+            "dataset_locked",
+            "real_execution_authorized",
+        ),
         "data-preparation packet",
     )
     return errors

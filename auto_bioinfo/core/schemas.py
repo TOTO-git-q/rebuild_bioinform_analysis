@@ -730,10 +730,18 @@ class WorkflowPlan:
         return self._dependency_graph().topological_order()
 
     def canonical(self) -> dict[str, Any]:
-        """Content-only deterministic projection (sorted dependencies)."""
+        """Content-only deterministic projection (sorted tasks and dependencies).
+
+        ``task_ids`` is canonicalised to sorted order so two equivalent DAGs that
+        declare the same tasks and dependencies in a different ``task_ids`` order
+        produce the same stable id — the declaration order is harmless and must
+        not affect content identity.  The explicit DAG semantics are unchanged:
+        the set of tasks and the (sorted) dependency edges fully determine the
+        graph, and cycle / dangling / self-loop checks run over the real edges in
+        :func:`auto_bioinfo.core.validation.validate_workflow_plan`."""
         return {
             "workflow_name": self.workflow_name,
-            "task_ids": list(self.task_ids),
+            "task_ids": sorted(self.task_ids),
             "dependencies": sorted([list(e) for e in self.dependencies]),
             "expected_inputs": {k: list(v) for k, v in self.expected_inputs.items()},
             "expected_outputs": {k: list(v) for k, v in self.expected_outputs.items()},
