@@ -18,7 +18,7 @@ TEST_CMD := python -m unittest discover -t . -s tests -p "test_*.py"
 SRC := auto_bioinfo
 LINT_PATHS := auto_bioinfo tests
 
-.PHONY: help install lint format format-check typecheck test coverage check clean
+.PHONY: help install lint format format-check typecheck test coverage check sbom clean
 
 help:  ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -48,6 +48,9 @@ coverage:  ## Run the suite under coverage and print a report
 	coverage report
 
 check: lint format-check typecheck test  ## Full local gate (lint + format + type + test)
+
+sbom:  ## Generate a minimal offline CycloneDX SBOM from declared deps (stdlib only)
+	python ci/sbom.py
 
 clean:  ## Remove caches and coverage artifacts
 	rm -rf .ruff_cache .mypy_cache .pytest_cache .coverage htmlcov
