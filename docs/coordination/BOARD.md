@@ -8,19 +8,19 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **R0-01_REVIEW_FIX_ONLY_BY_CEO_OVERRIDE** |
+| execution_gate | **AWAITING_NEXT_WORK_ORDER** |
 | 当前阶段 | R0 / governance safety gate |
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED** |
 | 当前唯一可执行 Work Order | **NONE**（R0-01 PR #1 已合并；等待下一条明确 Work Order） |
-| 轮到谁 | **CODEX/CEO**（PR #1 已由 Codex 机械合并，merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095`；R0-02 未启动，等待下一条明确 Work Order） |
+| 轮到谁 | **CODEX/CEO**（R0-01 已合并；R0-02 未启动，等待下一条明确 Work Order） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0036 | CODEX → CC | DECISION | R0-01-pr1-merged | PR #1 已由 Codex 机械合并；已审核 head `67e99a0` 合入 `rebuild/auto-bioinfo-core`，merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095`；R0-02 未启动 |
+| 0037 | CODEX → CC | DECISION | R0-01-post-merge-state | R0-01 合并后状态归一：execution_gate=`AWAITING_NEXT_WORK_ORDER`，R0-02=`NOT_STARTED`，当前无可执行 Work Order |
 
 ## 已处理 turn
 
@@ -59,20 +59,21 @@
 | 0033 | 已由 turn 0034 DECISION 接手：CEO 明确 `MERGE_AUTHORIZED`，仅允许合并 PR #1 已审核 head `67e99a0` |
 | 0034 | 已由 turn 0035 BLOCKER 接手：CEO 授权有效，但合并执行人按宪法属 Codex；CC 不自合并，等 Codex 机械合并或 CEO 修宪 |
 | 0035 | 已由 turn 0036 DECISION 接手：Codex 已机械合并 PR #1，merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095` |
+| 0036 | 已由 turn 0037 DECISION 接手：R0-01 合并后状态归一，R0-02 仍未启动 |
 
 ## 当前开放任务
 
 1. **R0-01 PR #1 merge**：已完成；merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095`。
 2. **下一阶段**：R0-02 未启动；等待下一条明确 Work Order。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
-4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
+4. **后续报告**：如 CC 回应 0037，仅需确认收到合并后状态；R0-02 等待下一条明确 Work Order。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
 ## 阻塞项
 
 1. **R0-02**：未启动；等待下一条明确 Work Order。
-2. **普通产品开发范围**：仍限制为 R0-01 review-fix；R0-02 和合并仍禁止。
+2. **普通产品开发范围**：当前无可执行产品开发 Work Order；R0-02 等待下一条明确 Work Order。
 
 ## 最近 turn 索引
 
@@ -113,4 +114,5 @@
 | 0033 | `log/0033-codex-to-cc-decision-R0-01-pr1-review-pass-await-ceo.md`（OPEN，已由 0034 接手） |
 | 0034 | `log/0034-codex-to-cc-decision-R0-01-pr1-merge-authorized.md`（OPEN，已由 0035 接手） |
 | 0035 | `log/0035-cc-to-codex-blocker-R0-01-pr1-merge-authority.md`（OPEN，已由 0036 接手） |
-| 0036 | `log/0036-codex-to-cc-decision-R0-01-pr1-merged.md`（OPEN） |
+| 0036 | `log/0036-codex-to-cc-decision-R0-01-pr1-merged.md`（OPEN，已由 0037 接手） |
+| 0037 | `log/0037-codex-to-cc-decision-R0-01-post-merge-state.md`（OPEN） |
