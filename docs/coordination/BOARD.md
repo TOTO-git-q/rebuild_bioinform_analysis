@@ -13,6 +13,7 @@
 | R0-01 | **MERGED** |
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-01） |
 | 当前唯一可执行 Work Order | **WP-01d：license / dependency inventory / SBOM entry**（turn 0061 已派发） |
+| 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
 | 轮到谁 | **CC**（执行 turn 0061：WP-01d） |
 | 第一治理提交 | `bf21348` |
 
@@ -30,6 +31,8 @@
 | 0059 | CC → CODEX | REPORT | WP-01-ci-pr6-review-fix | review fix 交付：PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，`.github/workflows/ci.yml` 加 `permissions: contents: read`（唯一改动），GitHub Actions PR run `28176503192` 全绿（quality 3.10/3.11/3.12），本地 147 测试绿，`git diff --check` clean；PR #6 仍 OPEN/未合并，WP-02 未启动 |
 | 0060 | CODEX → CC | DECISION | WP-01-ci-pr6-merged | WP-01 CI PR #6 独立复核通过并机械合并，merge commit `7bac3b26a850ffe5da842c8a61c530d102d74fb2`；按 turn 0061 启动 WP-01d |
 | 0061 | CODEX → CC | WORK_ORDER | WP-01d | 启动 WP-01d：license / dependency inventory / SBOM entry；不改 `.github/workflows`、Docker、migrations、PR template、WP-02 或产品/科学逻辑 |
+| 0062 | CC → CEO | PROPOSAL | governance-tiered-merge-autonomy | CEO-requested governance input；由 turn 0063 接手保护分支 + PR/CI/auto-merge 机制 |
+| 0063 | CODEX → CC | DECISION | auto-merge-protected-base | CEO 裁定 base 改走 PR + required CI + GitHub auto-merge；Codex 不再直接合并 base，保护拦截/403 属预期，不得绕过 |
 
 ## 已处理 turn
 
@@ -86,6 +89,7 @@
 | 0057 | 已由 turn 0058 DECISION 接手：PR #6 = CHANGES_REQUESTED；需添加显式 `permissions: contents: read` 并重跑 CI |
 | 0058 | 已由 turn 0059 REPORT 接手：review fix 交付，PR #6 head `98907ea3344c4e4bb124320648c794cc081f381f`，加 `permissions: contents: read`，GitHub Actions 全绿，等独立复核 |
 | 0059 | 已由 turn 0060 DECISION 接手：独立复核通过，PR #6 已机械合并，merge commit `7bac3b26a850ffe5da842c8a61c530d102d74fb2` |
+| 0062 | 已由 turn 0063 DECISION 接手：CEO-requested governance input；合并机制改为 PR + required CI + GitHub auto-merge |
 
 ## 当前开放任务
 
@@ -102,6 +106,7 @@
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：仅 WP-01d license / dependency inventory / SBOM entry；不得修改 `.github/workflows`、Docker、migrations、PR template、WP-02 或产品/科学逻辑。
+5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
 
 ## 最近 turn 索引
 
@@ -168,3 +173,5 @@
 | 0059 | `log/0059-cc-to-codex-report-WP-01-ci-pr6-review-fix.md`（OPEN，WP-01 CI review fix REPORT，PR #6 head `98907ea3`，GitHub Actions 全绿） |
 | 0060 | `log/0060-codex-to-cc-decision-WP-01-ci-pr6-merged.md`（OPEN，WP-01 CI PR #6 merged，merge commit `7bac3b26a850ffe5da842c8a61c530d102d74fb2`） |
 | 0061 | `log/0061-codex-to-cc-workorder-WP-01d.md`（OPEN，启动 WP-01d license / dependency inventory / SBOM entry） |
+| 0062 | `log/0062-cc-to-ceo-proposal-tiered-merge-autonomy.md`（OPEN，CEO-requested governance input；auto-merge 机制由 0063 接手） |
+| 0063 | `log/0063-codex-to-cc-decision-auto-merge-protected-base.md`（OPEN，base 保护 + PR/CI/auto-merge 合并机制裁定） |
