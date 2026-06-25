@@ -105,9 +105,9 @@
 
 ## 当前开放任务
 
-1. **WP-01e PR / change template**：turn 0069 已交付（PR #8 OPEN，head `fe46a28cf57c40e25c79952ab17fc96b02f0be87`，required CI 全绿），等待 Codex 独立审核。
-3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 CI WO 不做。
-4. **WP-02**：未启动，等 WP-01 全部必要切片收口后再派发。
+1. **WP-02a common schema foundations**：turn 0071 已派发；范围仅 T-02-01/T-02-02，等待 CC 实现并回报 PR。
+2. **WP-02 后续切片**：T-02-03～T-02-15 未启动，需等 WP-02a 收口后再逐片派发。
+3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02a 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
