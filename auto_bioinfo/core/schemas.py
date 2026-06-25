@@ -2,9 +2,18 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from typing import Any
 
-from .ids import make_stable_id
+from .ids import hash_payload, make_stable_id
 
 CANONICAL_SCHEMA_VERSION = "v5.canonical/0.1"
+
+# Automation/approval levels (requirement spec stage 8): how much the system may
+# do without a human in the loop.  Distinct from the per-run execution_mode
+# vocabulary (DEMO/TEST/REAL) owned by :mod:`auto_bioinfo.core.provenance`.
+AUTOMATION_LEVELS = ("A0", "A1", "A2", "A3")
+
+# Append-only lifecycle of an ApprovalRequest, and the two terminal decisions.
+APPROVAL_STATES = ("requested", "granted", "rejected", "expired", "cancelled")
+APPROVAL_DECISIONS = ("approved", "rejected")
 
 CLAIM_LEVELS = [
     "descriptive",
@@ -408,3 +417,205 @@ class ProjectState:
     # Projection of the immutable ProjectPolicy; the policy remains authoritative.
     execution_mode: str = "DEMO"
     project_policy_ref: str = ""
+
+
+# --- WP-02a / T-02-02: Project & Policy and Approval contracts ---------------
+
+
+@dataclass
+class Project:
+    """The mutable project projection (history is rebuilt from ProjectEvent).
+
+    One project fans out to many OriginalRequests, ProjectEvents and Approvals;
+    it references its active ProjectPolicy rather than embedding it, so the
+    policy stays independently versioned and content-hashable.
+    """
+
+    project_id: str
+    title: str
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    current_stage: str = "INTAKE"
+    request_ids: list[str] = field(default_factory=list)
+    approval_ids: list[str] = field(default_factory=list)
+    active_policy_id: str = ""
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "active"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class OriginalRequest:
+    """The user's request, stored *verbatim* and never overwritten.
+
+    ``original_text`` is immutable once recorded; ``original_text_sha256`` binds
+    it so any later edit is detectable.  Normalisation (Question Normalizer)
+    writes only ``normalized_text`` — a separate field — and must never touch the
+    original.  Use :meth:`with_normalized_text` to attach a normalised form while
+    provably preserving the original byte content and hash.
+    """
+
+    project_id: str
+    original_text: str
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    request_id: str = ""
+    submitter: dict[str, Any] = field(default_factory=dict)
+    attachments: list[dict[str, Any]] = field(default_factory=list)
+    user_constraints: list[str] = field(default_factory=list)
+    normalized_text: str = ""
+    original_text_sha256: str = ""
+    submitted_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "recorded"
+
+    def text_hash(self) -> str:
+        return hash_payload(self.original_text)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        # The hash always tracks the *original* text, never the normalised form.
+        data["original_text_sha256"] = self.text_hash()
+        if not data["request_id"]:
+            data["request_id"] = make_stable_id("original_request", {"project_id": self.project_id, "original_text": self.original_text})
+        return data
+
+    def with_normalized_text(self, normalized: str) -> dict[str, Any]:
+        """Return the dict projection with ``normalized_text`` set, leaving the
+        original text and its hash untouched."""
+        data = self.to_dict()
+        data["normalized_text"] = normalized
+        return data
+
+
+@dataclass
+class ProjectPolicy:
+    """Versioned, content-hashable governance policy for a project.
+
+    Completes the minimal runtime ProjectPolicy projection in
+    :mod:`auto_bioinfo.core.provenance` (which carries only execution_mode for
+    the R0-01 truthful-execution gate) by adding the requirement-spec governance
+    fields: automation level (A0–A3), network, data-sensitivity and export
+    policy.  ``execution_mode`` keeps the same DEMO/TEST/REAL vocabulary so the
+    two stay interoperable.  ``content_hash`` and ``project_policy_id`` are
+    derived deterministically so a policy is stable-ID friendly and tamper-
+    evident.
+    """
+
+    project_id: str
+    execution_mode: str
+    automation_level: str = "A0"
+    policy_version: int = 1
+    network_policy: dict[str, Any] = field(default_factory=dict)
+    data_sensitivity: str = "unspecified"
+    export_policy: dict[str, Any] = field(default_factory=dict)
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    status: str = "active"
+
+    def _content_body(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "project_id": self.project_id,
+            "execution_mode": self.execution_mode,
+            "automation_level": self.automation_level,
+            "policy_version": self.policy_version,
+            "network_policy": self.network_policy,
+            "data_sensitivity": self.data_sensitivity,
+            "export_policy": self.export_policy,
+            "status": self.status,
+        }
+
+    def content_hash(self) -> str:
+        return hash_payload(self._content_body())
+
+    def policy_id(self) -> str:
+        return make_stable_id(
+            "project_policy",
+            {
+                "project_id": self.project_id,
+                "execution_mode": self.execution_mode,
+                "automation_level": self.automation_level,
+                "policy_version": self.policy_version,
+            },
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        body = self._content_body()
+        return {
+            **body,
+            "project_policy_id": self.policy_id(),
+            "content_hash": self.content_hash(),
+        }
+
+
+@dataclass
+class ApprovalRequest:
+    """An append-only request for a human decision, bound to the exact version
+    of the object it concerns.  ``subject_version`` is mandatory: an approval
+    that does not name the version it asks about cannot be honoured later.
+    """
+
+    project_id: str
+    subject_type: str
+    subject_id: str
+    subject_version: int
+    gate: str
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    approval_request_id: str = ""
+    requested_by: dict[str, Any] = field(default_factory=dict)
+    reason: str = ""
+    state: str = "requested"
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["approval_request_id"]:
+            data["approval_request_id"] = make_stable_id(
+                "approval_request",
+                {
+                    "project_id": self.project_id,
+                    "subject_type": self.subject_type,
+                    "subject_id": self.subject_id,
+                    "subject_version": self.subject_version,
+                    "gate": self.gate,
+                },
+            )
+        return data
+
+
+@dataclass
+class ApprovalDecision:
+    """An immutable approve/reject decision bound to the *exact* target object
+    and version it ruled on.  A decision is never edited in place; a changed
+    mind is a new decision.  It also records the ApprovalRequest it answers.
+    """
+
+    approval_request_id: str
+    project_id: str
+    subject_type: str
+    subject_id: str
+    subject_version: int
+    decision: str
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    approval_decision_id: str = ""
+    decided_by: dict[str, Any] = field(default_factory=dict)
+    rationale: str = ""
+    decided_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["approval_decision_id"]:
+            data["approval_decision_id"] = make_stable_id(
+                "approval_decision",
+                {
+                    "approval_request_id": self.approval_request_id,
+                    "subject_type": self.subject_type,
+                    "subject_id": self.subject_id,
+                    "subject_version": self.subject_version,
+                    "decision": self.decision,
+                },
+            )
+        return data
