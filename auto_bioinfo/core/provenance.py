@@ -183,6 +183,58 @@ def validate_real_mode_dataset(candidate: dict[str, Any], execution_mode: str) -
     return []
 
 
+def validate_real_mode_lock(
+    profile: dict[str, Any],
+    execution_mode: str,
+    *,
+    file_checksums: dict[str, str],
+    recomputed_checksums: dict[str, str] | None = None,
+) -> list[str]:
+    """Gate 5: a REAL run may only *lock* a dataset that is genuinely verified.
+
+    ``validate_real_mode_dataset`` blocks a synthetic fixture before discovery;
+    this is the lock-time defence in depth.  For REAL execution it enforces:
+
+      * ``verification_level`` >= ``FILES_CHECKSUM_VERIFIED`` (identifier- or
+        metadata-only verification can never ground a REAL scientific lock);
+      * ``retrieval_mode`` is not ``RECORDED_REPLAY`` — a replay recording can
+        never, on its own, authorize a REAL lock;
+      * ``file_checksums`` is non-empty and every entry is a non-empty digest;
+      * when ``recomputed_checksums`` is supplied (the digests of the actually
+        materialized files), every recorded checksum matches the file and there
+        is no missing or extra file.
+
+    Non-REAL modes lock unchanged (returns ``[]``).
+    """
+    if execution_mode != "REAL":
+        return []
+    errors: list[str] = []
+    vl = profile.get("verification_level", "UNVERIFIED")
+    if not verification_at_least(vl, _MIN_VERIFICATION_FOR_LOCK):
+        errors.append(
+            f"REAL lock requires verification_level >= {_MIN_VERIFICATION_FOR_LOCK}, got {vl!r}"
+        )
+    if profile.get("retrieval_mode") == "RECORDED_REPLAY":
+        errors.append("REAL lock cannot be authorized by RECORDED_REPLAY retrieval alone")
+    if not file_checksums:
+        errors.append("REAL lock requires non-empty file_checksums")
+    else:
+        for name, digest in file_checksums.items():
+            if not digest:
+                errors.append(f"REAL lock requires a non-empty checksum for {name!r}")
+        if recomputed_checksums is not None:
+            for name, digest in file_checksums.items():
+                actual = recomputed_checksums.get(name)
+                if actual is None:
+                    errors.append(f"REAL lock checksum for {name!r} has no materialized file to verify")
+                elif actual != digest:
+                    errors.append(f"REAL lock checksum mismatch for {name!r}")
+            for name in recomputed_checksums:
+                if name not in file_checksums:
+                    errors.append(f"REAL lock has a materialized file {name!r} with no recorded checksum")
+    return errors
+
+
 # --- Legacy normalisation (conservative; never invents provenance) ----------
 
 def normalize_legacy_provenance(obj: dict[str, Any]) -> dict[str, Any]:

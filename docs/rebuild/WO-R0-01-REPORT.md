@@ -82,10 +82,36 @@
 | 2 | decision integrity validation（重算 decision id、核 policy_id/version、evaluated_input_refs、input hashes、Claim/EvidenceItem 引用的 decision_id） | **DONE（本步）** | `provenance.verify_decision_integrity` / `decision_is_authoritatively_eligible`；测试见下 |
 | 3 | ProjectPolicy 完整性校验（content_hash/project_policy_id 重算、project_id 与 state 一致、execution_mode 合法、project_policy_ref 不缺、policy+state 同时篡改也检出） | **DONE（本步）** | `provenance.verify_project_policy_integrity`；测试见下 |
 | 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | **DONE（本步）** | `cli export --formal` / `bundle.build_reproduction_bundle(formal=True)`；测试见下 |
-| 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | TODO | — |
+| 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | **DONE（本步）** | `provenance.validate_real_mode_lock` / `pipeline._lock_datasets`；测试见下 |
 | 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | TODO | — |
 | 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
 | 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 5）真实结果
+
+需求（turn 0007 闸门 5）：REAL 锁定门补全。一个 REAL 运行只有在数据集**真正经过校验**时才允许锁定（`DATASETS_LOCKED`）：①`verification_level` 须 ≥ `FILES_CHECKSUM_VERIFIED`；②`file_checksums` 非空且与实际物化文件**逐一一致**；③`RECORDED_REPLAY` 检索模式**不得单独**授权 REAL 锁定；④锁定后的 `DatasetManifest` 须持久化四要素（source_class / retrieval_mode / verification_level / file_checksums）。
+
+requirement → 代码 → 测试：
+- `auto_bioinfo/core/provenance.py`
+  - 新增纯函数 `validate_real_mode_lock(profile, execution_mode, *, file_checksums, recomputed_checksums=None)`：非 REAL 模式恒返回 `[]`（DEMO/TEST 锁定不变）；REAL 模式逐项核验上述①②③，并在给出 `recomputed_checksums`（实际物化文件重新计算的摘要）时核对每条记录 checksum 与真实文件一致、无缺失/多余文件。复用既有常量 `_MIN_VERIFICATION_FOR_LOCK = "FILES_CHECKSUM_VERIFIED"`（此前定义但未接线，本步落地）。
+- `auto_bioinfo/pipeline.py::_lock_datasets`
+  - 锁定前取 `execution_mode`，对每个物化文件用 `compute_file_sha256` **独立重算**摘要 `recomputed`，与记录 `checksums` 一并送入 `validate_real_mode_lock`；任一失败 → 写 `policy_failure`（`failure_class=POLICY_FAILURE`）+ 推进 `FAILED` 后 `return`（与 `_discover_resources` 的 POLICY_FAILURE 路径一致），**绝不以未验证数据锁定 REAL**。
+  - 锁定 manifest 新增三字段 `source_class` / `retrieval_mode` / `verification_level`（连同既有 `file_checksums` 构成四要素），使锁定决策所依赖的 provenance 随产物落盘可审计。
+
+关键安全属性：REAL 锁定是发现期 `validate_real_mode_dataset`（拒绝 SYNTHETIC_FIXTURE）之外的**锁定期纵深防御**——即便某条 REAL 候选绕过发现期检查到达锁定步，只要其 verification 不足、检索仅为录制回放、checksum 为空或与磁盘文件不符，锁定即以 POLICY_FAILURE 中止，流水线不会进入 `DATASETS_LOCKED`。（现行 fixture 适配器下 REAL 仍会在更早的发现期即 POLICY_FAILURE，本门为面向真实数据源接入后的前置保障。）
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::RealModeLockGateBypassTest`，7 条全过）：
+1. `test_real_lock_requires_files_checksum_verified` — REAL + `verification_level=METADATA_VERIFIED` → 报 verification_level 不足 ✅
+2. `test_real_lock_rejects_recorded_replay` — REAL + `retrieval_mode=RECORDED_REPLAY` → 拒绝（录制回放不单独授权）✅
+3. `test_real_lock_requires_nonempty_checksums` — 空 `file_checksums` / checksum 为空串 → 拒绝 ✅
+4. `test_real_lock_detects_checksum_mismatch` — 记录 checksum 与实际文件摘要不符 → 报 mismatch ✅
+5. `test_real_lock_detects_missing_or_extra_file` — 记录有 checksum 但无对应文件 / 多出未记录的文件 → 双向拒绝 ✅
+6. `test_genuine_real_lock_passes` — REAL + `FILES_CHECKSUM_VERIFIED` + `LIVE` + checksum 一致 → 通过（`[]`）✅
+7. `test_demo_lock_unaffected_and_manifest_records_four_elements` — 非 REAL 门为 no-op；真实 DEMO 跑通后读 `dataset_manifest` 断言四要素（source_class/retrieval_mode/verification_level/file_checksums）齐备 ✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 79 tests, OK**（72 基线 + 7 闸门5，全离线确定性，约 0.64s）。
+
+> 闸门进度：已完成闸门 1、2、3、4、5 → **5/8**。下一步闸门 6：legacy 项目明确行为（一次性迁移为 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或标记 MIGRATION_REQUIRED，而非裸抛 `PipelineError`）。
 
 ## 本步（闸门 4）真实结果
 

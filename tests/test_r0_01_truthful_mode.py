@@ -19,6 +19,7 @@ from auto_bioinfo.core.provenance import (
     recompute_eligibility_for,
     validate_policy_state_consistency,
     validate_provenance,
+    validate_real_mode_lock,
     verify_decision_integrity,
     verify_project_policy_integrity,
 )
@@ -287,6 +288,74 @@ class FormalExportGateBypassTest(unittest.TestCase):
             manifest = build_reproduction_bundle(proj)
             self.assertEqual(manifest["export_type"], "DEMONSTRATION")
             self.assertFalse(manifest["scientific_output_eligible"])
+
+
+class RealModeLockGateBypassTest(unittest.TestCase):
+    """Gate 5 (R0-01 review-fix): a REAL run may only *lock* a dataset that is
+    genuinely checksum-verified. Identifier/metadata-only verification, a
+    RECORDED_REPLAY retrieval, an empty/tampered checksum set, or a missing
+    file must all block the lock with a POLICY_FAILURE. The locked manifest
+    must persist source_class/retrieval_mode/verification_level/file_checksums.
+    Non-REAL locks are unaffected."""
+
+    def _real_profile(self, **over):
+        prof = {
+            "dataset_id": "GSE_REAL",
+            "source_class": "PUBLIC_DATABASE",
+            "retrieval_mode": "LIVE",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+        }
+        prof.update(over)
+        return prof
+
+    def test_real_lock_requires_files_checksum_verified(self):
+        prof = self._real_profile(verification_level="METADATA_VERIFIED")
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={"counts": "abc"})
+        self.assertTrue(any("verification_level" in e for e in errs))
+
+    def test_real_lock_rejects_recorded_replay(self):
+        prof = self._real_profile(retrieval_mode="RECORDED_REPLAY")
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={"counts": "abc"})
+        self.assertTrue(any("RECORDED_REPLAY" in e for e in errs))
+
+    def test_real_lock_requires_nonempty_checksums(self):
+        prof = self._real_profile()
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={}, recomputed_checksums={})
+        self.assertTrue(any("non-empty file_checksums" in e for e in errs))
+        # also: a recorded entry whose digest is empty is rejected
+        errs2 = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": ""}, recomputed_checksums={"counts": ""})
+        self.assertTrue(any("non-empty checksum" in e for e in errs2))
+
+    def test_real_lock_detects_checksum_mismatch(self):
+        prof = self._real_profile()
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={"counts": "DIFFERENT"})
+        self.assertTrue(any("mismatch" in e for e in errs))
+
+    def test_real_lock_detects_missing_or_extra_file(self):
+        prof = self._real_profile()
+        # recorded checksum has no materialized file to verify
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={})
+        self.assertTrue(any("no materialized file" in e for e in errs))
+        # an extra materialized file with no recorded checksum
+        errs2 = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={"counts": "abc", "meta": "xyz"})
+        self.assertTrue(any("no recorded checksum" in e for e in errs2))
+
+    def test_genuine_real_lock_passes(self):
+        prof = self._real_profile()
+        errs = validate_real_mode_lock(prof, "REAL", file_checksums={"counts": "abc"}, recomputed_checksums={"counts": "abc"})
+        self.assertEqual(errs, [])
+
+    def test_demo_lock_unaffected_and_manifest_records_four_elements(self):
+        # Non-REAL gate is a no-op even with a weak/empty profile.
+        self.assertEqual(validate_real_mode_lock({"verification_level": "UNVERIFIED"}, "DEMO", file_checksums={}), [])
+        # A real DEMO run still locks, and the manifest persists the four elements.
+        with tempfile.TemporaryDirectory() as d:
+            proj = Path(d) / "p"
+            Pipeline(resources=fixture_adapter()).run(proj, DEMO_QUESTION)
+            manifest = json.loads((proj / "state" / "objects" / "dataset_manifest.json").read_text())
+            for field in ("source_class", "retrieval_mode", "verification_level", "file_checksums"):
+                self.assertIn(field, manifest)
+            self.assertTrue(manifest["file_checksums"])
 
 
 class ProjectPolicyIntegrityBypassTest(unittest.TestCase):

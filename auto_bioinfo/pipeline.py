@@ -20,7 +20,7 @@ from typing import Any, Callable
 
 from .adapters.fixture_resources import FixtureResourceAdapter
 from .adapters.offline_planner import OfflineDeterministicPlanner
-from .core.artifacts import build_artifact_manifest, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
+from .core.artifacts import build_artifact_manifest, compute_file_sha256, load_artifact_registry, validate_artifact_for_evidence, write_artifact_manifest
 from .core.handoff import build_handoff, write_handoff
 from .core.agent_protocol import validate_agent_handoff
 from .core.alignment_auditor import audit_question_alignment
@@ -33,6 +33,7 @@ from .core.provenance import (
     validate_provenance,
     verify_project_policy_integrity,
     validate_real_mode_dataset,
+    validate_real_mode_lock,
 )
 from .core.store import init_project_state, load_project_state, transition_state
 from .core.task_packets import build_analysis_task_packet, build_review_task_packet, validate_task_packets
@@ -199,14 +200,29 @@ class Pipeline:
     def _lock_datasets(self, project_dir: Path) -> None:
         profile = read_object(project_dir, "dataset_profile")
         subs = read_object(project_dir, "subquestions")
+        execution_mode = self._execution_mode(project_dir)
         inputs_dir = project_dir / "state" / "inputs"
         files = self.resources.materialize(profile, str(inputs_dir))
         checksums = {name: build_artifact_manifest(project_dir, Path(path).relative_to(project_dir), producer="resource_discovery_agent", artifact_type="input_dataset", expected_by_task_ids=[], supports_subquestion_ids=[])["checksum_sha256"] for name, path in files.items()}
+        # R0-01 gate 5: a REAL run may only lock a genuinely checksum-verified
+        # dataset.  Recompute every file digest independently of the recorded
+        # checksums so a tampered/missing input is caught *before* the lock.
+        recomputed = {name: compute_file_sha256(path) for name, path in files.items()}
+        lock_errors = validate_real_mode_lock(profile, execution_mode, file_checksums=checksums, recomputed_checksums=recomputed)
+        if lock_errors:
+            write_object(project_dir, "policy_failure", {"failure_class": "POLICY_FAILURE", "reasons": lock_errors, "dataset_id": profile.get("dataset_id", "")})
+            self._advance(project_dir, "FAILED", "policy_gate", [], f"POLICY_FAILURE: {lock_errors}")
+            return
         manifest = {
             "dataset_manifest_id": make_stable_id("dataset_manifest", {"dataset_id": profile["dataset_id"], "checksums": checksums}),
             "dataset_id": profile["dataset_id"],
             "accession": profile.get("accession", ""),
             "source_status": profile.get("source_status", ""),
+            # Gate 5: the manifest must persist the four provenance elements that
+            # the lock decision rests on, not just the checksums.
+            "source_class": profile.get("source_class", "LEGACY_UNKNOWN"),
+            "retrieval_mode": profile.get("retrieval_mode", "LOCAL_CACHE"),
+            "verification_level": profile.get("verification_level", "UNVERIFIED"),
             "samples": [{"group": g, "n": n} for g, n in profile.get("group_sizes", {}).items()],
             "excluded_samples": [],
             "file_checksums": checksums,
