@@ -155,7 +155,39 @@ def verify_project_policy_integrity(policy: dict[str, Any], state: dict[str, Any
 
 # --- Provenance shape validation + pseudo-REAL detection --------------------
 
+# --- Gate 7: structured provenance consistency ------------------------------
+# Each source_class implies which *retrieval paths* are physically coherent.
+# This is a real cross-field audit of the structured provenance triple, NOT a
+# substitute based on how the accession string happens to be spelled.
+_RETRIEVAL_CONSISTENT_WITH_SOURCE: dict[str, frozenset[str]] = {
+    # A committed fixture is never *fetched live* over the network; it is read
+    # from the local tree (or replayed). Claiming LIVE would misstate its origin.
+    "SYNTHETIC_FIXTURE": frozenset({"LOCAL_CACHE", "RECORDED_REPLAY"}),
+    # A public database may be hit live, replayed, or served from a local cache.
+    "PUBLIC_DATABASE": frozenset({"LIVE", "RECORDED_REPLAY", "LOCAL_CACHE"}),
+    # User-uploaded files and on-disk local data are, by definition, already
+    # local; they are never *obtained* by a live network retrieval.
+    "USER_UPLOAD": frozenset({"LOCAL_CACHE"}),
+    "LOCAL_DATA": frozenset({"LOCAL_CACHE"}),
+    # Unknown-provenance legacy data must not claim to have been fetched live.
+    "LEGACY_UNKNOWN": frozenset({"LOCAL_CACHE", "RECORDED_REPLAY"}),
+}
+
+# The strongest verification a given source_class may *honestly* assert. Data
+# whose provenance is unknown cannot have been verified beyond "bytes exist".
+_MAX_VERIFICATION_BY_SOURCE: dict[str, str] = {
+    "LEGACY_UNKNOWN": "UNVERIFIED",
+}
+
+
 def validate_provenance(candidate: dict[str, Any]) -> list[str]:
+    """Audit the *structured* provenance triple for internal consistency.
+
+    Gate 7 (R0-01 review-fix): consistency is decided by the source_class /
+    retrieval_mode / verification_level fields themselves — not by pattern-
+    matching the accession string. The accession checks below remain only as a
+    secondary honesty sanity-check; they never stand in for the structural audit.
+    """
     errors: list[str] = []
     sc = candidate.get("source_class")
     rm = candidate.get("retrieval_mode")
@@ -166,6 +198,29 @@ def validate_provenance(candidate: dict[str, Any]) -> list[str]:
         errors.append(f"retrieval_mode must be one of {RETRIEVAL_MODES}, got {rm!r}")
     if vl not in VERIFICATION_LEVELS:
         errors.append(f"verification_level must be one of {VERIFICATION_LEVELS}, got {vl!r}")
+
+    # Only run the structural audit once the three fields are individually valid.
+    if sc in SOURCE_CLASSES and rm in RETRIEVAL_MODES and vl in VERIFICATION_LEVELS:
+        allowed = _RETRIEVAL_CONSISTENT_WITH_SOURCE[sc]
+        if rm not in allowed:
+            errors.append(
+                f"retrieval_mode {rm!r} is inconsistent with source_class {sc!r} "
+                f"(allowed: {sorted(allowed)})"
+            )
+        ceiling = _MAX_VERIFICATION_BY_SOURCE.get(sc)
+        if ceiling is not None and verification_at_least(vl, ceiling) and vl != ceiling:
+            errors.append(
+                f"source_class {sc!r} cannot honestly claim verification_level {vl!r} "
+                f"(max {ceiling})"
+            )
+        # A self-recorded replay can never, on its own, ground a checksum
+        # verification of real materialized files — regardless of source_class.
+        if rm == "RECORDED_REPLAY" and vl == "FILES_CHECKSUM_VERIFIED":
+            errors.append(
+                "RECORDED_REPLAY retrieval cannot ground FILES_CHECKSUM_VERIFIED "
+                "(a replay verifies its own recording, not real files)"
+            )
+
     accession = str(candidate.get("accession", "") or candidate.get("dataset_id", "")).upper()
     if sc == "PUBLIC_DATABASE" and (not accession or accession.startswith("AUTO_") or accession.startswith("MOCK_") or accession.startswith("FIXTURE")):
         errors.append("PUBLIC_DATABASE source requires a real accession (not empty/AUTO_/MOCK_/FIXTURE)")

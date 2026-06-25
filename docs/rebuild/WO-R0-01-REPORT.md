@@ -84,8 +84,34 @@
 | 4 | demo export vs `export --formal`（不合格非零退出码且不产出正式导出物，不只告警） | **DONE（本步）** | `cli export --formal` / `bundle.build_reproduction_bundle(formal=True)`；测试见下 |
 | 5 | REAL 锁定门补全（≥FILES_CHECKSUM_VERIFIED、checksum 非空且一致、RECORDED_REPLAY 不单独授权、Manifest 存四要素） | **DONE（本步）** | `provenance.validate_real_mode_lock` / `pipeline._lock_datasets`；测试见下 |
 | 6 | legacy 项目明确行为（一次性迁移 DEMO+LEGACY_UNKNOWN+UNVERIFIED 或 MIGRATION_REQUIRED，不裸抛 PipelineError） | **DONE（本步）** | `provenance.classify_project_policy_state` / `migrate_legacy_project_policy` / `pipeline.LegacyMigrationRequired` / `store.record_legacy_migration`；测试见下 |
-| 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | TODO | — |
+| 7 | `validate_provenance` 真正结构化核验（不止 accession 前缀） | **DONE（本步）** | `provenance.validate_provenance` + `_RETRIEVAL_CONSISTENT_WITH_SOURCE` / `_MAX_VERIFICATION_BY_SOURCE`；测试见下 |
 | 8 | bundle README 随实际 source_class 生成文案（REAL 不得显示 committed fixture） | TODO | — |
+
+## 本步（闸门 7）真实结果
+
+需求（turn 0007 闸门 7）：`validate_provenance` 必须**真正检查结构化 provenance 与 source_class 的一致性**，不能只用 accession 前缀代替 provenance 审核。
+
+原实现的问题：除三字段枚举合法性外，唯一的「provenance 审核」就是对 `PUBLIC_DATABASE` 检查 accession 不以 `AUTO_/MOCK_/FIXTURE` 开头、对 `SYNTHETIC_FIXTURE` 要求 accession 以 `FIXTURE` 开头——**全是 accession 字符串前缀匹配**，正是闸门 7 点名要替换的「以前缀代替审核」。`source_class`×`retrieval_mode`×`verification_level` 三者之间的物理一致性根本没查。
+
+requirement → 代码 → 测试（`auto_bioinfo/core/provenance.py::validate_provenance`）：
+- 新增 `_RETRIEVAL_CONSISTENT_WITH_SOURCE`：按 source_class 显式声明物理上自洽的 retrieval_mode 集合。①`SYNTHETIC_FIXTURE` 永不可 `LIVE`（提交在库里的 fixture 不会被实时拉取）；②`USER_UPLOAD`/`LOCAL_DATA` 只能 `LOCAL_CACHE`（本就在本地，不存在 live 检索路径）；③`LEGACY_UNKNOWN` 不可 `LIVE`；④`PUBLIC_DATABASE` 可 LIVE/RECORDED_REPLAY/LOCAL_CACHE。
+- 新增 `_MAX_VERIFICATION_BY_SOURCE`：`LEGACY_UNKNOWN` 的诚实 verification 上限为 `UNVERIFIED`（来源未知者不可能被验证过）。
+- 新增「RECORDED_REPLAY 不得 ground `FILES_CHECKSUM_VERIFIED`」跨字段规则（无论 source_class）：自录回放只验证自己的录像，不验证真实物化文件——与闸门 5 锁定门互补，但在候选校验阶段、不限 execution_mode 即先抓。
+- 决断点改为**结构字段本身**；旧 accession 检查降级为「次级诚实 sanity-check」并在注释中写明它**永不**替代结构审核。三字段任一非法时跳过结构审核（避免对非法枚举二次报噪）。
+
+关键安全属性：把 fixture/local/upload/legacy 谎称成「实时检索的真实数据」这类伪装，现在由 source_class×retrieval_mode 矩阵直接抓出，**即便 accession 长得像一个完全合法的公开 accession**（见测试 6）也无法绕过——这正是「不以前缀代替审核」的实证。合法组合（PUBLIC_DATABASE+LIVE、SYNTHETIC_FIXTURE+LOCAL_CACHE+FILES_CHECKSUM_VERIFIED demo fixture）全部照常通过，`pipeline._discover_resources` 的 demo 主路径不受影响。
+
+绕过测试（`tests/test_r0_01_truthful_mode.py::StructuredProvenanceConsistencyBypassTest`，6 条全过）：
+1. `test_genuine_combinations_pass` — 真实 PUBLIC_DATABASE+LIVE 与 committed fixture 组合均判一致 ✅
+2. `test_fixture_cannot_be_fetched_live` — fixture 自称 `LIVE`（且 accession 诚实标 FIXTURE，无前缀把戏）→ 结构不一致被抓 ✅
+3. `test_local_data_cannot_be_fetched_live` — `LOCAL_DATA`+`LIVE`（accession 像合法本地 id）→ 结构不一致 ✅
+4. `test_legacy_unknown_cannot_claim_verification` — `LEGACY_UNKNOWN`+`FILES_CHECKSUM_VERIFIED` → 超出诚实上限被拒 ✅
+5. `test_recorded_replay_cannot_ground_checksum_verification` — `RECORDED_REPLAY`+`FILES_CHECKSUM_VERIFIED` → 回放不可 ground 真实文件校验 ✅
+6. `test_consistency_holds_even_with_innocent_accession` — `USER_UPLOAD`+`LIVE` 但 accession 写成貌似合法的 `GSE12345` → 仍因结构不一致被拒（证明判定不靠 accession 前缀）✅
+
+全量：`python3 -m unittest discover -t . -s tests -p "test_*.py"` → **Ran 92 tests, OK**（86 基线 + 6 闸门7，全离线确定性，约 0.69s）。
+
+> 闸门进度：已完成闸门 1、2、3、4、5、6、7 → **7/8**。下一步闸门 8：reproduction bundle README 随实际 `source_class` 生成文案（REAL 数据不得仍显示「committed fixture」固定文案）。
 
 ## 本步（闸门 6）真实结果
 

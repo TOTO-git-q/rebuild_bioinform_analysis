@@ -530,5 +530,90 @@ class EligibilityRuleTest(unittest.TestCase):
         self.assertEqual(decision["release_status"], "RESEARCH_PRELIMINARY")
 
 
+class StructuredProvenanceConsistencyBypassTest(unittest.TestCase):
+    """Gate 7 (R0-01 review-fix): ``validate_provenance`` must audit the
+    structured provenance triple (source_class / retrieval_mode /
+    verification_level) for internal consistency, instead of leaning on the
+    accession-string prefix as a stand-in for a real provenance review."""
+
+    def _ok(self, **over):
+        cand = {
+            "source_class": "PUBLIC_DATABASE",
+            "retrieval_mode": "LIVE",
+            "verification_level": "METADATA_VERIFIED",
+            "accession": "GSE12345",
+        }
+        cand.update(over)
+        return cand
+
+    def test_genuine_combinations_pass(self):
+        # A real public-DB candidate and a committed fixture are both coherent.
+        self.assertEqual(validate_provenance(self._ok()), [])
+        self.assertEqual(
+            validate_provenance({
+                "source_class": "SYNTHETIC_FIXTURE",
+                "retrieval_mode": "LOCAL_CACHE",
+                "verification_level": "FILES_CHECKSUM_VERIFIED",
+                "accession": "FIXTURE-DEMO",
+            }),
+            [],
+        )
+
+    def test_fixture_cannot_be_fetched_live(self):
+        # Structural: a committed fixture is never obtained by a live fetch,
+        # and the accession here is honestly a FIXTURE one (no prefix trick).
+        errs = validate_provenance({
+            "source_class": "SYNTHETIC_FIXTURE",
+            "retrieval_mode": "LIVE",
+            "verification_level": "UNVERIFIED",
+            "accession": "FIXTURE-DEMO",
+        })
+        self.assertTrue(any("inconsistent with source_class" in e for e in errs))
+
+    def test_local_data_cannot_be_fetched_live(self):
+        # On-disk local data has no live retrieval path — caught by structure,
+        # not by any accession spelling (accession is a plausible local id).
+        errs = validate_provenance({
+            "source_class": "LOCAL_DATA",
+            "retrieval_mode": "LIVE",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+            "accession": "LOCAL-RUN-7",
+        })
+        self.assertTrue(any("inconsistent with source_class" in e for e in errs))
+
+    def test_legacy_unknown_cannot_claim_verification(self):
+        # Unknown provenance cannot honestly assert any verification level.
+        errs = validate_provenance({
+            "source_class": "LEGACY_UNKNOWN",
+            "retrieval_mode": "LOCAL_CACHE",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+            "accession": "OLD-DATASET",
+        })
+        self.assertTrue(any("cannot honestly claim verification_level" in e for e in errs))
+
+    def test_recorded_replay_cannot_ground_checksum_verification(self):
+        # A self-recorded replay verifies its own recording, not real files —
+        # so it can never reach FILES_CHECKSUM_VERIFIED, whatever the source.
+        errs = validate_provenance({
+            "source_class": "PUBLIC_DATABASE",
+            "retrieval_mode": "RECORDED_REPLAY",
+            "verification_level": "FILES_CHECKSUM_VERIFIED",
+            "accession": "GSE99999",
+        })
+        self.assertTrue(any("RECORDED_REPLAY" in e for e in errs))
+
+    def test_consistency_holds_even_with_innocent_accession(self):
+        # The decisive failure is structural: a PUBLIC_DATABASE claiming a
+        # USER_UPLOAD-only retrieval path is rejected even though the accession
+        # string looks like a perfectly real public accession.
+        errs = validate_provenance({
+            "source_class": "USER_UPLOAD",
+            "retrieval_mode": "LIVE",
+            "verification_level": "METADATA_VERIFIED",
+            "accession": "GSE12345",  # innocent-looking, but irrelevant here
+        })
+        self.assertTrue(any("inconsistent with source_class" in e for e in errs))
+
+
 if __name__ == "__main__":
     unittest.main()
