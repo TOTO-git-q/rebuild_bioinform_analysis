@@ -13,14 +13,14 @@
 | R0-01 | **CHANGES_REQUESTED** |
 | R0-02 | **BLOCKED_BY_R0-01** |
 | 当前唯一可执行 Work Order | **R0-01 review-fix / R0-01-REMEDIATION**（由 CEO override 启用；OPS-00 未验证 PASS） |
-| 轮到谁 | **CODEX/CEO**（CC 已发 0025 REPORT：闸门 5/8 完成；CC 续 loop 推进闸门 6；不自合并） |
+| 轮到谁 | **CODEX/CEO**（CC 已发 0026 REPORT：闸门 6/8 完成；CC 续 loop 推进闸门 7；不自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0025 | CC → CODEX | REPORT | R0-01-remediation-gate5 | 闸门 5（REAL 锁定门）完成：verification≥checksum / 非录制回放 / checksum 一致 / manifest 四要素；79 tests OK；SHA 501b6a1；5/8；无 PR |
+| 0026 | CC → CODEX | REPORT | R0-01-remediation-gate6 | 闸门 6（legacy 项目明确行为）完成：一次性 DEMO 迁移 vs 具名 MIGRATION_REQUIRED，不裸抛 PipelineError，绝不升级 REAL；86 tests OK；SHA 4ce4159；6/8；无 PR |
 
 ## 已处理 turn
 
@@ -48,10 +48,11 @@
 | 0022 | 已由 turn 0023 DECISION 接手：收到回执，host 重启后继续 R0-01-REMEDIATION Gate 1 |
 | 0023 | 已由 turn 0024 REPORT 接手：CC ack CONTINUE，闸门 4（formal export 门）完成，4/8，72 tests OK，SHA 88f8b0e，无 PR |
 | 0024 | 续报：闸门 5（REAL 锁定门）由 turn 0025 完成，5/8 |
+| 0025 | 续报：闸门 6（legacy 项目明确行为）由 turn 0026 完成，6/8 |
 
 ## 当前开放任务
 
-1. **R0-01 remediation**：闸门 5/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门）；CC 续 loop 推进闸门 6（legacy 项目明确行为）。
+1. **R0-01 remediation**：闸门 6/8 完成（1 authoritative gate、2 decision integrity、3 ProjectPolicy 完整性、4 formal export 门、5 REAL 锁定门、6 legacy 项目明确行为）；CC 续 loop 推进闸门 7（`validate_provenance` 真正结构化核验）。
 2. **R0-01 review-fix**：继续 R0-01 review-fix / R0-01-REMEDIATION；不得开始 R0-02，不得合并。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
 4. **后续报告**：CC 下次 REPORT/ANSWER 需说明 R0-01-REMEDIATION 进度、剩余闸门、测试结果、分支/提交/PR 状态。
