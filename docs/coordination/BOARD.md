@@ -97,8 +97,8 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-01 CI workflow gate；.github/workflows 已获本 WO 明确授权；不得启动 Docker、migrations、SBOM、PR-template 或 WP-02，不得加入业务/科学分析逻辑。
-5. **PR #6 review fix**：合并前必须补充 workflow 显式最小权限 permissions: contents: read 并重跑 GitHub Actions。
+4. **当前范围**：仅 WP-01 CI workflow gate；`.github/workflows` 已获本 WO 明确授权；不得启动 Docker、migrations、SBOM、PR-template 或 WP-02，不得加入业务/科学分析逻辑。
+5. **PR #6 review fix**：合并前必须补充 workflow 显式最小权限 `permissions: contents: read` 并重跑 GitHub Actions。
 
 ## 最近 turn 索引
 
