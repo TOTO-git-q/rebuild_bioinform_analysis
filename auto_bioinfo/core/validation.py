@@ -8,6 +8,8 @@ from .schemas import (
     APPROVAL_STATES,
     AUTOMATION_LEVELS,
     CLAIM_LEVELS,
+    COMPATIBILITY_ACCEPTED_DECISIONS,
+    COMPATIBILITY_DECISIONS,
     EVIDENCE_GAP_STATES,
     EVIDENCE_GAP_TYPES,
     FEASIBILITY_ACCEPTED_DECISIONS,
@@ -676,5 +678,155 @@ def validate_dataset_feasibility_report(report: dict[str, Any]) -> list[str]:
         if not (_has_nonblank_entry(report.get("missing_facts")) or _has_nonblank_entry(report.get("blocking_gaps"))):
             errors.append("a not-usable/insufficient decision must record the missing facts or blocking gaps behind it")
         if decision == "insufficient" and not has_ceiling:
+            errors.append("imposed_claim_ceiling: an insufficient decision must record a conservative claim ceiling")
+    return errors
+
+
+# --- WP-02d / T-02-07..08: method & compatibility contract validators ---------
+
+# The list facts of a MethodContract: every entry must be a non-blank string and
+# no entry may be duplicated (a repeated requirement is not two facts).
+_METHOD_CONTRACT_LIST_FIELDS = (
+    "supported_modalities",
+    "required_inputs",
+    "required_metadata",
+    "minimum_design_facts",
+    "outputs",
+    "statistical_assumptions",
+    "required_qc",
+    "known_limitations",
+    "applicable_conditions",
+    "forbidden_conditions",
+)
+# Applicability facts an *active* contract must positively record.
+_METHOD_CONTRACT_ACTIVE_REQUIRED = ("supported_modalities", "required_inputs", "outputs")
+
+
+def _normalized_condition_set(values: Any) -> set[str]:
+    """Case/space-insensitive set of the non-blank string entries in ``values``."""
+    if not isinstance(values, list):
+        return set()
+    return {item.strip().lower() for item in values if isinstance(item, str) and item.strip()}
+
+
+def validate_method_contract(contract: dict[str, Any]) -> list[str]:
+    """Validate a standalone MethodContract's scientific boundary (REQ-OBJ-08).
+
+    Stable identity (``method_id`` / ``method_name`` / ``version``) is mandatory
+    and may not be blank; ``method_id`` must be a well-formed identifier.  The
+    claim capability and ceiling must be valid claim levels and the capability may
+    never exceed the ceiling.  Every list fact must hold distinct, non-blank
+    strings — a duplicated requirement is rejected.  An *active* contract must
+    positively record its applicability and output facts (supported modality,
+    required inputs, outputs).  A condition listed as both applicable and
+    forbidden is contradictory and rejected.  The contract only describes a
+    boundary; it never selects, executes or authorises a method.
+    """
+    errors = validate_required_fields(contract, ["schema_version", "method_id", "method_name", "version"])
+    errors += common.validate_identifier(contract.get("method_id", ""), "method_id")
+
+    for level_field in ("claim_capability", "claim_ceiling"):
+        value = contract.get(level_field)
+        if value is not None and value not in CLAIM_LEVELS:
+            errors.append(f"{level_field}: must be one of {', '.join(CLAIM_LEVELS)}")
+    capability = contract.get("claim_capability")
+    ceiling = contract.get("claim_ceiling")
+    if capability in CLAIM_LEVELS and ceiling in CLAIM_LEVELS and CLAIM_LEVELS.index(capability) > CLAIM_LEVELS.index(ceiling):
+        errors.append(f"claim_capability {capability} exceeds claim_ceiling {ceiling}; a method may not claim above its ceiling")
+
+    for list_field in _METHOD_CONTRACT_LIST_FIELDS:
+        value = contract.get(list_field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append(f"{list_field}: expected a list")
+            continue
+        if any((not isinstance(item, str)) or not item.strip() for item in value):
+            errors.append(f"{list_field}: entries must be non-empty strings (a blank fact is not a fact)")
+        normalized = [item.strip() for item in value if isinstance(item, str)]
+        if len(set(normalized)) != len(normalized):
+            errors.append(f"{list_field}: duplicate requirement entries are not allowed")
+
+    if contract.get("status", "active") == "active":
+        for required_list in _METHOD_CONTRACT_ACTIVE_REQUIRED:
+            if not _has_nonblank_entry(contract.get(required_list)):
+                errors.append(f"{required_list}: an active method contract must record at least one explicit fact")
+
+    overlap = _normalized_condition_set(contract.get("applicable_conditions")) & _normalized_condition_set(contract.get("forbidden_conditions"))
+    if overlap:
+        errors.append(f"contradictory conditions: {sorted(overlap)} listed as both applicable and forbidden")
+    return errors
+
+
+def validate_compatibility_decision(decision: dict[str, Any]) -> list[str]:
+    """Validate a method<->dataset<->sub-question compatibility verdict (REQ-OBJ-09).
+
+    The verdict must bind its method contract and dataset and use a value from
+    :data:`COMPATIBILITY_DECISIONS`, and must always record at least one non-blank
+    reason — a bare boolean never stands alone.  An *accepted* verdict
+    (compatible / conditionally_compatible) additionally needs the sub-question and
+    evidence-plan bindings it was decided against and the dataset facts it checked;
+    a conditional verdict records a conservative claim ceiling.  A *negative*
+    verdict (incompatible / insufficient_information) must keep its blocking facts
+    or gaps instead of pretending compatibility, and an insufficient verdict
+    records a conservative ceiling.  The decision never carries execution /
+    locking / evidence / claim-raising authority — those flags are rejected if set.
+    """
+    errors = validate_required_fields(decision, ["schema_version", "dataset_id", "method_contract_id", "decision"])
+    errors += common.validate_identifier(decision.get("method_contract_id", ""), "method_contract_id")
+    errors += common.validate_identifier(decision.get("dataset_id", ""), "dataset_id")
+
+    verdict = decision.get("decision")
+    if verdict not in COMPATIBILITY_DECISIONS:
+        errors.append(f"decision: must be one of {', '.join(COMPATIBILITY_DECISIONS)}")
+
+    # The legacy ``compatible`` boolean and the hardened bounded ``decision`` may
+    # not contradict each other.  When both are present, the boolean must agree
+    # with the verdict — an accepted verdict (compatible / conditionally_compatible)
+    # means compatible, a negative verdict (incompatible / insufficient_information)
+    # means not compatible — so the same object can never express opposite results
+    # to consumers that read one field versus the other.  When ``decision`` is
+    # absent it is derived from ``compatible`` (see ``CompatibilityDecision.to_dict``)
+    # and is consistent by construction, so nothing here rejects the legacy form.
+    compatible = decision.get("compatible")
+    if isinstance(compatible, bool) and verdict in COMPATIBILITY_DECISIONS:
+        if compatible != (verdict in COMPATIBILITY_ACCEPTED_DECISIONS):
+            errors.append(f"compatible: the legacy boolean contradicts the hardened decision (compatible={compatible} with decision={verdict!r})")
+
+    for list_field in ("reasons", "checked_facts", "blocking_facts", "missing_facts"):
+        if list_field in decision and not isinstance(decision.get(list_field), list):
+            errors.append(f"{list_field}: expected a list")
+
+    # The decision observes compatibility; it confers no authority on its own.  Any
+    # truthy value (not just the literal ``True``) is an attempt to assert authority
+    # and is rejected; explicit false / absent flags stay valid.
+    for flag in ("authorizes_execution", "locks_dataset", "creates_evidence", "raises_claim_level"):
+        if decision.get(flag):
+            errors.append(f"{flag}: a compatibility decision confers no such authority and may not assert a truthy {flag}")
+
+    ceiling = decision.get("imposed_claim_ceiling")
+    has_ceiling = ceiling in CLAIM_LEVELS
+    if ceiling not in (None, "") and not has_ceiling:
+        errors.append(f"imposed_claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+
+    # Every verdict must record an honest, non-blank reason — no bare boolean.
+    if not _has_nonblank_entry(decision.get("reasons")):
+        errors.append("reasons: a compatibility decision must record at least one explicit, non-blank reason")
+
+    if verdict in COMPATIBILITY_ACCEPTED_DECISIONS:
+        for binding in ("subquestion_id", "evidence_plan_id"):
+            bound = str(decision.get(binding, "") or "").strip()
+            if not bound:
+                errors.append(f"{binding}: an accepted compatibility decision must bind the {binding}")
+            else:
+                errors += common.validate_identifier(bound, binding)
+        if not _has_nonblank_entry(decision.get("checked_facts")):
+            errors.append("checked_facts: a compatible/conditionally-compatible decision must record the dataset facts it checked")
+        if verdict == "conditionally_compatible" and not has_ceiling:
+            errors.append("imposed_claim_ceiling: a conditional compatibility decision must record a conservative claim ceiling")
+    elif verdict in COMPATIBILITY_DECISIONS:
+        if not (_has_nonblank_entry(decision.get("blocking_facts")) or _has_nonblank_entry(decision.get("missing_facts"))):
+            errors.append("an incompatible/insufficient decision must record the blocking facts or gaps behind it")
+        if verdict == "insufficient_information" and not has_ceiling:
             errors.append("imposed_claim_ceiling: an insufficient decision must record a conservative claim ceiling")
     return errors
