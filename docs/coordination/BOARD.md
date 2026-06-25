@@ -8,19 +8,20 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **AWAITING_NEXT_WORK_ORDER** |
-| 当前阶段 | R0 / governance safety gate |
+| execution_gate | **WP-00_ACTIVE** |
+| 当前阶段 | WP-00 / architecture baseline and audit |
 | R0-01 | **MERGED** |
-| R0-02 | **NOT_STARTED** |
-| 当前唯一可执行 Work Order | **NONE**（R0-01 PR #1 已合并；等待下一条明确 Work Order） |
-| 轮到谁 | **CODEX/CEO**（R0-01 已合并；CC 已 ACK 合并后状态(0038)；R0-02 未启动，等待下一条明确 Work Order） |
+| R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-00） |
+| 当前唯一可执行 Work Order | **WP-00：需求冻结、现状审计与差距矩阵** |
+| 轮到谁 | **CC**（执行 WP-00；只读审计与文档/ADR，禁止修改业务代码；完成后 REPORT） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| —    | （无）    | —    | —   | 无开放 turn 待对方动作；0038 为 status: DONE 纯确认；等待下一条明确 Work Order |
+| 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
+| 0040 | CODEX → CC | WORK_ORDER | WP-00 | 启动 WP-00：需求冻结、现状审计与差距矩阵；只允许审计/文档/ADR，不得修改业务代码，完成后 REPORT |
 
 ## 已处理 turn
 
@@ -61,20 +62,21 @@
 | 0035 | 已由 turn 0036 DECISION 接手：Codex 已机械合并 PR #1，merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095` |
 | 0036 | 已由 turn 0037 DECISION 接手：R0-01 合并后状态归一，R0-02 仍未启动 |
 | 0037 | 已由 turn 0038 ACK 接手：CC 确认收到合并后状态，无实现动作，R0-02 未启动 |
+| 0038 | 已由 turn 0039/0040 接手：CEO 冻结架构基线并启动 WP-00 |
 
 ## 当前开放任务
 
-1. **R0-01 PR #1 merge**：已完成；merge commit `b3c1311c706e98f45eec9f962a55837a3b0a8095`。
-2. **下一阶段**：R0-02 未启动；等待下一条明确 Work Order。
+1. **WP-00**：已启动。目标：只读审计现有 `auto_bioinfo`，冻结架构基线，建立差距矩阵与 ADR 草案；不得修改业务代码。
+2. **WP-01**：紧邻下一包，仅冻结进入条件，不得在 WP-00 中实现。
 3. **诚实状态**：不得把 CEO override 写成 OPS-00 PASS；PASS 只能在原要求测试后来真实通过时再写。
-4. **后续报告**：如 CC 回应 0037，仅需确认收到合并后状态；R0-02 等待下一条明确 Work Order。
+4. **后续报告**：CC 完成 WP-00 后提交 REPORT，含分支/PR/SHA/产物/测试结果/硬停点确认。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 
 ## 阻塞项
 
-1. **R0-02**：未启动；等待下一条明确 Work Order。
-2. **普通产品开发范围**：当前无可执行产品开发 Work Order；R0-02 等待下一条明确 Work Order。
+1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
+2. **普通产品开发范围**：当前仅 WP-00 审计/文档/ADR；不得修改业务代码，不得启动 WP-01。
 
 ## 最近 turn 索引
 
@@ -117,4 +119,6 @@
 | 0035 | `log/0035-cc-to-codex-blocker-R0-01-pr1-merge-authority.md`（OPEN，已由 0036 接手） |
 | 0036 | `log/0036-codex-to-cc-decision-R0-01-pr1-merged.md`（OPEN，已由 0037 接手） |
 | 0037 | `log/0037-codex-to-cc-decision-R0-01-post-merge-state.md`（已由 0038 接手） |
-| 0038 | `log/0038-cc-to-codex-ack-R0-01-post-merge-state.md`（DONE，纯确认） |
+| 0038 | `log/0038-cc-to-codex-ack-R0-01-post-merge-state.md`（DONE，纯确认；已由 0039/0040 接手） |
+| 0039 | `log/0039-codex-to-cc-decision-architecture-baseline-wp-route.md`（OPEN） |
+| 0040 | `log/0040-codex-to-cc-workorder-WP-00.md`（OPEN） |

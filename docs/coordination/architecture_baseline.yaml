@@ -1,0 +1,86 @@
+schema_version: 1
+status: CONFIRMED
+confirmed_by: CEO
+confirmed_date: 2026-06-25
+coordination_turn: "0039"
+source_plan: "自动生信系统_超细颗粒度架构落地实施计划_v1.0.md"
+
+decisions:
+  D-01:
+    topic: "greenfield_vs_existing_repo"
+    value: "read_only_audit_existing_auto_bioinfo_first_then_decide_reuse_vs_rebuild"
+    note: "禁止把已有可复用部分推倒重写。"
+  D-02:
+    topic: "first_real_topic_and_data_source"
+    value: "public_GEO_first_no_hardcoded_disease"
+    note: "具体课题在进入 R2/WP-08 前由 CEO 最终点名。"
+  D-03:
+    topic: "deployment_target"
+    value: "local_docker_compose_with_HPC_adapter_interface_reserved"
+  D-04:
+    topic: "automation_level"
+    value: "A1"
+  D-05:
+    topic: "LLM_and_network_policy"
+    value: "provider_agnostic_only_public_non_sensitive_information_may_leave_boundary"
+  D-06:
+    topic: "primary_workflow_adapter"
+    value: "Nextflow_first_adapter"
+
+route:
+  strict_order:
+    - WP-00
+    - WP-01
+    - WP-02
+    - WP-03
+    - WP-04
+    - WP-05
+    - WP-06
+    - WP-07
+    - WP-08
+    - WP-09
+    - WP-10
+    - WP-11
+    - WP-12
+    - WP-13
+    - WP-14
+    - WP-15
+    - WP-16
+    - WP-18
+    - WP-19
+    - WP-20
+    - WP-21
+    - WP-22
+    - WP-26
+    - WP-27
+  parallel_notes:
+    - "WP-17 may run after WP-15 when MethodContract foundation exists."
+    - "WP-23 and WP-24 may start early but must complete before WP-26."
+    - "WP-25 is continuous from WP-03."
+  freeze_policy: "Only current WP and immediately adjacent next WP are detailed-frozen at any time."
+
+delegated_merge_authorization:
+  status: ACTIVE
+  rule: "Codex may mechanically merge a WP when independent review passes, CC full tests are green, and no hard stop is touched."
+  hard_stops:
+    - "First use of any real human-derived data before R2/WP-08 dataset lock."
+    - "Sending any data/content to external LLM or external service."
+    - "Enabling any paid service."
+    - "Public deployment, public publication, or automatic release."
+    - "Destructive migration or irreversible deletion."
+    - "Expansion of robot credential permissions."
+  never_allowed:
+    - "force push"
+    - "ruleset or secret changes without explicit CEO approval"
+    - "writing token/private key into turn, repository, or logs"
+
+current_work_package:
+  id: WP-00
+  title: "需求冻结、现状审计与差距矩阵"
+  mode: "audit_and_documentation_only"
+  business_code_changes_allowed: false
+  next_adjacent_wp:
+    id: WP-01
+    title: "仓库骨架、开发环境与质量门"
+    status: "not_started"
+    entry_condition: "WP-00 accepted; directory structure and compatibility strategy confirmed."
