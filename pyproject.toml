@@ -9,13 +9,24 @@ description = "Automated bioinformatics closed-loop core (lightweight, offline, 
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
+# Runtime dependency group (WP-01a / T-01-02): the only thing the production
+# closed-loop needs at run time is numpy. Heavier infrastructure (DB, object
+# store, workflow engine, LLM) stays behind reserved ports and is NOT a runtime
+# dependency at this stage.
 dependencies = [
     "numpy>=1.24",
 ]
 
+# Additive dependency groups (WP-01a / T-01-02). Runtime = [project.dependencies]
+# above; `test` = test runners only; `dev` = `test` plus lint/type tooling.
+# `dev` references `test` so `pip install .[dev]` keeps installing the test deps
+# (the held ci/ci.yml workflow installs `.[dev]`).
 [project.optional-dependencies]
-dev = [
+test = [
     "pytest>=7",
+]
+dev = [
+    "auto-bioinfo[test]",
     "ruff>=0.4",
     "mypy>=1.8",
 ]
