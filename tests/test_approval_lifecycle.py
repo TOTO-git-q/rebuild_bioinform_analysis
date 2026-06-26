@@ -133,11 +133,13 @@ class DecideTest(unittest.TestCase):
             approve(record, decided_by=HUMAN, current_version=5)
         self.assertEqual(ctx.exception.code, CODE_STALE_VERSION)
 
-    def test_reject_superseded_version_is_allowed(self):
-        # Rejecting an old draft is fine; only *approving* a superseded version fails.
+    def test_reject_superseded_version_is_stale(self):
+        # A reject decision still binds an exact target object/version, so
+        # deciding a superseded version must fail closed exactly like approve.
         record = create_approval_request(_request(subject_version=2))
-        decided = reject(record, decided_by=HUMAN, current_version=5)
-        self.assertEqual(decided.state, "rejected")
+        with self.assertRaises(ApprovalLifecycleError) as ctx:
+            reject(record, decided_by=HUMAN, current_version=5)
+        self.assertEqual(ctx.exception.code, CODE_STALE_VERSION)
 
     def test_duplicate_decision_fails_closed(self):
         record = create_approval_request(_request())

@@ -327,10 +327,12 @@ def decide(
 
     Produces an :class:`ApprovalDecision` bound to the same request id and the
     exact subject/version under review, validated against the originating request
-    (and, when ``current_version`` is supplied, against version staleness — an
-    *approved* decision over a superseded version fails closed).  Fails closed on
-    a terminal request (a duplicate decision yields :data:`CODE_DUPLICATE_DECISION`),
-    an unknown decision verb, a subject mismatch, or a stale version.
+    (and, when ``current_version`` is supplied, against version staleness — *any*
+    decision, approve or reject, over a superseded version fails closed: a
+    decision is bound to an exact target object/version and must never silently
+    decide a stale one).  Fails closed on a terminal request (a duplicate
+    decision yields :data:`CODE_DUPLICATE_DECISION`), an unknown decision verb, a
+    subject mismatch, or a stale version.
     """
     if record.decision is not None or record.state in _DECISION_TO_STATE.values():
         raise ApprovalLifecycleError(
@@ -346,6 +348,18 @@ def decide(
         )
 
     req = record.request
+
+    # Fail closed on a stale (superseded) target version for *every* decision
+    # verb.  The shared core validator only rejects a stale *approved* decision;
+    # a reject decision still binds an exact target object/version, so deciding a
+    # superseded version (approve or reject) must never silently succeed.
+    if current_version is not None:
+        subject_version = req.get("subject_version")
+        if isinstance(subject_version, int) and not isinstance(subject_version, bool) and subject_version != current_version:
+            raise ApprovalLifecycleError(
+                f"cannot {decision} superseded subject_version {subject_version} (current is {current_version}); a decision binds an exact target version",
+                code=CODE_STALE_VERSION,
+            )
     built = ApprovalDecision(
         approval_request_id=req.get("approval_request_id", ""),
         project_id=req.get("project_id", ""),
