@@ -13,7 +13,10 @@ WP-04e adds the local ApprovalRequest lifecycle (:func:`create_approval_request`
 :func:`cancel`, :func:`expire`, :func:`decide`).  WP-04f adds the pure, local
 A0–A3 admission gate evaluator (:func:`evaluate_gate`) that reads a project's
 policy and an optional approval record as data and returns a bounded,
-reason-coded :class:`GateDecision`.
+reason-coded :class:`GateDecision`.  WP-04g adds the pure, local command API
+idempotency / optimistic-concurrency contract (:func:`evaluate_command_request`)
+that decides — without any I/O or HTTP surface — whether a mutating command may
+be applied, replayed, or fails closed on a key conflict or stale version.
 """
 
 from __future__ import annotations
@@ -28,6 +31,16 @@ from .approval_lifecycle import (
     expire,
     is_due,
     reject,
+)
+from .command_api import (
+    CommandApiResult,
+    CommandRecord,
+    CommandRequest,
+    ParsedHeaders,
+    command_fingerprint,
+    evaluate_command_request,
+    parse_command_headers,
+    record_for,
 )
 from .create_project import (
     CreateProjectCommand,
@@ -76,6 +89,14 @@ __all__ = [
     "GateDecision",
     "GateEvaluationInput",
     "evaluate_gate",
+    "CommandApiResult",
+    "CommandRecord",
+    "CommandRequest",
+    "ParsedHeaders",
+    "command_fingerprint",
+    "evaluate_command_request",
+    "parse_command_headers",
+    "record_for",
     "CreateProjectCommand",
     "CreateProjectConflict",
     "CreateProjectError",
