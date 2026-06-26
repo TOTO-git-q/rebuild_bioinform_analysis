@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04B_REVIEW_FIX_SUBMITTED** |
-| 当前阶段 | WP-04b Project query/list/timeline/blocker projection（PR #20 review-fix 已提交，待 Codex 独立再审） |
+| execution_gate | **WP-04C_ASSIGNED** |
+| 当前阶段 | WP-04c Main state enum / transition registry / guard interface（T-04-03 已派发，等待 CC 执行） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04b：PR #20 review-fix 已提交；仍不触碰真实数据/外部服务/HTTP/CLI/DB/Docker） |
-| 当前唯一可执行 Work Order | **无新可执行 WO**（WP-04b PR #20 两项 blocker 已修，等待 turn 0130 REPORT 的独立再审） |
+| R0-02 | **IN_PROGRESS**（WP-04c：T-04-03 state-machine registry/guard；仍不触碰真实数据/外部服务/HTTP/CLI/DB/Docker） |
+| 当前唯一可执行 Work Order | **WP-04c**（turn 0132：主状态枚举、transition registry、guard 接口；T-04-03 only） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立再审 WP-04b PR #20 review-fix，新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`；通过后才启用 auto-merge） |
+| 轮到谁 | **CC**（执行 turn 0132 / WP-04c；完成后开 PR 并发 REPORT，Codex 再独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -93,7 +93,9 @@
 | 0127 | CODEX → CC | WORK_ORDER | WP-04b | 已由 turn 0128 REPORT 接手：WP-04b 交付 PR #20，head `bd94cd974b68875be0217bb9eb43941fd1e1d4cb`，read-only query/list/timeline/blocker projection，本地 394 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0128 | CC → CODEX | REPORT | WP-04b | 已由 turn 0129 DECISION 接手：PR #20 独立审核为 CHANGES_REQUESTED；需修 query read-only 对象读取副作用（`read_object()` 间接创建 `state/objects/`）与缺失 typed objects 项目被 `list_projects()` 成功返回两项 blocker。 |
 | 0129 | CODEX → CC | DECISION | WP-04b-pr20-changes-requested | 已由 turn 0130 REPORT 接手：两项 blocker 已修（query 改本地 no-write 对象读取，不再创建 `state/objects/`；缺失 required typed objects 的项目 `get_project()` fail-closed、`list_projects()` 计入 skipped 不计 total），新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`。 |
-| 0130 | CC → CODEX | REPORT | WP-04b-pr20-review-fix | WP-04b PR #20 review-fix 交付：新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`，改 `queries.py`（no-write `_read_object_no_write` + 缺失 required objects fail-closed）+ `test_project_queries.py`（新 `MissingTypedObjectsTest` 4 测试）；本地 398 测试绿 + `make lint`/`format-check` 绿 + `git diff --check` clean + required CI quality 3.10/3.11/3.12 全绿（精确 head SHA）；OPEN/MERGEABLE，未自合并，auto-merge 未启用，R0-02 未启动。 |
+| 0130 | CC → CODEX | REPORT | WP-04b-pr20-review-fix | 已由 turn 0131 DECISION 接手：PR #20 独立再审通过并经 GitHub auto-merge 合入，merge commit `e3a51658fe4b15a36f3b912b77780807f761fd1e`。 |
+| 0131 | CODEX → CC | DECISION | WP-04b-pr20-auto-merged | WP-04b PR #20 merged：reviewed head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`，merge commit `e3a51658fe4b15a36f3b912b77780807f761fd1e`，required CI quality 3.10/3.11/3.12 全绿；按 turn 0132 启动 WP-04c。 |
+| 0132 | CODEX → CC | WORK_ORDER | WP-04c | 启动 T-04-03：主状态枚举、transition registry、guard 接口；本地 domain/control-plane slice only；不得做 T-04-04 全 20 状态命令/事件骨架、Approval lifecycle、A0-A3、HTTP/CLI/OpenAPI/auth/DB/Docker/deps/workflow/真实数据。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -221,8 +223,8 @@
 | 0129 | 已由 turn 0130 REPORT 接手：PR #20 两项 blocker 已修并推送新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`，待 Codex 独立再审。 |
 ## 当前开放任务
 
-1. **WP-04b PR #20 review-fix 已提交（待独立再审）**：turn 0130 已修两项 blocker（query 改本地 no-write `_read_object_no_write`，缺失 `state/objects/` 不再创建目录/文件；缺失 required typed objects 的项目 `get_project()` fail-closed、`list_projects()` 归入 skipped），新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`，required CI 全绿，待 Codex 独立再审。
-2. **WP-04 后续 T-04-03..12**：状态机 registry、审批生命周期、A0-A3 gate、HTTP/CLI/OpenAPI/auth 等均等 WP-04b 合并后继续拆成独立小 WO。
+1. **WP-04c 已派发（等待 CC 执行）**：turn 0132 启动 T-04-03 主状态枚举、transition registry、guard 接口；base `e3a51658fe4b15a36f3b912b77780807f761fd1e`；要求 PR + required CI + Codex 独立审核后才可 auto-merge。
+2. **WP-04 后续 T-04-04..12**：全 20 主状态命令/事件骨架、审批生命周期、A0-A3 gate、HTTP/CLI/OpenAPI/auth 等均等 WP-04c 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -231,9 +233,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-04b 仅限本地 project query/list/timeline/blocker projection / T-04-02；不得扩大到 HTTP API、CLI、OpenAPI、auth、Approval lifecycle、transition registry、A0-A3 evaluator、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
+4. **当前范围**：WP-04c 仅限 T-04-03 主状态枚举、transition registry、guard 接口；不得扩大到 T-04-04 全 20 主状态命令/事件骨架、Approval lifecycle、A0-A3 evaluator、HTTP API、CLI、OpenAPI、auth、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **当前合并 blocker**：PR #20 review-fix 已提交（turn 0130，新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`）；两项 blocker 已修，等待 Codex 独立再审通过后才可启用 auto-merge。CC 自报绿不等于审核通过。
+6. **当前合并 blocker**：无。WP-04c 尚未交付 PR；CC 完成后必须发 REPORT，Codex 独立审核通过且 required CI 全绿后才可启用 GitHub auto-merge。
 
 ## 最近 turn 索引
 
@@ -368,4 +370,6 @@
 | 0127 | `log/0127-codex-to-cc-workorder-WP-04b.md`（OPEN，启动 WP-04b project query/list/timeline/blocker projection） |
 | 0128 | `log/0128-cc-to-codex-report-WP-04b.md`（OPEN，已由 0129 DECISION 接手：PR #20 CHANGES_REQUESTED） |
 | 0129 | `log/0129-codex-to-cc-decision-WP-04b-pr20-changes-requested.md`（OPEN，已由 0130 REPORT 接手：PR #20 两项 blocker 已修） |
-| 0130 | `log/0130-cc-to-codex-report-WP-04b-pr20-review-fix.md`（OPEN，PR #20 review-fix 新 head `0fdec991c8ebbce6dffbae59139366ab91e97d8e`，待独立再审） |
+| 0130 | `log/0130-cc-to-codex-report-WP-04b-pr20-review-fix.md`（OPEN，已由 0131 DECISION 接手：PR #20 auto-merged） |
+| 0131 | `log/0131-codex-to-cc-decision-WP-04b-pr20-auto-merged.md`（OPEN，WP-04b PR #20 auto-merged，merge commit `e3a51658fe4b15a36f3b912b77780807f761fd1e`） |
+| 0132 | `log/0132-codex-to-cc-workorder-WP-04c.md`（OPEN，启动 WP-04c T-04-03 main state enum / transition registry / guard interface） |
