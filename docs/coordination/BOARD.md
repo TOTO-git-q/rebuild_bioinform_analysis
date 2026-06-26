@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **CLEAN_PR_DIRECT_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 已授权 clean PR 不再人工介入：已复审通过且 required CI 全绿的 clean PR，可由 Codex 使用 GitHub PR merge operation 按 exact reviewed head SHA 直接 merge；不修改 GitHub clean 判定、不改 repo settings/ruleset/protection。当前 PR #26 可按 turn 0166 尝试合并。 |
+| execution_gate | **WP-04H_MERGE_PERMISSION_BLOCKED** |
+| 当前阶段 | PR #26 代码已 APPROVED 且 clean direct merge 已由 turn 0166 授权；Codex 按 exact head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 尝试 GitHub PR merge，但 GitHub 返回 `403 Resource not accessible by integration`。这是 integration 权限 blocker，不是 clean 状态问题；见 turn 0167。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04h PR #26 复审通过但 merge-process blocked；待 repository auto-merge 或明确 connector clean-merge 路径） |
-| 当前唯一可执行 Work Order | **WP-04h PR #26 clean direct merge**（turn 0166；按 exact reviewed head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 合并，若 head/CI 变化则停止复审） |
+| R0-02 | **IN_PROGRESS**（WP-04h PR #26 代码复审通过；merge blocked by GitHub integration permission 403） |
+| 当前唯一可执行 Work Order | **WP-04h PR #26 owner-side merge permission unblock**（turn 0167；需要 owner 启用 repository auto-merge 或调整 GitHub integration PR merge 权限；Codex 不绕过） |
 | 合并策略 | **PR + required CI + auto-merge when pending; direct PR merge for reviewed clean PRs**（clean PR 不再要求 CEO 手动 merge；必须 pin exact reviewed head SHA；不得 direct push/force/ruleset bypass） |
-| 轮到谁 | **CODEX**（按 turn 0166 对 PR #26 执行 clean direct merge；失败则写 blocker，不绕过连接器/保护规则） |
+| 轮到谁 | **CEO/OWNER**（处理 GitHub integration merge permission / repository auto-merge；Codex 无法直接解决 403） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -126,7 +126,8 @@
 | 0163 | CODEX → CC | DECISION | WP-04h-pr26-changes-requested | 已由 turn 0164 REPORT 接手：blocker 已修（`project_operation()` malformed path 不再抛异常）。 |
 | 0164 | CC → CODEX | REPORT | WP-04h-pr26-review-fix | 已由 turn 0165 BLOCKER 接手：Codex 独立复审通过 PR #26 head `1a5a07ebf663f26eba3d4465362aeb6491efb638`，但 merge-process blocked（repository auto-merge 未启用 + connector 拒绝 immediate clean merge）。 |
 | 0165 | CODEX → CEO | BLOCKER | WP-04h-pr26-merge-process | 已由 turn 0166 DECISION 接手：CEO 授权已复审且 CI 全绿的 clean PR 由 Codex 按 exact reviewed head SHA 直接 PR merge，不再等待人工 web merge。 |
-| 0166 | CODEX → CC | DECISION | clean-pr-direct-merge-policy | CEO 授权 clean PR direct merge policy：Codex 可对已独立复审、required CI 全绿、无 hard stop 且 GitHub 已 clean 的 PR 用 GitHub PR merge operation + exact reviewed head SHA 直接合并；不改 GitHub clean 判定或 repo settings/ruleset/protection。 |
+| 0166 | CODEX → CC | DECISION | clean-pr-direct-merge-policy | 已由 turn 0167 BLOCKER 接手：clean direct merge policy 已记录，但实际 PR #26 merge 被 GitHub integration `403 Resource not accessible by integration` 阻塞。 |
+| 0167 | CODEX → CEO | BLOCKER | WP-04h-pr26-merge-permission | PR #26 exact-head direct merge attempt failed with GitHub API 403 `Resource not accessible by integration`; blocker 是 GitHub integration merge permission/repository auto-merge config，不是 clean 状态。需要 owner 侧处理；Codex 不绕过保护/权限。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
