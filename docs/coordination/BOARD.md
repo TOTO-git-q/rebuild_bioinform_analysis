@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04F_FIX_SUBMITTED** |
-| 当前阶段 | WP-04f A0-A3 gate evaluator foundation（PR #24 已修 granted approval binding blocker，新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502`，待 Codex 独立复核） |
+| execution_gate | **WP-04F_AUTO_MERGE_BLOCKED** |
+| 当前阶段 | WP-04f A0-A3 gate evaluator foundation（PR #24 独立审核 APPROVED，但仓库级 auto-merge disabled，无法按 turn 0063 合并） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04f：PR #24 granted approval binding 已 fail-closed 修复，待复核；仍不触碰真实数据/外部服务/HTTP/CLI/DB/Docker） |
-| 当前唯一可执行 Work Order | **WP-04f review-fix 已交付**（turn 0150：granted approval exact-binding fail-closed；待 Codex 独立审核新 head） |
+| R0-02 | **IN_PROGRESS**（WP-04f：PR #24 approved but unmerged，等待 owner 启用 repository auto-merge 或 coordination 更新合并授权） |
+| 当前唯一可执行 Work Order | **WP-04f auto-merge blocker**（turn 0151：PR #24 approved；仓库级 auto-merge disabled，不能直接合并） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立审核 PR #24 新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502`） |
+| 轮到谁 | **CEO**（启用 GitHub repository auto-merge，或在 coordination 明确更新合并策略/授权） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -242,7 +242,7 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04f PR #24 待 Codex 独立审核新 head**（turn 0150）：granted approval binding blocker 已修，现要求完整 `approval_request_id` + request/decision exact binding，伪造/不完整 approval fail-closed；新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502`。
+1. **WP-04f PR #24 已审核通过但未合并**（turn 0151）：新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502` 通过 Codex 独立审核与 required CI；GitHub 拒绝 PR auto-merge，因为仓库级 auto-merge disabled。等待 owner 启用 repository auto-merge 或更新 coordination 合并授权。
 2. **WP-04 后续 T-04-07..12**：HTTP/CLI/OpenAPI/auth 等均等 WP-04f 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -254,7 +254,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：WP-04f 仅限 T-04-06 A0-A3 gate evaluator foundation（纯本地、显式输入、确定性 gate decision）；不得扩大到 HTTP API、CLI、OpenAPI、auth、实际 command execution/idempotency/concurrency、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **当前合并 blocker**：PR #24 head `e37e70fe95a18a3bf444d3270f6ba68c8a189d52` 未通过独立审核；缺失 `approval_request_id` 或 request/decision binding 不完整的 granted approval 可 pass，必须 fail-closed。
+6. **当前合并 blocker**：PR #24 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502` 已通过独立审核和 required CI，但 GitHub 返回 repository auto-merge disabled；Codex 不得直接合并受保护 base。
 
 ## 最近 turn 索引
 
@@ -409,4 +409,5 @@
 | 0147 | `log/0147-codex-to-cc-workorder-WP-04f.md`（OPEN，已由 0148 REPORT 接手：WP-04f 交付 PR #24） |
 | 0148 | `log/0148-cc-to-codex-report-WP-04f.md`（OPEN，已由 0149 DECISION 接手：PR #24 CHANGES_REQUESTED） |
 | 0149 | `log/0149-codex-to-cc-decision-WP-04f-pr24-changes-requested.md`（OPEN，已由 0150 REPORT 接手：blocker 已修复） |
-| 0150 | `log/0150-cc-to-codex-report-WP-04f-pr24-fix.md`（OPEN，PR #24 granted approval binding fail-closed 修复，待 Codex 独立审核新 head） |
+| 0150 | `log/0150-cc-to-codex-report-WP-04f-pr24-fix.md`（OPEN，已由 0151 BLOCKER 接手：PR #24 approved but repository auto-merge disabled） |
+| 0151 | `log/0151-codex-to-ceo-blocker-WP-04f-pr24-auto-merge-disabled.md`（OPEN，PR #24 approved；等待 owner 启用 repository auto-merge 或更新合并授权） |
