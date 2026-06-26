@@ -4,7 +4,9 @@ import unittest
 from pathlib import Path
 
 from auto_bioinfo.core import state, store
+from auto_bioinfo.core.events import build_event
 from auto_bioinfo.core.store import (
+    append_event,
     init_project_state,
     load_events,
     load_project_state,
@@ -114,6 +116,92 @@ class ProjectionRebuildTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "proj"
             (p / "state").mkdir(parents=True)
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
+    def test_rebuild_state_rejects_invalid_first_event(self):
+        # A log whose first record is not the canonical initialization event
+        # cannot seed a projection — replay must fail closed, not guess.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            self._advance(p)
+            events_path = p / "state" / "events.jsonl"
+            lines = events_path.read_text(encoding="utf-8").splitlines()
+            forged_first = json.loads(lines[0])
+            forged_first["event_type"] = "SOMETHING_ELSE"
+            lines[0] = json.dumps(forged_first)
+            events_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
+    def test_rebuild_state_rejects_unknown_later_next_stage(self):
+        # Structurally complete later event with an unknown next_stage must be
+        # rejected rather than projected verbatim into current_stage/history.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            forged = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="NOT_A_STAGE",
+                message="forged",
+            )
+            append_event(p, forged)
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
+    def test_rebuild_state_rejects_illegal_transition(self):
+        # A later event naming a known but illegal target stage (skipping the
+        # linear sequence) must be rejected by the shared transition guard.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            forged = build_event(
+                project_id=p.name,
+                event_type="JUMP_AHEAD",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="REPORT_READY",
+                message="forged",
+            )
+            append_event(p, forged)
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
+    def test_rebuild_state_rejects_foreign_project_event(self):
+        # A later event from a different project_id is a tampered log.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            forged = build_event(
+                project_id="other-project",
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                message="forged",
+            )
+            append_event(p, forged)
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
+    def test_rebuild_state_rejects_previous_stage_mismatch(self):
+        # A later event whose previous_stage does not match the projection's
+        # current stage indicates a gap/reorder in the log and must fail closed.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            forged = build_event(
+                project_id=p.name,
+                event_type="SCOPE_RESOLVED",
+                actor="actor",
+                previous_stage="QUESTION_RESOLVED",
+                next_stage="SCOPE_RESOLVED",
+                message="forged",
+            )
+            append_event(p, forged)
             with self.assertRaises(ValueError):
                 rebuild_state(p)
 

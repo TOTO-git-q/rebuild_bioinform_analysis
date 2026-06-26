@@ -7,6 +7,12 @@ from typing import Any
 from .events import build_event
 from .state import STAGES, TERMINAL_STAGES, allowed_next_stages, build_initial_state, with_stage
 
+# The event log is only trustworthy if its first record is the canonical project
+# initialization event; replay is anchored to this type so a forged/corrupt log
+# cannot seed an arbitrary projection.
+PROJECT_INITIALIZED_EVENT = "PROJECT_STATE_INITIALIZED"
+LEGACY_MIGRATION_EVENT = "LEGACY_PROJECT_MIGRATED"
+
 
 def _v5_dir(project_dir: str | Path) -> Path:
     path = Path(project_dir) / "state"
@@ -136,22 +142,54 @@ def rebuild_state(project_dir: str | Path) -> dict[str, Any]:
     events = load_events(project_dir)
     if not events:
         raise ValueError(f"cannot rebuild state: empty event log in {_events_path(project_dir)}")
-    init_payload = events[0].get("payload") or {}
+
+    # --- Fail closed on a corrupt/forged log -------------------------------
+    # The first event must be a well-formed initialization event so the
+    # projection can never be seeded from an arbitrary record. Every later
+    # event is validated through the same transition guard used on write, so a
+    # structurally complete but semantically illegal event (wrong project,
+    # unknown stage, illegal edge) is rejected instead of silently applied.
+    init_event = events[0]
+    if init_event.get("event_type") != PROJECT_INITIALIZED_EVENT:
+        raise ValueError(f"corrupt event log: first event must be {PROJECT_INITIALIZED_EVENT}, got {init_event.get('event_type')!r}")
+    if init_event.get("previous_stage") != "":
+        raise ValueError("corrupt event log: initialization event must have empty previous_stage")
+    if init_event.get("next_stage") != "INTAKE":
+        raise ValueError("corrupt event log: initialization event must enter INTAKE")
+    project_id = init_event.get("project_id")
+    if not project_id:
+        raise ValueError("corrupt event log: initialization event missing project_id")
+
+    init_payload = init_event.get("payload") or {}
     rebuilt = build_initial_state(
-        project_id=events[0]["project_id"],
+        project_id=project_id,
         user_question=init_payload.get("user_question", ""),
         execution_mode=init_payload.get("execution_mode", "DEMO"),
         project_policy_ref=init_payload.get("project_policy_ref", ""),
     )
     for event in events[1:]:
         payload = event.get("payload") or {}
-        if event.get("event_type") == "LEGACY_PROJECT_MIGRATED":
+        if event.get("project_id") != project_id:
+            raise ValueError(f"corrupt event log: event project_id {event.get('project_id')!r} does not match {project_id!r}")
+        previous_stage = event.get("previous_stage")
+        if previous_stage != rebuilt["current_stage"]:
+            raise ValueError(f"corrupt event log: event previous_stage {previous_stage!r} does not match current stage {rebuilt['current_stage']!r}")
+        next_stage = event.get("next_stage")
+        if next_stage not in STAGES:
+            raise ValueError(f"corrupt event log: unknown next_stage {next_stage!r}")
+
+        if event.get("event_type") == LEGACY_MIGRATION_EVENT:
+            # A conservative in-place migration never advances the stage.
+            if next_stage != previous_stage:
+                raise ValueError("corrupt event log: legacy migration must not change stage")
             rebuilt["execution_mode"] = payload.get("execution_mode", rebuilt["execution_mode"])
             rebuilt["project_policy_ref"] = payload.get("project_policy_ref", rebuilt["project_policy_ref"])
             rebuilt["migrated_from_legacy"] = True
             continue
-        next_stage = event.get("next_stage")
-        if next_stage and next_stage != rebuilt["current_stage"]:
+
+        if next_stage != previous_stage:
+            # Reuse the single transition guard instead of a parallel machine.
+            validate_transition(previous_stage, next_stage)
             rebuilt = with_stage(rebuilt, next_stage)
     rebuilt["updated_at"] = events[-1]["created_at"]
     return rebuilt
