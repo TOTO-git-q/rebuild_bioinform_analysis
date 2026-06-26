@@ -13,6 +13,10 @@ from .state import STAGES, TERMINAL_STAGES, allowed_next_stages, build_initial_s
 PROJECT_INITIALIZED_EVENT = "PROJECT_STATE_INITIALIZED"
 LEGACY_MIGRATION_EVENT = "LEGACY_PROJECT_MIGRATED"
 
+# Sentinel marking a field present on only one side of a projection comparison
+# (see ``verify_projection``); distinct from a real ``None`` value.
+_ABSENT = object()
+
 
 def _v5_dir(project_dir: str | Path) -> Path:
     path = Path(project_dir) / "state"
@@ -79,6 +83,16 @@ def append_event(project_dir: str | Path, event: dict[str, Any]) -> dict[str, An
     missing = [field for field in required if field not in event]
     if missing:
         raise ValueError(f"event missing required fields: {', '.join(missing)}")
+    # Idempotent append on an explicit ``idempotency_key`` (mirrors the
+    # stable-id dedup in ``execution/runs.py``): a duplicate-key re-append adds
+    # no second log line and deterministically returns the already-recorded
+    # event. Keyless events keep the historical append-always behavior, so the
+    # existing init/transition write paths are unchanged.
+    key = event.get("idempotency_key")
+    if key is not None:
+        for existing in load_events(project_dir):
+            if existing.get("idempotency_key") == key:
+                return existing  # idempotent: already recorded
     path = _events_path(project_dir)
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
@@ -204,6 +218,38 @@ def load_state(project_dir: str | Path) -> dict[str, Any]:
     so a corrupted or stale ``project_state.json`` cannot change the answer.
     """
     return rebuild_state(project_dir)
+
+
+def verify_projection(project_dir: str | Path) -> list[dict[str, Any]]:
+    """Detect drift between the cached snapshot and the event-log projection.
+
+    The ``project_state.json`` snapshot is only a cache of the authoritative log
+    (ADR-0003); this compares it field-by-field against the projection rebuilt
+    from ``events.jsonl`` and returns a precise list of mismatches — each
+    ``{"field", "snapshot", "rebuilt"}`` — so a tampered or stale snapshot is
+    reported with the exact diverging fields. A healthy snapshot returns ``[]``.
+
+    Detection only: this never mutates the snapshot, the log, or repairs drift —
+    callers decide what to do with the report. ``updated_at`` is excluded
+    because the live snapshot legitimately stamps its own wall clock while the
+    rebuilt projection pins it to the last event's ``created_at``.
+    """
+    snapshot = load_project_state(project_dir)
+    rebuilt = rebuild_state(project_dir)
+    mismatches: list[dict[str, Any]] = []
+    fields = (set(snapshot) | set(rebuilt)) - {"updated_at"}
+    for field in sorted(fields):
+        snapshot_value = snapshot.get(field, _ABSENT)
+        rebuilt_value = rebuilt.get(field, _ABSENT)
+        if snapshot_value != rebuilt_value:
+            mismatches.append(
+                {
+                    "field": field,
+                    "snapshot": None if snapshot_value is _ABSENT else snapshot_value,
+                    "rebuilt": None if rebuilt_value is _ABSENT else rebuilt_value,
+                }
+            )
+    return mismatches
 
 
 def load_events(project_dir: str | Path) -> list[dict[str, Any]]:

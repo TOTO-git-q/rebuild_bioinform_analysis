@@ -13,6 +13,7 @@ from auto_bioinfo.core.store import (
     load_state,
     rebuild_state,
     transition_state,
+    verify_projection,
 )
 from auto_bioinfo.ports import EventStorePort
 
@@ -231,6 +232,179 @@ class ProjectionRebuildTest(unittest.TestCase):
         for name in ("append_event", "load_events", "load_state"):
             self.assertTrue(callable(getattr(store, name)))
         self.assertIn("load_state", dir(EventStorePort))
+
+
+class EventIdempotencyKeyTest(unittest.TestCase):
+    """WP-03b: explicit idempotency keys make a duplicate append a no-op."""
+
+    def test_build_event_without_key_omits_field(self):
+        # Backward compatibility: an event built with no key has no extra field,
+        # so existing logs and callers stay byte-for-byte identical.
+        event = build_event(
+            project_id="p",
+            event_type="QUESTION_RESOLVED",
+            actor="actor",
+            previous_stage="INTAKE",
+            next_stage="QUESTION_RESOLVED",
+        )
+        self.assertNotIn("idempotency_key", event)
+
+    def test_build_event_key_decoupled_from_created_at(self):
+        # The key is the caller's token, independent of created_at / event_id:
+        # two events built with the same key keep that key even though their
+        # wall-clock-derived created_at / event_id differ.
+        first = build_event(
+            project_id="p",
+            event_type="QUESTION_RESOLVED",
+            actor="actor",
+            previous_stage="INTAKE",
+            next_stage="QUESTION_RESOLVED",
+            idempotency_key="retry-1",
+        )
+        second = build_event(
+            project_id="p",
+            event_type="QUESTION_RESOLVED",
+            actor="actor",
+            previous_stage="INTAKE",
+            next_stage="QUESTION_RESOLVED",
+            idempotency_key="retry-1",
+        )
+        self.assertEqual(first["idempotency_key"], "retry-1")
+        self.assertEqual(second["idempotency_key"], "retry-1")
+        self.assertNotEqual(first["idempotency_key"], first["created_at"])
+
+    def test_append_event_keyed_duplicate_adds_no_second_line(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            before = len(load_events(p))
+            event = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                idempotency_key="key-A",
+            )
+            append_event(p, event)
+            append_event(p, event)
+            self.assertEqual(len(load_events(p)), before + 1)
+
+    def test_append_event_keyed_duplicate_returns_existing(self):
+        # Re-appending a keyed event returns the already-recorded event
+        # deterministically rather than the second instance.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            first = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                idempotency_key="key-B",
+            )
+            recorded = append_event(p, first)
+            # A distinct second instance carrying the same key must not win.
+            second = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                message="different message",
+                idempotency_key="key-B",
+            )
+            returned = append_event(p, second)
+            self.assertEqual(returned, recorded)
+            self.assertEqual(returned["message"], first["message"])
+
+    def test_append_event_keyless_appends_each_time(self):
+        # Without a key the historical append-always behavior is preserved, so
+        # the existing init/transition write paths are unaffected.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            before = len(load_events(p))
+            event = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+            )
+            append_event(p, event)
+            append_event(p, event)
+            self.assertEqual(len(load_events(p)), before + 2)
+
+    def test_distinct_keys_both_append(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            before = len(load_events(p))
+            for key in ("key-1", "key-2"):
+                append_event(
+                    p,
+                    build_event(
+                        project_id=p.name,
+                        event_type="QUESTION_RESOLVED",
+                        actor="actor",
+                        previous_stage="INTAKE",
+                        next_stage="QUESTION_RESOLVED",
+                        idempotency_key=key,
+                    ),
+                )
+            self.assertEqual(len(load_events(p)), before + 2)
+
+
+class ProjectionDriftTest(unittest.TestCase):
+    """WP-03b: detect (never repair) snapshot drift from the event-log projection."""
+
+    def _advance(self, p):
+        init_project_state(p, "q")
+        for nxt in ("QUESTION_RESOLVED", "SCOPE_RESOLVED", "EVIDENCE_PLANNED"):
+            transition_state(p, nxt, nxt, "actor", [], "ok")
+
+    def test_verify_projection_healthy_reports_no_mismatch(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            self._advance(p)
+            self.assertEqual(verify_projection(p), [])
+
+    def test_verify_projection_detects_tampered_stage(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            self._advance(p)
+            snapshot_path = p / "state" / "project_state.json"
+            tampered = load_project_state(p)
+            tampered["current_stage"] = "COMPLETED"
+            tampered["stage_history"] = ["INTAKE", "COMPLETED"]
+            snapshot_path.write_text(json.dumps(tampered), encoding="utf-8")
+            mismatches = verify_projection(p)
+            fields = {m["field"] for m in mismatches}
+            self.assertIn("current_stage", fields)
+            self.assertIn("stage_history", fields)
+            stage_mismatch = next(m for m in mismatches if m["field"] == "current_stage")
+            self.assertEqual(stage_mismatch["snapshot"], "COMPLETED")
+            self.assertEqual(stage_mismatch["rebuilt"], "EVIDENCE_PLANNED")
+
+    def test_verify_projection_does_not_mutate_snapshot_or_log(self):
+        # Detection only: the tampered snapshot and the log are left untouched.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            self._advance(p)
+            snapshot_path = p / "state" / "project_state.json"
+            events_path = p / "state" / "events.jsonl"
+            tampered = load_project_state(p)
+            tampered["current_stage"] = "FAILED"
+            snapshot_path.write_text(json.dumps(tampered), encoding="utf-8")
+            snapshot_before = snapshot_path.read_text(encoding="utf-8")
+            events_before = events_path.read_text(encoding="utf-8")
+            verify_projection(p)
+            self.assertEqual(snapshot_path.read_text(encoding="utf-8"), snapshot_before)
+            self.assertEqual(events_path.read_text(encoding="utf-8"), events_before)
+            # The snapshot is still tampered — verification repaired nothing.
+            self.assertEqual(load_project_state(p)["current_stage"], "FAILED")
 
 
 if __name__ == "__main__":
