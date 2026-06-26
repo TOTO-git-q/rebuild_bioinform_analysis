@@ -1878,6 +1878,30 @@ class ClaimContractTest(unittest.TestCase):
         dup = self._claim(evidence_item_refs=["evidence_item_1", "evidence_item_1"]).to_dict()
         self.assertTrue(any("evidence_item_refs" in e and "duplicate" in e for e in validation.validate_claim(dup)))
 
+    def test_whitespace_padded_duplicate_evidence_refs_rejected(self):
+        # WP-02h PR#16 blocker-2 regression: a whitespace-padded copy is the same
+        # semantic ref and must be rejected as a duplicate, not accepted raw.
+        dup = self._claim(evidence_item_refs=["evidence_item_1", " evidence_item_1 "]).to_dict()
+        self.assertTrue(any("evidence_item_refs" in e and "duplicate" in e for e in validation.validate_claim(dup)))
+
+    def test_whitespace_padded_support_opposing_contradiction_rejected(self):
+        # WP-02h PR#16 blocker-2 regression: the same ref padded with whitespace on the
+        # opposing side is still a contradictory support/opposing fact.
+        contradictory = self._claim(
+            evidence_item_refs=["evidence_item_1"],
+            opposing_evidence_refs=[" evidence_item_1 "],
+        ).to_dict()
+        self.assertTrue(any("both supporting and opposing" in e for e in validation.validate_claim(contradictory)))
+
+    def test_invalid_external_max_allowed_ceiling_not_silently_skipped(self):
+        # WP-02h PR#16 blocker-3 regression: an invalid/padded external ceiling must be
+        # normalised or rejected — never silently skipped to let a higher level through.
+        causal = self._claim(claim_level="causal_support", claim_ceiling="causal_support").to_dict()
+        # a padded-but-valid ceiling is normalised and still enforced
+        self.assertTrue(any("exceeds allowed ceiling" in e for e in validation.validate_claim(causal, max_allowed="association ")))
+        # a genuinely unknown ceiling is rejected, not ignored
+        self.assertTrue(any("max_allowed" in e for e in validation.validate_claim(self._claim().to_dict(), max_allowed="bogus")))
+
     def test_truthy_authority_flags_do_not_authorize(self):
         flags = (
             "raises_claim_level",
@@ -1945,6 +1969,20 @@ class QuestionAlignmentReportContractTest(unittest.TestCase):
             non_pass = self._report(final_decision="reject", **{field_name: value}).to_dict()
             self.assertEqual(validation.validate_question_alignment_report(non_pass), [])
 
+    def test_approve_over_blank_or_falsy_findings_rejected(self):
+        # WP-02h PR#16 blocker-1 regression: a non-empty findings list holding only a
+        # blank/falsy entry must still block approve and be flagged as malformed —
+        # not treated as clean by a truthiness check over the entries.
+        drift = self._report(final_decision="approve", scope_drift_findings=[{}]).to_dict()
+        drift_errors = validation.validate_question_alignment_report(drift)
+        self.assertTrue(any("cannot approve while alignment findings remain open" in e for e in drift_errors))
+        self.assertTrue(any("scope_drift_findings[0]" in e and "malformed" in e for e in drift_errors))
+
+        unsupported = self._report(final_decision="approve", unsupported_claims=[""]).to_dict()
+        unsupported_errors = validation.validate_question_alignment_report(unsupported)
+        self.assertTrue(any("cannot approve while alignment findings remain open" in e for e in unsupported_errors))
+        self.assertTrue(any("unsupported_claims[0]" in e and "malformed" in e for e in unsupported_errors))
+
     def test_blocker_facts_must_be_clean_strings(self):
         blank = self._report(final_decision="reject", blocker_facts=["  "]).to_dict()
         self.assertTrue(any("blocker_facts" in e for e in validation.validate_question_alignment_report(blank)))
@@ -1982,6 +2020,12 @@ class FinalReportManifestContractTest(unittest.TestCase):
         blank_path = self._manifest(report_path="  ").to_dict()
         self.assertTrue(any("report_path" in e for e in validation.validate_final_report_manifest(blank_path)))
         dup = self._manifest(claim_ids=["claim_1", "claim_1"]).to_dict()
+        self.assertTrue(any("claim_ids" in e and "duplicate" in e for e in validation.validate_final_report_manifest(dup)))
+
+    def test_whitespace_padded_duplicate_claim_ids_rejected(self):
+        # WP-02h PR#16 blocker-2 regression: a whitespace-padded claim id is the same
+        # semantic ref and must be rejected as a duplicate.
+        dup = self._manifest(claim_ids=["claim_1", " claim_1 "]).to_dict()
         self.assertTrue(any("claim_ids" in e and "duplicate" in e for e in validation.validate_final_report_manifest(dup)))
 
     def test_truthy_authority_flags_do_not_authorize(self):

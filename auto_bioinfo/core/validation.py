@@ -286,6 +286,21 @@ def _has_nonblank_entry(value: Any) -> bool:
     return isinstance(value, list) and any(isinstance(item, str) and item.strip() for item in value)
 
 
+def _is_blank_finding(item: Any) -> bool:
+    """True when a finding entry is malformed/blank (no fact recorded).
+
+    A finding must carry a fact: ``None``, a blank string, or an empty container
+    record nothing and are rejected rather than silently treated as clean.
+    """
+    if item is None:
+        return True
+    if isinstance(item, str):
+        return not item.strip()
+    if isinstance(item, (dict, list, tuple, set)):
+        return len(item) == 0
+    return False
+
+
 # --- WP-02b / T-02-03: ResearchSpec, AmbiguityReport, ScopeBundle, Ontology --
 
 
@@ -923,7 +938,9 @@ def _string_list_errors(value: Any, field: str, *, require_unique: bool = False)
     if any((not isinstance(item, str)) or not item.strip() for item in value):
         errors.append(f"{field}: entries must be non-empty strings (a blank fact is not a fact)")
     if require_unique:
-        normalized = [item for item in value if isinstance(item, str)]
+        # Compare refs on their trimmed identity so a whitespace-padded copy
+        # (``"x"`` vs ``" x "``) is rejected as the same semantic ref.
+        normalized = [item.strip() for item in value if isinstance(item, str)]
         if len(set(normalized)) != len(normalized):
             errors.append(f"{field}: duplicate entries are not allowed")
     return errors
@@ -1567,8 +1584,14 @@ def validate_claim(claim: dict[str, Any], max_allowed: str | None = None) -> lis
     if claim_level in CLAIM_LEVELS and ceiling in CLAIM_LEVELS and CLAIM_LEVELS.index(claim_level) > CLAIM_LEVELS.index(ceiling):
         errors.append(f"claim_level {claim_level} exceeds claim_ceiling {ceiling}; a claim may not be raised above its ceiling")
     # ...nor above an external ceiling supplied by the caller (e.g. project ceiling).
-    if max_allowed in CLAIM_LEVELS and claim_level in CLAIM_LEVELS and CLAIM_LEVELS.index(claim_level) > CLAIM_LEVELS.index(max_allowed):
-        errors.append(f"claim_level {claim_level} exceeds allowed ceiling {max_allowed}")
+    # An invalid external ceiling is normalised (trimmed) or rejected — it may never
+    # be silently skipped in a way that would let a higher claim level through.
+    if max_allowed is not None:
+        normalized_ceiling = max_allowed.strip() if isinstance(max_allowed, str) else max_allowed
+        if normalized_ceiling not in CLAIM_LEVELS:
+            errors.append(f"max_allowed: external ceiling must be one of {', '.join(CLAIM_LEVELS)} (an invalid ceiling may not be silently ignored)")
+        elif claim_level in CLAIM_LEVELS and CLAIM_LEVELS.index(claim_level) > CLAIM_LEVELS.index(normalized_ceiling):
+            errors.append(f"claim_level {claim_level} exceeds allowed ceiling {normalized_ceiling}")
 
     # Evidence refs: a claim must be supported, and a ref may not be both supporting
     # and opposing.  Supporting evidence lives in ``evidence_item_refs``.
@@ -1577,8 +1600,8 @@ def validate_claim(claim: dict[str, Any], max_allowed: str | None = None) -> lis
             errors += _string_list_errors(claim.get(list_field), list_field, require_unique=True)
     if not _has_nonblank_entry(claim.get("evidence_item_refs")):
         errors.append("evidence_item_refs: a claim must reference at least one supporting evidence item (an unsupported claim is rejected)")
-    supporting = {r for r in (claim.get("evidence_item_refs") or []) if isinstance(r, str) and r.strip()}
-    opposing = {r for r in (claim.get("opposing_evidence_refs") or []) if isinstance(r, str) and r.strip()}
+    supporting = {r.strip() for r in (claim.get("evidence_item_refs") or []) if isinstance(r, str) and r.strip()}
+    opposing = {r.strip() for r in (claim.get("opposing_evidence_refs") or []) if isinstance(r, str) and r.strip()}
     contradiction = supporting & opposing
     if contradiction:
         errors.append(f"opposing_evidence_refs: {sorted(contradiction)} listed as both supporting and opposing evidence (contradictory)")
@@ -1635,14 +1658,23 @@ def validate_question_alignment_report(report: dict[str, Any]) -> list[str]:
 
     finding_fields = ("unsupported_claims", "scope_drift_findings", "overclaim_findings", "omitted_evidence", "traceability_gaps")
     for list_field in finding_fields:
-        if report.get(list_field) is not None and not isinstance(report.get(list_field), list):
+        value = report.get(list_field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
             errors.append(f"{list_field}: expected a list")
+            continue
+        # A blank/empty finding is malformed — it must not be treated as clean.
+        for idx, item in enumerate(value):
+            if _is_blank_finding(item):
+                errors.append(f"{list_field}[{idx}]: a finding must record a non-blank fact (a blank finding is malformed)")
     if report.get("blocker_facts") is not None:
         errors += _string_list_errors(report.get("blocker_facts"), "blocker_facts", require_unique=True)
 
-    # A passing decision may not stand over open alignment findings.
+    # A passing decision may not stand while any blocker/finding list is non-empty —
+    # a non-empty list (even one holding only blank/falsy entries) blocks approval.
     if decision in ALIGNMENT_PASSING_DECISIONS:
-        open_findings = [name for name in (*finding_fields, "blocker_facts") if isinstance(report.get(name), list) and any(report.get(name))]
+        open_findings = [name for name in (*finding_fields, "blocker_facts") if isinstance(report.get(name), list) and len(report.get(name)) > 0]
         if open_findings:
             errors.append(f"final_decision {decision!r}: cannot approve while alignment findings remain open ({', '.join(sorted(open_findings))})")
 
