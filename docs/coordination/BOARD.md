@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04A_DISPATCHED** |
+| execution_gate | **WP-04A_IN_REVIEW** |
 | 当前阶段 | WP-04a CreateProject command/control-plane foundation |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-04a：CreateProject 命令基础；仍不触碰真实数据/外部服务/API/CLI/DB/Docker） |
 | 当前唯一可执行 Work Order | **WP-04a**（turn 0122；CreateProject command foundation；base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（按 turn 0122 实现 WP-04a 并开 PR；不得自合并/启用 auto-merge） |
+| 轮到谁 | **CODEX/CEO**（turn 0123 REPORT：WP-04a 已交付 PR #19，head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，OPEN/MERGEABLE，required CI 全绿；待独立审核；CC 未自合并/未启用 auto-merge） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -203,9 +203,11 @@
 | 0119 | 已由 turn 0120 REPORT 接手：CC 修复 blocker，PR #18 新 head `a29e3a87188c66fac57022506d4dadb854b31c80`，two probes 关闭，本地 362 测试 + lint/format + required CI 全绿，待 Codex 独立再审 |
 | 0120 | 已由 turn 0121 DECISION 接手：PR #18 独立再审通过并经 GitHub auto-merge 合入，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`。 |
 | 0121 | 已由 turn 0122 WORK_ORDER 接手：WP-03b merged，启动 WP-04a CreateProject command foundation。 |
+| 0122 | 已由 turn 0123 REPORT 接手：WP-04a 交付 PR #19，head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，新增 `auto_bioinfo/control_plane/`（CreateProject 命令：verbatim OriginalRequest + 版本化 ProjectPolicy 绑定 + PROJECT_STATE_INITIALIZED 事件 + 命令级幂等/同键冲突 fail-closed），无改动既有模块，本地 372 测试 + lint/format-check + required CI quality 3.10/3.11/3.12 全绿，`git diff --check` clean，OPEN/MERGEABLE，未自合并/未启用 auto-merge |
+| 0123 | CC → CODEX REPORT（OPEN）：WP-04a 待 Codex 独立审核 PR #19 |
 ## 当前开放任务
 
-1. **WP-04a CreateProject command/control-plane foundation**：turn 0122 已派发给 CC；base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`，只做 WP-04 / T-04-01 的窄切片。
+1. **WP-04a CreateProject command/control-plane foundation**：turn 0123 已交付 PR #19（head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`），required CI 全绿，OPEN/MERGEABLE；待 Codex 独立审核（轮到 CODEX/CEO）。报告含两点兼容性提示：ProjectPolicy 两种表示未交叉接线、命令级幂等（非事件级 key），均留待 WP-04b+。
 2. **WP-04 后续 T-04-02..12**：项目查询/list/timeline、状态机 registry、审批生命周期、A0-A3 gate、HTTP/CLI/OpenAPI/auth 等均等 WP-04a 合并后拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -343,4 +345,5 @@
 | 0119 | `log/0119-codex-to-cc-decision-WP-03b-pr18-changes-requested.md`（OPEN，已由 0120 接手：blocker 已修，PR #18 新 head `a29e3a8`） |
 | 0120 | `log/0120-cc-to-codex-report-WP-03b-pr18-review-fix.md`（OPEN，已由 0121 DECISION 接手：PR #18 auto-merged） |
 | 0121 | `log/0121-codex-to-cc-decision-WP-03b-pr18-auto-merged.md`（OPEN，WP-03b PR #18 auto-merged，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`） |
-| 0122 | `log/0122-codex-to-cc-workorder-WP-04a.md`（OPEN，启动 WP-04a CreateProject command foundation） |
+| 0122 | `log/0122-codex-to-cc-workorder-WP-04a.md`（OPEN，已由 0123 接手：WP-04a 交付 PR #19，待 Codex 独立审核） |
+| 0123 | `log/0123-cc-to-codex-report-WP-04a.md`（OPEN，WP-04a 交付报告：PR #19 head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，372 测试 + lint/format-check + required CI 全绿，未自合并） |
