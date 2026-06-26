@@ -119,6 +119,53 @@ def load_project_state(project_dir: str | Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def rebuild_state(project_dir: str | Path) -> dict[str, Any]:
+    """Reconstruct the canonical project state purely from the event log.
+
+    ``state/events.jsonl`` is the authoritative, append-only record; the
+    ``project_state.json`` snapshot is only a cache of this projection (ADR-0003).
+    Replaying the log here means the state can never be silently rewritten by
+    editing the snapshot: ``current_stage`` / ``stage_history`` are derived from
+    the stage of each event, and the policy fields are re-applied from the
+    ``PROJECT_STATE_INITIALIZED`` / ``LEGACY_PROJECT_MIGRATED`` events.
+
+    ``updated_at`` is pinned to the last event's ``created_at`` so the projection
+    is deterministic — the same log always rebuilds to the same value (except
+    ``updated_at``, which the live snapshot stamps with its own wall clock).
+    """
+    events = load_events(project_dir)
+    if not events:
+        raise ValueError(f"cannot rebuild state: empty event log in {_events_path(project_dir)}")
+    init_payload = events[0].get("payload") or {}
+    rebuilt = build_initial_state(
+        project_id=events[0]["project_id"],
+        user_question=init_payload.get("user_question", ""),
+        execution_mode=init_payload.get("execution_mode", "DEMO"),
+        project_policy_ref=init_payload.get("project_policy_ref", ""),
+    )
+    for event in events[1:]:
+        payload = event.get("payload") or {}
+        if event.get("event_type") == "LEGACY_PROJECT_MIGRATED":
+            rebuilt["execution_mode"] = payload.get("execution_mode", rebuilt["execution_mode"])
+            rebuilt["project_policy_ref"] = payload.get("project_policy_ref", rebuilt["project_policy_ref"])
+            rebuilt["migrated_from_legacy"] = True
+            continue
+        next_stage = event.get("next_stage")
+        if next_stage and next_stage != rebuilt["current_stage"]:
+            rebuilt = with_stage(rebuilt, next_stage)
+    rebuilt["updated_at"] = events[-1]["created_at"]
+    return rebuilt
+
+
+def load_state(project_dir: str | Path) -> dict[str, Any]:
+    """``EventStorePort.load_state``: authoritative state from the event log.
+
+    Always rebuilds from the append-only log rather than trusting the snapshot,
+    so a corrupted or stale ``project_state.json`` cannot change the answer.
+    """
+    return rebuild_state(project_dir)
+
+
 def load_events(project_dir: str | Path) -> list[dict[str, Any]]:
     path = _events_path(project_dir)
     if not path.exists():
