@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04F_CLEAN_MERGE_BLOCKED** |
-| 当前阶段 | WP-04f A0-A3 gate evaluator foundation（repo auto-merge 已启用；PR #24 已 clean，GitHub 拒绝挂 auto-merge；等待 explicit clean-PR merge authorization） |
+| execution_gate | **WP-04G_ASSIGNED** |
+| 当前阶段 | WP-04g command API idempotency and optimistic concurrency contract（T-04-07；turn 0154 已派发给 CC） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04f：PR #24 approved/CI green；repo auto-merge true；clean PR 不能 attach auto-merge；等待合并授权） |
-| 当前唯一可执行 Work Order | **WP-04f clean-PR merge authorization blocker**（turn 0152：repo auto-merge 已启用；PR #24 clean，GitHub 拒绝挂 auto-merge；不能直接合并） |
+| R0-02 | **IN_PROGRESS**（WP-04f merged；WP-04g/T-04-07 assigned to CC，base `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
+| 当前唯一可执行 Work Order | **WP-04g command API idempotency/concurrency contract**（turn 0154；仅本地 contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CEO**（在 coordination 明确授权 PR #24 clean-PR merge path，或更新合并策略） |
+| 轮到谁 | **CC**（执行 turn 0154，开 PR 后 REPORT 给 CODEX） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -242,8 +242,8 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04f PR #24 已审核通过但未合并**（turn 0152）：新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502` 通过 Codex 独立审核与 required CI；repository auto-merge 已启用，但 PR #24 当前为 `clean`，GitHub GraphQL 拒绝挂 auto-merge（`Pull request is in clean status`）。等待 owner/coordination 明确授权 clean-PR merge path 或更新合并策略。
-2. **WP-04 后续 T-04-07..12**：HTTP/CLI/OpenAPI/auth 等均等 WP-04f 合并后继续拆成独立小 WO。
+1. **WP-04g 已派发给 CC**（turn 0154）：T-04-07 command API idempotency + optimistic concurrency contract；仅本地纯 Python contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps/DB/async/部署。
+2. **WP-04 后续 T-04-08..12**：async operation、CLI、cancel command、OpenAPI、auth 等均等 WP-04g 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -252,9 +252,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-04f 仅限 T-04-06 A0-A3 gate evaluator foundation（纯本地、显式输入、确定性 gate decision）；不得扩大到 HTTP API、CLI、OpenAPI、auth、实际 command execution/idempotency/concurrency、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
+4. **当前范围**：WP-04g 仅限 T-04-07 command API idempotency and optimistic concurrency contract（纯本地、显式输入、确定性 contract/result/error）；不得扩大到真实 HTTP server、OpenAPI、CLI、auth、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **当前合并 blocker**：PR #24 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502` 已通过独立审核和 required CI；repository auto-merge 已启用，但 GitHub 对 clean PR 返回 `Pull request is in clean status`，无法挂 auto-merge；Codex 不得直接合并受保护 base。
+6. **WP-04f 合并记录**：PR #24 已由 CEO 手动合并，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`；clean-PR auto-merge blocker 已由 turn 0153 接手并关闭为历史事实。
 
 ## 最近 turn 索引
 
@@ -411,4 +411,6 @@
 | 0149 | `log/0149-codex-to-cc-decision-WP-04f-pr24-changes-requested.md`（OPEN，已由 0150 REPORT 接手：blocker 已修复） |
 | 0150 | `log/0150-cc-to-codex-report-WP-04f-pr24-fix.md`（OPEN，已由 0151 BLOCKER 接手：PR #24 approved but repository auto-merge disabled） |
 | 0151 | `log/0151-codex-to-ceo-blocker-WP-04f-pr24-auto-merge-disabled.md`（OPEN，已由 0152 BLOCKER 接手：owner 已启用 repo auto-merge，但 PR #24 clean 无法挂 auto-merge） |
-| 0152 | `log/0152-codex-to-ceo-blocker-WP-04f-pr24-clean-no-auto-merge.md`（OPEN，PR #24 approved/CI-green/clean；等待 clean-PR merge authorization 或合并策略更新） |
+| 0152 | `log/0152-codex-to-ceo-blocker-WP-04f-pr24-clean-no-auto-merge.md`（OPEN，已由 0153 DECISION 接手：CEO manually merged PR #24） |
+| 0153 | `log/0153-codex-to-cc-decision-WP-04f-pr24-manual-merged.md`（OPEN，PR #24 merged by CEO，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
+| 0154 | `log/0154-codex-to-cc-workorder-WP-04g.md`（OPEN，WP-04g/T-04-07 command API idempotency + optimistic concurrency contract assigned to CC） |
