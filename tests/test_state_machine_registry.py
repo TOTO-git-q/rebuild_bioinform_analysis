@@ -24,6 +24,7 @@ from auto_bioinfo.core.state_machine import (
     CODE_ALLOWED,
     CODE_DUPLICATE_TRANSITION,
     CODE_GUARD_DENIED,
+    CODE_MALFORMED_GUARD_RESULT,
     CODE_MALFORMED_TRANSITION,
     CODE_UNKNOWN_SOURCE_STATE,
     CODE_UNKNOWN_TARGET_STATE,
@@ -122,15 +123,31 @@ class TransitionRegistryDeterminismTest(unittest.TestCase):
 
     def test_from_table_mirrors_canonical_linear_table(self):
         # Reuse of the existing state table proves the abstraction handles the
-        # real edges without inventing a divergent vocabulary; self-loops in the
-        # source table are skipped (the registry models advancing edges only).
+        # real edges without inventing a divergent vocabulary. The canonical
+        # table has no self-loops, so every edge is registered faithfully — none
+        # is silently dropped.
+        self.assertFalse(
+            any(t == s for s, ts in state.LINEAR_NEXT.items() for t in ts),
+            "canonical LINEAR_NEXT unexpectedly contains a self-loop",
+        )
         reg = TransitionRegistry.from_table(state.LINEAR_NEXT)
-        expected = sum(1 for s, ts in state.LINEAR_NEXT.items() for t in ts if t != s)
+        expected = sum(1 for _s, ts in state.LINEAR_NEXT.items() for _t in ts)
         self.assertEqual(len(reg), expected)
         for source, targets in state.LINEAR_NEXT.items():
             for target in targets:
-                if target != source:
-                    self.assertTrue(reg.is_registered(source, target))
+                self.assertTrue(reg.is_registered(source, target))
+
+    def test_from_table_rejects_self_loop_failing_closed(self):
+        # A malformed input table is never normalised into success: a self-loop
+        # fails closed with the same stable code direct register() raises.
+        with self.assertRaises(TransitionRegistrationError) as ctx:
+            TransitionRegistry.from_table({"INTAKE": ["INTAKE"]})
+        self.assertEqual(ctx.exception.code, CODE_MALFORMED_TRANSITION)
+
+    def test_from_table_rejects_unknown_state_failing_closed(self):
+        with self.assertRaises(TransitionRegistrationError) as ctx:
+            TransitionRegistry.from_table({"INTAKE": ["NOT_A_STAGE"]})
+        self.assertEqual(ctx.exception.code, CODE_MALFORMED_TRANSITION)
 
 
 class TransitionRegistrationRejectionTest(unittest.TestCase):
@@ -221,6 +238,43 @@ class GuardEvaluationTest(unittest.TestCase):
         reg.register("INTAKE", "QUESTION_RESOLVED", guard=lazy)
         result = reg.evaluate("INTAKE", "QUESTION_RESOLVED")
         self.assertEqual(result.code, CODE_GUARD_DENIED)
+
+    def test_guard_returning_bool_fails_closed_with_stable_code(self):
+        # A guard that returns a bare bool (instead of a GuardResult) must fail
+        # closed with a stable code, never raise a bare AttributeError.
+        def bad_bool(transition: Transition, context):
+            return True
+
+        reg = TransitionRegistry()
+        reg.register("INTAKE", "QUESTION_RESOLVED", guard=bad_bool)
+        result = reg.evaluate("INTAKE", "QUESTION_RESOLVED")
+        self.assertIsInstance(result, GuardResult)
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.code, CODE_MALFORMED_GUARD_RESULT)
+        self.assertEqual((result.source, result.target), ("INTAKE", "QUESTION_RESOLVED"))
+
+    def test_guard_returning_non_guardresult_fails_closed(self):
+        # Any non-GuardResult return (here None) is rejected, not trusted.
+        def bad_none(transition: Transition, context):
+            return None
+
+        reg = TransitionRegistry()
+        reg.register("INTAKE", "QUESTION_RESOLVED", guard=bad_none)
+        result = reg.evaluate("INTAKE", "QUESTION_RESOLVED")
+        self.assertFalse(result.allowed)
+        self.assertEqual(result.code, CODE_MALFORMED_GUARD_RESULT)
+
+    def test_assert_allowed_raises_stable_code_on_malformed_guard(self):
+        # The raise-style API also fails closed (not AttributeError) on a
+        # malformed guard return.
+        def bad_bool(transition: Transition, context):
+            return True
+
+        reg = TransitionRegistry()
+        reg.register("INTAKE", "QUESTION_RESOLVED", guard=bad_bool)
+        with self.assertRaises(IllegalTransitionError) as ctx:
+            reg.assert_allowed("INTAKE", "QUESTION_RESOLVED")
+        self.assertEqual(ctx.exception.code, CODE_MALFORMED_GUARD_RESULT)
 
     def test_every_denial_code_is_a_declared_error_code(self):
         reg = TransitionRegistry()

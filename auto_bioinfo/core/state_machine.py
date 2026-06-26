@@ -51,6 +51,7 @@ CODE_UNREGISTERED_TRANSITION = "UNREGISTERED_TRANSITION"
 CODE_DUPLICATE_TRANSITION = "DUPLICATE_TRANSITION"
 CODE_MALFORMED_TRANSITION = "MALFORMED_TRANSITION"
 CODE_GUARD_DENIED = "GUARD_DENIED"
+CODE_MALFORMED_GUARD_RESULT = "MALFORMED_GUARD_RESULT"
 
 # Every code this module can emit, for exhaustive testing/validation.
 ERROR_CODES = (
@@ -60,6 +61,7 @@ ERROR_CODES = (
     CODE_DUPLICATE_TRANSITION,
     CODE_MALFORMED_TRANSITION,
     CODE_GUARD_DENIED,
+    CODE_MALFORMED_GUARD_RESULT,
 )
 
 
@@ -283,16 +285,22 @@ class TransitionRegistry:
 
         A convenience for deriving a registry from an existing state table (e.g.
         ``state.LINEAR_NEXT``) so the abstraction can be exercised against the
-        canonical edges without hand-listing them. Self-loops in the source
-        table — which a same-stage no-op like a legacy migration may contain —
-        are skipped rather than rejected, since the registry models *advancing*
-        edges only. Every other malformed/duplicate edge still fails closed.
+        canonical edges without hand-listing them. Every edge is registered
+        through :meth:`register`, so the table is validated edge-for-edge and
+        any malformed, self-loop, or duplicate edge fails closed with the same
+        stable code :meth:`register` would raise — an input table is never
+        normalised into success.
+
+        The canonical table this is built from (``state.LINEAR_NEXT``) contains
+        no self-loops, so no edge is silently dropped here; a self-loop in an
+        input table is therefore a genuine malformation and is rejected rather
+        than skipped. (If a future canonical source ever introduces a deliberate
+        same-stage no-op, strip it explicitly at the call site before calling
+        ``from_table`` instead of weakening this strictness.)
         """
         registry = cls()
         for source, targets in table.items():
             for target in targets:
-                if is_main_state(source) and is_main_state(target) and serialize_main_state(source) == serialize_main_state(target):
-                    continue
                 registry.register(source, target, guard=guard)
         return registry
 
@@ -346,6 +354,9 @@ class TransitionRegistry:
         - :data:`CODE_UNKNOWN_SOURCE_STATE` / :data:`CODE_UNKNOWN_TARGET_STATE`
         - :data:`CODE_UNREGISTERED_TRANSITION`
         - :data:`CODE_GUARD_DENIED` (or a more specific code the guard returns)
+        - :data:`CODE_MALFORMED_GUARD_RESULT` when a guard returns anything
+          other than a :class:`GuardResult` (e.g. a bare ``bool``); the bad
+          return is never trusted and never raises a bare ``AttributeError``.
         """
         ctx: Mapping[str, Any] = context or {}
         src_str = str(source.value if isinstance(source, MainState) else source)
@@ -361,6 +372,17 @@ class TransitionRegistry:
             return deny(CODE_UNREGISTERED_TRANSITION, f"transition not registered: {src!r} -> {tgt!r}", source=src, target=tgt)
         if transition.guard is not None:
             result = transition.guard(transition, ctx)
+            if not isinstance(result, GuardResult):
+                # A guard must return a structured GuardResult, never a bare
+                # bool/None/other. Fail closed with a stable code instead of
+                # trusting the value (which would raise a bare AttributeError on
+                # ``.allowed``).
+                return deny(
+                    CODE_MALFORMED_GUARD_RESULT,
+                    f"guard for transition {src!r} -> {tgt!r} returned {type(result).__name__}, expected GuardResult",
+                    source=src,
+                    target=tgt,
+                )
             if not result.allowed:
                 # Normalise a guard denial that omitted a code, and pin the edge.
                 code = result.code or CODE_GUARD_DENIED
