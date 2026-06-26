@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-03A_CHANGES_REQUESTED** |
+| execution_gate | **WP-03A_MERGE_BLOCKED_AUTO_MERGE_DISABLED** |
 | 当前阶段 | WP-03a Event log/projection/idempotency audit and split |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-03a：event log/projection/idempotency audit + split；仍不触碰真实数据/外部服务） |
 | 当前唯一可执行 Work Order | **WP-03a Event log/projection/idempotency audit and split**（turn 0109，base `2cd2eda4ef88313fa28fc83514d873749de42b86`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（turn 0114：PR #17 review-fix2 已修非 legacy same-stage forged no-op 被 replay 接受的 blocker，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，待独立复核） |
+| 轮到谁 | **CEO**（PR #17 独立审核通过，但仓库未启用 GitHub auto-merge；Codex 不得直接 merge，见 turn 0115） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -77,7 +77,8 @@
 | 0111 | CODEX → CC | DECISION | WP-03a-pr17-changes-requested | 已由 turn 0112 REPORT 接手：fail-closed event replay blocker 已修，PR #17 新 head `08e8281fd3a600c9b2ae953a846e939c1e1433e7`，required CI 全绿，待 Codex 独立复核 |
 | 0112 | CC → CODEX | REPORT | WP-03a-pr17-review-fix | 已由 turn 0113 DECISION 接手：PR #17 review-fix 独立复核仍为 CHANGES_REQUESTED，需修复非 legacy 同阶段 forged no-op 被 replay 接受的问题 |
 | 0113 | CODEX → CC | DECISION | WP-03a-pr17-review-fix2-changes-requested | 已由 turn 0114 REPORT 接手：非 legacy same-stage forged no-op blocker 已修，PR #17 新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，required CI 全绿，待 Codex 独立复核 |
-| 0114 | CC → CODEX | REPORT | WP-03a-pr17-review-fix2 | PR #17 review-fix2：`rebuild_state()` 现对每个非 legacy 后续事件（含 same-stage）都跑 `validate_transition`，forged no-op 被拒；本地 351 测试 + required CI 全绿，OPEN/MERGEABLE，未自合并/未启用 auto-merge |
+| 0114 | CC → CODEX | REPORT | WP-03a-pr17-review-fix2 | 已由 turn 0115 BLOCKER 接手：PR #17 独立审核通过，但仓库 auto-merge 未启用，Codex 无法按 turn 0063 合并策略完成 merge |
+| 0115 | CODEX → CEO | BLOCKER | WP-03a-pr17-auto-merge-disabled | PR #17 APPROVED 但 GitHub 返回 `Auto-merge is not enabled for repository`；等待 owner 启用 auto-merge 或更新合并政策，不得直接 merge |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -187,11 +188,12 @@
 | 0111 | 已由 turn 0112 REPORT 接手：fail-closed event replay blocker 已修，PR #17 新 head `08e8281fd3a600c9b2ae953a846e939c1e1433e7`，本地 350 测试 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 | 0112 | 已由 turn 0113 DECISION 接手：PR #17 review-fix 独立复核仍为 CHANGES_REQUESTED，需修复非 legacy 同阶段 forged no-op 被 replay 接受的问题 |
 | 0113 | 已由 turn 0114 REPORT 接手：非 legacy same-stage forged no-op blocker 已修，PR #17 新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，本地 351 测试 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
+| 0114 | 已由 turn 0115 BLOCKER 接手：PR #17 独立审核通过，但仓库未启用 auto-merge，Codex 无法按既定策略合并 |
 
 ## 当前开放任务
 
-1. **WP-03a**：PR #17 review-fix2（turn 0114）已修非 legacy same-stage forged no-op 被 `rebuild_state()` 接受的 blocker，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，required CI 全绿；待 Codex 独立复核，通过后启用 auto-merge。
-2. **WP-03b**：等待 WP-03a PR #17 修复并合并后再派发；当前不得提前启动。
+1. **WP-03a**：PR #17 独立审核通过，但 GitHub auto-merge 未启用导致合并阻塞；等待 CEO 启用 repo auto-merge 或在 coordination 给出更新合并政策。
+2. **WP-03b**：PR #17 真合并前不得派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-03a 不做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -201,8 +203,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-03a PR #17 review-fix2：修复非 legacy same-stage forged no-op 被 event log replay 接受的 blocker，并补对应回归测试；不得启动 WP-03b/idempotency key、PostgreSQL、migrations、outbox/broker、Docker/Compose、workflow/ruleset/secrets、dependency/lockfile/SBOM、API、WP-04+、真实数据/外部服务、runtime task execution、formal evidence admission、report generation、bundle materialization/export、claim synthesis 或 alignment engine 行为。
+4. **当前范围**：WP-03a PR #17 已 APPROVED 但未合并；当前只允许等待/重试 GitHub auto-merge 或按 CEO 新合并政策处理，不得直接 merge、不得 push/hard-merge base、不得启动 WP-03b 或扩大到 DB/Docker/deps/API/runtime execution。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
+6. **当前合并 blocker**：GitHub 返回 `Auto-merge is not enabled for repository TOTO-git-q/rebuild_bioinform_analysis`；需 repo owner 启用 auto-merge 或在 coordination 给出更新合并政策。
 
 ## 最近 turn 索引
 
@@ -321,4 +324,5 @@
 | 0111 | `log/0111-codex-to-cc-decision-WP-03a-pr17-changes-requested.md`（OPEN，要求修复 PR #17 fail-closed event replay blocker） |
 | 0112 | `log/0112-cc-to-codex-report-WP-03a-pr17-review-fix.md`（OPEN，已由 0113 接手：PR #17 review-fix 仍 CHANGES_REQUESTED） |
 | 0113 | `log/0113-codex-to-cc-decision-WP-03a-pr17-review-fix2-changes-requested.md`（OPEN，已由 0114 接手：要求修复非 legacy same-stage forged no-op replay blocker） |
-| 0114 | `log/0114-cc-to-codex-report-WP-03a-pr17-review-fix2.md`（OPEN，PR #17 review-fix2：forged same-stage no-op 被拒，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，本地 351 测试 + required CI 全绿，待 Codex 独立复核） |
+| 0114 | `log/0114-cc-to-codex-report-WP-03a-pr17-review-fix2.md`（OPEN，已由 0115 接手：PR #17 approved but auto-merge disabled） |
+| 0115 | `log/0115-codex-to-ceo-blocker-WP-03a-pr17-auto-merge-disabled.md`（OPEN，PR #17 APPROVED 但仓库未启用 auto-merge，等待 owner 动作） |
