@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04H_DELIVERED** |
-| 当前阶段 | WP-04g merged via PR #25 (`d6b7ff0693e8838f14774978254a1b7b3127aa8e`); WP-04h / T-04-08 local operation resource contract 已由 turn 0162 交付 PR #26（head `e0ffc66bc532b0131db4195411ec364a1471a980`），required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
+| execution_gate | **WP-04H_CHANGES_REQUESTED** |
+| 当前阶段 | WP-04h PR #26 独立审核 CHANGES_REQUESTED（turn 0163）：`project_operation()` malformed path 对坏 result/error payload 仍会抛 `TypeError`/`ValueError`，需返回 bounded `PROJECTION_MALFORMED`。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04g merged；WP-04h/T-04-08 已交付 PR #26，等待 Codex 独立审核） |
-| 当前唯一可执行 Work Order | **WP-04h / T-04-08 local operation resource contract**（turn 0161；纯本地 contract，已由 turn 0162 REPORT 交付 PR #26，禁止真实 HTTP/async worker/queue/DB/deps） |
+| R0-02 | **IN_PROGRESS**（WP-04h PR #26 CHANGES_REQUESTED；等待 CC 修复 malformed projection never-raise blocker） |
+| 当前唯一可执行 Work Order | **WP-04h PR #26 review fix**（turn 0163；只修 `project_operation()` malformed payload projection 不抛异常） |
 | 合并策略 | **PR + required CI + GitHub auto-merge, with clean-PR API merge exception**（Codex 审核通过且 CI 全绿后，若 PR 已 clean 导致 auto-merge 无法挂起，可用正常 GitHub PR merge API 按 reviewed head SHA 合并；仍不得 direct push/force/ruleset bypass） |
-| 轮到谁 | **CODEX**（独立审核 WP-04h PR #26；CC 等审核结果） |
+| 轮到谁 | **CC**（修复 PR #26 blocker 并提交新 REPORT/head SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -122,7 +122,8 @@
 | 0159 | CODEX → CC | DECISION | clean-pr-merge-policy | 已由 turn 0160 DECISION 接手：按 clean PR 例外用 GitHub PR merge API 合并 PR #25，merge commit `d6b7ff0693e8838f14774978254a1b7b3127aa8e`。 |
 | 0160 | CODEX → CC | DECISION | WP-04g-pr25-merged | PR #25 merged into `rebuild/auto-bioinfo-core` via normal GitHub PR merge API, merge commit `d6b7ff0693e8838f14774978254a1b7b3127aa8e`; WP-04g complete. |
 | 0161 | CODEX → CC | WORK_ORDER | WP-04h | 已由 turn 0162 REPORT 接手：WP-04h / T-04-08 local operation resource contract 交付 PR #26，head `e0ffc66bc532b0131db4195411ec364a1471a980`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
-| 0162 | CC → CODEX | REPORT | WP-04h | WP-04h / T-04-08 交付：新增 `auto_bioinfo/control_plane/operation_resource.py`（纯本地 operation-resource state/result contract：有界状态 pending/running/succeeded/failed/cancelled + 显式 ALLOWED_TRANSITIONS + terminal/non-terminal 分区；`OperationRecord` 绑定 operation_id/originating command identity(command_type+fingerprint 和/或 idempotency_key)/status/可选 terminal result·error/仅 caller 提供的时间戳（零 clock）；fail-closed `new_operation`/`apply_transition` 抛 `OperationError` 带稳定 code（malformed id/status/identity/timestamp/payload、invalid transition、terminal immutability=duplicate terminal update、payload 不匹配）；确定性 `project_operation`/`OperationProjection` 四类 accepted/succeeded/failed/cancelled + malformed（不抛）；非抛式 `validate_operation_record`；显式本地 adapter `operation_from_command_result`（accepted CommandApiResult⇒pending operation，非 admitted fail-closed）；零 I/O/clock/async/执行副作用）+ `__init__` 导出 + `tests/test_operation_resource.py`(53)；本地 618 测试绿（+53），`make lint`/`format-check` 绿，`git diff --check` clean，PR #26 OPEN/MERGEABLE，base `d6b7ff06…`，head `e0ffc66bc532b0131db4195411ec364a1471a980`，required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02 WP-04i+/真实 HTTP/async/queue/DB/deps/Docker/workflows/真实数据/外部服务/科学逻辑均未触碰。 |
+| 0162 | CC → CODEX | REPORT | WP-04h | 已由 turn 0163 DECISION 接手：PR #26 独立审核 CHANGES_REQUESTED；`project_operation()` malformed path 仍可因坏 result/error payload 抛异常。 |
+| 0163 | CODEX → CC | DECISION | WP-04h-pr26-changes-requested | PR #26 CHANGES_REQUESTED：`project_operation()` 对直接构造的 malformed `OperationRecord` 若含不可 `dict(...)` 的 result/error，会抛 `TypeError`/`ValueError`，违反 projection never-raises；需返回 bounded `PROJECTION_MALFORMED` 并加回归测试。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -251,7 +252,7 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04h / T-04-08**（turn 0161）：local operation resource contract 已派发；CC 需开 PR 回 `rebuild/auto-bioinfo-core`，base `d6b7ff0693e8838f14774978254a1b7b3127aa8e`。
+1. **WP-04h PR #26 review fix**（turn 0163）：只修 `project_operation()` malformed direct `OperationRecord` 携带坏 result/error payload 时仍抛异常的问题；不得扩大到 WP-04i+ 或真实 HTTP/async/DB/deps。
 2. **WP-04 后续 T-04-09..12**：CLI、cancel command、OpenAPI、auth 等均等 WP-04h 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -263,7 +264,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：WP-04h 仅限 T-04-08 local operation resource contract（纯本地、显式输入、确定性 status/result/transition contract）；不得扩大到真实 HTTP server、CLI、auth、实际 async worker/outbox/queue/DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；标准优先 auto-merge。clean PR 例外：Codex 独立审核通过 + required CI 全绿 + 无硬停点，且 GitHub clean 导致 auto-merge 不可挂起时，Codex 可用正常 GitHub PR merge API 按 reviewed head SHA 合并；不得 direct push/force/ruleset bypass。
-6. **当前 blocker**：无。若 WP-04h 需要真实 HTTP、actual async execution、queue/worker/DB/deps/workflow/规则/权限/外部服务等，CC 必须写 BLOCKER/QUESTION。
+6. **当前 review blocker**：PR #26 `project_operation()` malformed projection path 可抛 `TypeError`/`ValueError`；等待 CC 修复并提交新 head。
 
 ## 最近 turn 索引
 
@@ -429,4 +430,6 @@
 | 0158 | `log/0158-codex-to-ceo-blocker-WP-04g-pr25-clean-no-auto-merge.md`（OPEN，已由 0159 DECISION 接手：clean PR merge-policy exception 授权） |
 | 0159 | `log/0159-codex-to-cc-decision-clean-pr-merge-policy.md`（OPEN，已由 0160 DECISION 接手：PR #25 按 clean PR 例外合并） |
 | 0160 | `log/0160-codex-to-cc-decision-WP-04g-pr25-merged.md`（OPEN，PR #25 merged，merge commit `d6b7ff0693e8838f14774978254a1b7b3127aa8e`） |
-| 0161 | `log/0161-codex-to-cc-workorder-WP-04h.md`（OPEN，WP-04h/T-04-08 local operation resource contract dispatched） |
+| 0161 | `log/0161-codex-to-cc-workorder-WP-04h.md`（OPEN，已由 0162 REPORT 接手：WP-04h PR #26 delivered） |
+| 0162 | `log/0162-cc-to-codex-report-WP-04h.md`（OPEN，已由 0163 DECISION 接手：PR #26 CHANGES_REQUESTED） |
+| 0163 | `log/0163-codex-to-cc-decision-WP-04h-pr26-changes-requested.md`（OPEN，PR #26 CHANGES_REQUESTED：malformed projection path must never raise） |
