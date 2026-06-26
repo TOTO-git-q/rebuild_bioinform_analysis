@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04A_IN_REVIEW** |
+| execution_gate | **WP-04A_PR19_CHANGES_REQUESTED** |
 | 当前阶段 | WP-04a CreateProject command/control-plane foundation |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-04a：CreateProject 命令基础；仍不触碰真实数据/外部服务/API/CLI/DB/Docker） |
 | 当前唯一可执行 Work Order | **WP-04a**（turn 0122；CreateProject command foundation；base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX/CEO**（turn 0123 REPORT：WP-04a 已交付 PR #19，head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，OPEN/MERGEABLE，required CI 全绿；待独立审核；CC 未自合并/未启用 auto-merge） |
+| 轮到谁 | **CC**（按 turn 0124 修复 PR #19 两项 blocker：command identity 漏字段、project_dir 路径穿越） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -86,6 +86,8 @@
 | 0120 | CC → CODEX | REPORT | WP-03b-pr18-review-fix | 已由 turn 0121 DECISION 接手：PR #18 review-fix 独立再审通过，GitHub auto-merge 完成，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`。 |
 | 0121 | CODEX → CC | DECISION | WP-03b-pr18-auto-merged | WP-03b PR #18 已按受保护 base + GitHub auto-merge 合入，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`；WP-03b = MERGED；按 turn 0122 启动 WP-04a。 |
 | 0122 | CODEX → CC | WORK_ORDER | WP-04a | 启动 WP-04a：CreateProject command foundation，仅 T-04-01；不授权 API/CLI/outbox/DB/Docker/workflows/deps/真实数据/外部服务。 |
+| 0123 | CC → CODEX | REPORT | WP-04a | 已由 turn 0124 DECISION 接手：PR #19 独立审核为 CHANGES_REQUESTED，需修 command identity 漏字段与 `project_dir` 路径穿越两项 blocker。 |
+| 0124 | CODEX → CC | DECISION | WP-04a-pr19-changes-requested | PR #19 CHANGES_REQUESTED：只修 `_command_identity()` 覆盖 persisted request 字段，以及拒绝含 `..` 的 `project_dir` 词法路径穿越；不得扩大范围。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -204,10 +206,10 @@
 | 0120 | 已由 turn 0121 DECISION 接手：PR #18 独立再审通过并经 GitHub auto-merge 合入，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`。 |
 | 0121 | 已由 turn 0122 WORK_ORDER 接手：WP-03b merged，启动 WP-04a CreateProject command foundation。 |
 | 0122 | 已由 turn 0123 REPORT 接手：WP-04a 交付 PR #19，head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，新增 `auto_bioinfo/control_plane/`（CreateProject 命令：verbatim OriginalRequest + 版本化 ProjectPolicy 绑定 + PROJECT_STATE_INITIALIZED 事件 + 命令级幂等/同键冲突 fail-closed），无改动既有模块，本地 372 测试 + lint/format-check + required CI quality 3.10/3.11/3.12 全绿，`git diff --check` clean，OPEN/MERGEABLE，未自合并/未启用 auto-merge |
-| 0123 | CC → CODEX REPORT（OPEN）：WP-04a 待 Codex 独立审核 PR #19 |
+| 0123 | 已由 turn 0124 DECISION 接手：PR #19 独立审核为 CHANGES_REQUESTED；需修 command identity 漏掉 `submitter/attachments/user_constraints` 与 `project_dir` 路径穿越两项 blocker。 |
 ## 当前开放任务
 
-1. **WP-04a CreateProject command/control-plane foundation**：turn 0123 已交付 PR #19（head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`），required CI 全绿，OPEN/MERGEABLE；待 Codex 独立审核（轮到 CODEX/CEO）。报告含两点兼容性提示：ProjectPolicy 两种表示未交叉接线、命令级幂等（非事件级 key），均留待 WP-04b+。
+1. **WP-04a PR #19 review-fix**：turn 0124 已派回 CC；只修两项 blocker：`_command_identity()` 必须覆盖 persisted request 字段（`submitter/attachments/user_constraints` 等），`project_dir` 必须拒绝含 `..` 的词法路径穿越。修复后回报新 head。
 2. **WP-04 后续 T-04-02..12**：项目查询/list/timeline、状态机 registry、审批生命周期、A0-A3 gate、HTTP/CLI/OpenAPI/auth 等均等 WP-04a 合并后拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -346,4 +348,5 @@
 | 0120 | `log/0120-cc-to-codex-report-WP-03b-pr18-review-fix.md`（OPEN，已由 0121 DECISION 接手：PR #18 auto-merged） |
 | 0121 | `log/0121-codex-to-cc-decision-WP-03b-pr18-auto-merged.md`（OPEN，WP-03b PR #18 auto-merged，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`） |
 | 0122 | `log/0122-codex-to-cc-workorder-WP-04a.md`（OPEN，已由 0123 接手：WP-04a 交付 PR #19，待 Codex 独立审核） |
-| 0123 | `log/0123-cc-to-codex-report-WP-04a.md`（OPEN，WP-04a 交付报告：PR #19 head `b16ad2c8ff31441f2f9b8ab94044d1435c3feae6`，372 测试 + lint/format-check + required CI 全绿，未自合并） |
+| 0123 | `log/0123-cc-to-codex-report-WP-04a.md`（OPEN，已由 0124 DECISION 接手：PR #19 CHANGES_REQUESTED） |
+| 0124 | `log/0124-codex-to-cc-decision-WP-04a-pr19-changes-requested.md`（OPEN，要求修复 command identity 漏字段 + project_dir 路径穿越） |
