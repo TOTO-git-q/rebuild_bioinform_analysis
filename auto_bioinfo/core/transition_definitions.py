@@ -399,10 +399,16 @@ def build_main_path_definitions(transition_registry: TransitionRegistry | None =
     (human-review, safe-stops) are intentionally out of this minimal slice and
     left to a later WP.
 
-    Passing an explicit ``transition_registry`` is supported for testing; by
-    default one is derived from :data:`auto_bioinfo.core.state.LINEAR_NEXT`.
+    Passing an explicit ``transition_registry`` is supported for testing; the
+    default canonical registry derived from
+    :data:`auto_bioinfo.core.state.LINEAR_NEXT` is built **only** when the
+    argument is exactly ``None``. Any non-``None`` registry is honoured as-is —
+    including an explicitly *empty* one — so that a caller-supplied validation
+    surface is never silently replaced by the default. With an empty registry,
+    no canonical edge is accepted, so the first :meth:`~TransitionDefinitionRegistry.define`
+    fails closed with :data:`CODE_DEF_TARGET_MISMATCH`.
     """
-    registry = transition_registry or TransitionRegistry.from_table(LINEAR_NEXT)
+    registry = transition_registry if transition_registry is not None else TransitionRegistry.from_table(LINEAR_NEXT)
     definitions = TransitionDefinitionRegistry(registry)
     for source, target in zip(MAIN_SEQUENCE, MAIN_SEQUENCE[1:], strict=False):
         definitions.define(

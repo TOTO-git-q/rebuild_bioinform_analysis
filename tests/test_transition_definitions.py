@@ -67,6 +67,18 @@ class CanonicalSkeletonTest(unittest.TestCase):
             with self.subTest(edge=d.edge):
                 self.assertTrue(registry.is_registered(d.source, d.target))
 
+    def test_explicit_empty_registry_is_honoured_and_fails_closed(self):
+        # An explicitly-supplied registry — even an empty one — is an explicit
+        # validation surface and must never be silently replaced by the default
+        # canonical registry. An empty registry accepts no edge, so building the
+        # canonical path must fail closed with the target-mismatch code rather
+        # than succeed against the defaulted-in canonical registry.
+        empty = TransitionRegistry()
+        self.assertEqual(len(empty), 0)
+        with self.assertRaises(TransitionDefinitionError) as ctx:
+            build_main_path_definitions(empty)
+        self.assertEqual(ctx.exception.code, CODE_DEF_TARGET_MISMATCH)
+
     def test_definitions_use_only_canonical_states(self):
         defs = build_main_path_definitions()
         for d in defs.definitions():
