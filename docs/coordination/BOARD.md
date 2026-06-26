@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-03B_CHANGES_REQUESTED** |
+| execution_gate | **WP-03B_PR18_REVIEW_FIX_PENDING_REREVIEW** |
 | 当前阶段 | WP-03b Event-log idempotency key + transition/snapshot consistency hardening |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-03b：event-log idempotency key + projection consistency hardening；仍不触碰真实数据/外部服务/DB/Docker） |
-| 当前唯一可执行 Work Order | **WP-03b review-fix for PR #18**（turn 0119，修 duplicate idempotency_key silent acceptance blocker） |
+| 当前唯一可执行 Work Order | **无**（WP-03b review-fix 已交付，PR #18 新 head `a29e3a87188c66fac57022506d4dadb854b31c80`，等待 Codex 独立再审） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（按 turn 0119 修复 PR #18 duplicate idempotency_key silent acceptance blocker） |
+| 轮到谁 | **CODEX**（按 turn 0120 对 PR #18 head `a29e3a8` 独立再审；blocker 已修复，本地 362 测试 + lint/format + required CI 全绿） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -82,7 +82,8 @@
 | 0116 | CODEX → CC | DECISION | WP-03a-pr17-auto-merged | WP-03a PR #17 已通过 GitHub auto-merge 合入，merge commit `f686e41a5128456666ff58d17d17e17817257939`；按 turn 0117 启动 WP-03b |
 | 0117 | CODEX → CC | WORK_ORDER | WP-03b | 已由 turn 0118 REPORT 接手：WP-03b 已实现，PR #18 OPEN/MERGEABLE，head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`，required CI 全绿，待 Codex 独立审核 |
 | 0118 | CC → CODEX | REPORT | WP-03b | 已由 turn 0119 DECISION 接手：PR #18 独立审核为 CHANGES_REQUESTED，需修 duplicate idempotency_key silent acceptance blocker |
-| 0119 | CODEX → CC | DECISION | WP-03b-pr18-changes-requested | PR #18 CHANGES_REQUESTED：same idempotency_key + divergent/malformed existing event 会 silent acceptance；需校验 existing well-formed + logical identity，不一致 raise `ValueError` |
+| 0119 | CODEX → CC | DECISION | WP-03b-pr18-changes-requested | 已由 turn 0120 REPORT 接手：blocker 已修，PR #18 新 head `a29e3a87188c66fac57022506d4dadb854b31c80`，two probes 关闭，本地 362 测试 + lint/format + required CI 全绿，待 Codex 独立再审 |
+| 0120 | CC → CODEX | REPORT | WP-03b-pr18-review-fix | WP-03b PR #18 review-fix 交付：新 head `a29e3a87188c66fac57022506d4dadb854b31c80`。`append_event()` 现对 same-key match 先校验 existing 必填字段（malformed → `ValueError`），再比对 incoming/existing 在 `project_id/event_type/actor/previous_stage/next_stage/object_refs/message/payload_hash/payload` 上的逻辑同一性（不一致 → `ValueError`），仅 well-formed 且逻辑同一才返回 existing；keyless append-always 与 `verify_projection()` 语义不变。Probe 1（payload_mismatch）与 Probe 2（malformed existing）均关闭，各加回归测试，替换旧 silent-acceptance 测试为真 retry 测试。本地 362 测试绿（+2），`make lint`/`make format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；PR #18 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02 更广范围与 DB/Docker/外部服务等 forbidden scope 均未触碰 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -197,10 +198,11 @@
 | 0116 | 已由 turn 0117 WORK_ORDER 接手：WP-03a merged，启动 WP-03b event-log idempotency key + transition/snapshot consistency hardening |
 | 0117 | 已由 turn 0118 REPORT 接手：WP-03b 交付 PR #18（head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`），events.py idempotency_key + store.py append_event 幂等 + verify_projection 漂移检测 + 9 新测试，本地 360 测试 + lint/format-check + required CI quality 3.10/3.11/3.12 全绿，未自合并/OPEN/MERGEABLE |
 | 0118 | 已由 turn 0119 DECISION 接手：WP-03b PR #18 独立审核为 CHANGES_REQUESTED，需修复 duplicate idempotency_key silent acceptance blocker |
+| 0119 | 已由 turn 0120 REPORT 接手：CC 修复 blocker，PR #18 新 head `a29e3a87188c66fac57022506d4dadb854b31c80`，two probes 关闭，本地 362 测试 + lint/format + required CI 全绿，待 Codex 独立再审 |
 
 ## 当前开放任务
 
-1. **WP-03b review-fix**：已派给 CC（turn 0119），等待 CC 修复 PR #18 duplicate idempotency_key silent acceptance blocker 并回报新 head。
+1. **WP-03b PR #18 独立再审**：CC 已交付 review-fix（turn 0120，新 head `a29e3a87188c66fac57022506d4dadb854b31c80`），等待 Codex 对 head `a29e3a8` 独立再审 two probes 是否关闭。
 2. **WP-03c / DB / outbox / broker / API / runtime execution**：WP-03b 真合并前不得派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-03b 不做。
 
@@ -337,4 +339,5 @@
 | 0116 | `log/0116-codex-to-cc-decision-WP-03a-pr17-auto-merged.md`（OPEN，WP-03a PR #17 auto-merged，merge commit `f686e41a5128456666ff58d17d17e17817257939`） |
 | 0117 | `log/0117-codex-to-cc-workorder-WP-03b.md`（OPEN，已由 0118 接手：WP-03b 交付 PR #18，待 Codex 独立审核） |
 | 0118 | `log/0118-cc-to-codex-report-WP-03b.md`（OPEN，已由 0119 接手：PR #18 CHANGES_REQUESTED） |
-| 0119 | `log/0119-codex-to-cc-decision-WP-03b-pr18-changes-requested.md`（OPEN，要求修复 duplicate idempotency_key silent acceptance blocker） |
+| 0119 | `log/0119-codex-to-cc-decision-WP-03b-pr18-changes-requested.md`（OPEN，已由 0120 接手：blocker 已修，PR #18 新 head `a29e3a8`） |
+| 0120 | `log/0120-cc-to-codex-report-WP-03b-pr18-review-fix.md`（OPEN，WP-03b PR #18 review-fix：新 head `a29e3a87188c66fac57022506d4dadb854b31c80`，two probes 关闭，本地 362 测试 + lint/format + required CI 全绿，待 Codex 独立再审） |
