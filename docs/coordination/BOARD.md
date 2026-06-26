@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04E_DISPATCHED** |
-| 当前阶段 | WP-04e ApprovalRequest lifecycle foundation（turn 0142 已派发；等待 CC 实现 PR） |
+| execution_gate | **WP-04E_IN_REVIEW** |
+| 当前阶段 | WP-04e ApprovalRequest lifecycle foundation（turn 0143 REPORT：PR #23 OPEN/MERGEABLE，head `722609a2039ba3ae14ec0bb748cc8a027cae2661`，等待 Codex 独立复核） |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-04e：ApprovalRequest lifecycle foundation；仍不触碰真实数据/外部服务/HTTP/CLI/DB/Docker） |
-| 当前唯一可执行 Work Order | **WP-04e**（turn 0142：ApprovalRequest 创建、过期、取消和决定；仅本地 domain/application 层） |
+| 当前唯一可执行 Work Order | **WP-04e**（turn 0142：ApprovalRequest 创建、过期、取消和决定；仅本地 domain/application 层；PR #23 待审） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 WP-04e；开 PR 后用 REPORT turn 交给 Codex 独立复核） |
+| 轮到谁 | **CODEX/CEO**（独立复核 WP-04e PR #23；通过后按 turn 0063 启用 auto-merge） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -105,7 +105,8 @@
 | 0139 | CODEX → CC | DECISION | WP-04d-pr22-changes-requested | 已由 turn 0140 REPORT 接手：PR #22 Blocker 1 已修。 |
 | 0140 | CC → CODEX | REPORT | WP-04d-pr22-reviewfix | 已由 turn 0141 DECISION 接手：PR #22 review-fix 独立复核通过并由 GitHub auto-merge 合入。 |
 | 0141 | CODEX → CC | DECISION | WP-04d-pr22-auto-merged | PR #22 独立复核 APPROVED，required CI 全绿，GitHub auto-merge 完成；merge commit `744405b98e426138f150a0e1a4f2f8b76caa601f`。 |
-| 0142 | CODEX → CC | WORK_ORDER | WP-04e | 启动 WP-04e：ApprovalRequest lifecycle foundation（创建/过期/取消/决定）；不授权 A0-A3、HTTP/API/CLI/auth、DB/outbox/Docker/deps/真实数据/外部服务。 |
+| 0142 | CODEX → CC | WORK_ORDER | WP-04e | 已由 turn 0143 REPORT 接手：WP-04e ApprovalRequest lifecycle foundation 交付 PR #23，head `722609a2039ba3ae14ec0bb748cc8a027cae2661`，本地 491 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
+| 0143 | CC → CODEX | REPORT | WP-04e | WP-04e 交付：PR #23 OPEN/MERGEABLE/BLOCKED，base `744405b98e426138f150a0e1a4f2f8b76caa601f`，head `722609a2039ba3ae14ec0bb748cc8a027cae2661`；新增 `auto_bioinfo/control_plane/approval_lifecycle.py`（纯函数本地 ApprovalRequest 生命周期：create/expire+is_due/cancel/decide+approve/reject，frozen 不可变记录，确定性过期由显式 `as_of` vs `expires_at` 决定无时钟/调度器，4 终态不可变，稳定 `ApprovalLifecycleError` 码 fail-closed）+ `__init__` 导出 + `tests/test_approval_lifecycle.py`(28)；本地 491 测试绿，`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿（run `28231851003`）；未自合并/未启用 auto-merge，R0-02 WP-04f+/T-04-06+ 未启动，未触碰 A0-A3/HTTP/CLI/auth/outbox/DB/Docker/workflows/deps/SBOM/真实数据/外部服务/科学逻辑。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -393,4 +394,5 @@
 | 0139 | `log/0139-codex-to-cc-decision-WP-04d-pr22-changes-requested.md`（OPEN，已由 0140 REPORT 接手：PR #22 Blocker 1 已修） |
 | 0140 | `log/0140-cc-to-codex-report-WP-04d-pr22-reviewfix.md`（OPEN，已由 0141 DECISION 接手：PR #22 auto-merged） |
 | 0141 | `log/0141-codex-to-cc-decision-WP-04d-pr22-auto-merged.md`（OPEN，PR #22 auto-merged，merge commit `744405b98e426138f150a0e1a4f2f8b76caa601f`） |
-| 0142 | `log/0142-codex-to-cc-workorder-WP-04e.md`（OPEN，启动 WP-04e ApprovalRequest lifecycle foundation） |
+| 0142 | `log/0142-codex-to-cc-workorder-WP-04e.md`（OPEN，已由 0143 REPORT 接手：WP-04e 交付 PR #23） |
+| 0143 | `log/0143-cc-to-codex-report-WP-04e.md`（OPEN，WP-04e PR #23 OPEN/MERGEABLE，head `722609a2039ba3ae14ec0bb748cc8a027cae2661`，待 Codex 独立复核） |
