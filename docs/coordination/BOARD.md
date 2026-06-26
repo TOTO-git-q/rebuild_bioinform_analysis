@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04G_IN_REVIEW** |
-| 当前阶段 | WP-04g command API idempotency and optimistic concurrency contract（T-04-07；turn 0155 REPORT 交付 PR #25，待 Codex 独立审核） |
+| execution_gate | **WP-04G_CHANGES_REQUESTED** |
+| 当前阶段 | WP-04g PR #25 independent review CHANGES_REQUESTED（turn 0156；malformed command fingerprint must fail closed, not raise） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04f merged；WP-04g/T-04-07 交付 PR #25 OPEN/MERGEABLE，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI 全绿，待 Codex 独立审核） |
-| 当前唯一可执行 Work Order | **WP-04g command API idempotency/concurrency contract**（turn 0154；仅本地 contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps；已由 turn 0155 REPORT 交付，待审） |
+| R0-02 | **IN_PROGRESS**（WP-04g：PR #25 head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96` 独立审核 CHANGES_REQUESTED；等待 CC 修 fail-closed blocker） |
+| 当前唯一可执行 Work Order | **WP-04g PR #25 review fix**（turn 0156；仅修 malformed command fingerprint 抛异常未 fail-closed，不得扩大范围） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CODEX**（独立审核 PR #25 / turn 0155 REPORT） |
+| 轮到谁 | **CC**（修复 turn 0156 CHANGES_REQUESTED 后重新 REPORT） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -244,7 +244,7 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04g 已派发给 CC**（turn 0154）：T-04-07 command API idempotency + optimistic concurrency contract；仅本地纯 Python contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps/DB/async/部署。
+1. **WP-04g PR #25 修复回合**（turn 0156）：`evaluate_command_request()` 对 malformed/non-canonical command/payload 必须返回 bounded `CODE_MALFORMED_COMMAND`，不得在 fingerprint 阶段抛 `TypeError`。
 2. **WP-04 后续 T-04-08..12**：async operation、CLI、cancel command、OpenAPI、auth 等均等 WP-04g 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -256,7 +256,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：WP-04g 仅限 T-04-07 command API idempotency and optimistic concurrency contract（纯本地、显式输入、确定性 contract/result/error）；不得扩大到真实 HTTP server、OpenAPI、CLI、auth、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **WP-04f 合并记录**：PR #24 已由 CEO 手动合并，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`；clean-PR auto-merge blocker 已由 turn 0153 接手并关闭为历史事实。
+6. **当前 review blocker**：PR #25 head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96` 对 non-JSON-serializable command facts 会抛 `TypeError`，未按 WP-04g fail-closed contract 返回 bounded invalid result。
 
 ## 最近 turn 索引
 
@@ -416,4 +416,5 @@
 | 0152 | `log/0152-codex-to-ceo-blocker-WP-04f-pr24-clean-no-auto-merge.md`（OPEN，已由 0153 DECISION 接手：CEO manually merged PR #24） |
 | 0153 | `log/0153-codex-to-cc-decision-WP-04f-pr24-manual-merged.md`（OPEN，PR #24 merged by CEO，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
 | 0154 | `log/0154-codex-to-cc-workorder-WP-04g.md`（OPEN，已由 0155 REPORT 接手：WP-04g 交付 PR #25） |
-| 0155 | `log/0155-cc-to-codex-report-WP-04g.md`（OPEN，WP-04g 交付 PR #25 OPEN/MERGEABLE，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI 全绿，待 Codex 独立审核） |
+| 0155 | `log/0155-cc-to-codex-report-WP-04g.md`（OPEN，已由 0156 DECISION 接手：PR #25 CHANGES_REQUESTED） |
+| 0156 | `log/0156-codex-to-cc-decision-WP-04g-pr25-changes-requested.md`（OPEN，PR #25 CHANGES_REQUESTED：malformed command fingerprint must fail closed, not raise） |
