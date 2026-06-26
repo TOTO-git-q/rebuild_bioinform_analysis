@@ -187,10 +187,12 @@ def rebuild_state(project_dir: str | Path) -> dict[str, Any]:
             rebuilt["migrated_from_legacy"] = True
             continue
 
-        if next_stage != previous_stage:
-            # Reuse the single transition guard instead of a parallel machine.
-            validate_transition(previous_stage, next_stage)
-            rebuilt = with_stage(rebuilt, next_stage)
+        # Reuse the single transition guard instead of a parallel machine, and
+        # run it for every non-legacy event — including a forged same-stage
+        # no-op the legal write path could never produce (validate_transition
+        # rejects self-loops). Only LEGACY_PROJECT_MIGRATED may be a no-op.
+        validate_transition(previous_stage, next_stage)
+        rebuilt = with_stage(rebuilt, next_stage)
     rebuilt["updated_at"] = events[-1]["created_at"]
     return rebuilt
 

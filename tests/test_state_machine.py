@@ -205,6 +205,26 @@ class ProjectionRebuildTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 rebuild_state(p)
 
+    def test_rebuild_state_rejects_forged_same_stage_noop(self):
+        # A non-legacy later event whose previous_stage == next_stage is a
+        # self-loop the legal write path (validate_transition) can never
+        # produce; replay must run the transition guard even for no-ops rather
+        # than silently accepting the forged event.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            forged = build_event(
+                project_id=p.name,
+                event_type="FORGED_NOOP",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="INTAKE",
+                message="forged",
+            )
+            append_event(p, forged)
+            with self.assertRaises(ValueError):
+                rebuild_state(p)
+
     def test_store_module_satisfies_event_store_port(self):
         # The JSONL adapter must expose the EventStorePort surface, including the
         # load_state projection operation the port declares.
