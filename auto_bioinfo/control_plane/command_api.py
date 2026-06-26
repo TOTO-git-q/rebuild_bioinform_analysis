@@ -430,9 +430,10 @@ def evaluate_command_request(
     A pure, deterministic function returning a bounded :class:`CommandApiResult`
     (it never raises for a domain condition).  Precedence:
 
-    1. Validate the command identity (non-blank ``command_type``, dict payload)
-       and parse the controlled headers; a malformed command or a
-       duplicated/malformed header → ``invalid``.
+    1. Validate the command identity (non-blank ``command_type``, dict payload,
+       canonicalisable content) and parse the controlled headers; a malformed or
+       non-canonicalisable command or a duplicated/malformed header → ``invalid``
+       (a non-canonicalisable payload fails closed rather than raising).
     2. Require a well-formed, non-blank, non-overlong idempotency key →
        otherwise ``invalid``.
     3. Idempotency: if a ``prior`` record exists for this key, a matching
@@ -447,15 +448,19 @@ def evaluate_command_request(
        :class:`CommandRecord`).
     """
     command_type = request.command_type
-    fingerprint = request.fingerprint()
 
-    # 1a. Command identity must be a non-blank type with a dict payload.
+    # 1a. Command identity must be a non-blank type with a dict payload.  These
+    #     are checked *before* fingerprinting: the fingerprint hashes the payload,
+    #     so an invalid command/payload must fail closed with a bounded result
+    #     rather than raising out of serialisation.  Malformed-command results
+    #     bind an empty fingerprint, since hashing invalid content is exactly what
+    #     must be avoided.
     if not (isinstance(command_type, str) and command_type.strip()):
         return _result(
             CODE_MALFORMED_COMMAND,
             "command_type must be a non-blank string",
             command_type=command_type,
-            fingerprint=fingerprint,
+            fingerprint="",
             idempotency_key="",
             expected_version=None,
             current_version=current_version,
@@ -465,7 +470,24 @@ def evaluate_command_request(
             CODE_MALFORMED_COMMAND,
             "payload must be a (canonicalisable) object",
             command_type=command_type,
-            fingerprint=fingerprint,
+            fingerprint="",
+            idempotency_key="",
+            expected_version=None,
+            current_version=current_version,
+        )
+
+    # 1b. Canonicalise/fingerprint the command.  A payload that cannot be
+    #     canonicalised — e.g. a non-JSON-serialisable nested value or
+    #     non-comparable dict keys — is a malformed command, not an exception;
+    #     fail closed instead of letting serialisation raise.
+    try:
+        fingerprint = request.fingerprint()
+    except (TypeError, ValueError) as exc:
+        return _result(
+            CODE_MALFORMED_COMMAND,
+            f"payload is not canonicalisable: {exc}",
+            command_type=command_type,
+            fingerprint="",
             idempotency_key="",
             expected_version=None,
             current_version=current_version,

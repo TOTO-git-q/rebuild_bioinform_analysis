@@ -129,6 +129,45 @@ class MalformedCommandTest(unittest.TestCase):
         result = evaluate_command_request(CommandRequest(command_type="create_project", payload=[1, 2], headers=_headers()))
         self.assertEqual(result.reason_code, CODE_MALFORMED_COMMAND)
 
+    def test_non_serialisable_non_dict_payload_fails_closed_without_raising(self):
+        # A non-dict payload that is itself not JSON-serialisable must be rejected
+        # as a bounded invalid result, never raise out of fingerprinting.
+        request = CommandRequest(command_type="create_project", payload=object(), headers=_headers())
+        result = evaluate_command_request(request)
+        self.assertEqual(result.status, STATUS_INVALID)
+        self.assertEqual(result.reason_code, CODE_MALFORMED_COMMAND)
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.binding["command_fingerprint"], "")
+
+    def test_dict_payload_with_non_serialisable_nested_value_fails_closed(self):
+        # A dict payload that passes the shape check but contains a nested value
+        # that cannot be canonicalised must fail closed, not raise TypeError.
+        request = CommandRequest(command_type="create_project", payload={"x": object()}, headers=_headers())
+        result = evaluate_command_request(request)
+        self.assertEqual(result.status, STATUS_INVALID)
+        self.assertEqual(result.reason_code, CODE_MALFORMED_COMMAND)
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.binding["command_fingerprint"], "")
+
+    def test_non_string_non_serialisable_command_type_fails_closed(self):
+        # A non-string command_type that is also not JSON-serialisable must be
+        # rejected by the identity check before any fingerprinting is attempted.
+        request = CommandRequest(command_type=object(), payload={}, headers=_headers())
+        result = evaluate_command_request(request)
+        self.assertEqual(result.status, STATUS_INVALID)
+        self.assertEqual(result.reason_code, CODE_MALFORMED_COMMAND)
+        self.assertFalse(result.accepted)
+        self.assertEqual(result.binding["command_fingerprint"], "")
+
+    def test_non_comparable_dict_keys_fail_closed(self):
+        # sort_keys canonicalisation cannot order mixed-type keys; that must fail
+        # closed as a malformed command rather than raise TypeError.
+        request = CommandRequest(command_type="create_project", payload={1: "a", "b": 2}, headers=_headers())
+        result = evaluate_command_request(request)
+        self.assertEqual(result.status, STATUS_INVALID)
+        self.assertEqual(result.reason_code, CODE_MALFORMED_COMMAND)
+        self.assertEqual(result.binding["command_fingerprint"], "")
+
 
 class IdempotencyReplayAndConflictTest(unittest.TestCase):
     def test_same_key_same_payload_is_a_replay(self):
