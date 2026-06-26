@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04G_ASSIGNED** |
-| 当前阶段 | WP-04g command API idempotency and optimistic concurrency contract（T-04-07；turn 0154 已派发给 CC） |
+| execution_gate | **WP-04G_IN_REVIEW** |
+| 当前阶段 | WP-04g command API idempotency and optimistic concurrency contract（T-04-07；turn 0155 REPORT 交付 PR #25，待 Codex 独立审核） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04f merged；WP-04g/T-04-07 assigned to CC，base `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
-| 当前唯一可执行 Work Order | **WP-04g command API idempotency/concurrency contract**（turn 0154；仅本地 contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps） |
+| R0-02 | **IN_PROGRESS**（WP-04f merged；WP-04g/T-04-07 交付 PR #25 OPEN/MERGEABLE，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI 全绿，待 Codex 独立审核） |
+| 当前唯一可执行 Work Order | **WP-04g command API idempotency/concurrency contract**（turn 0154；仅本地 contract/middleware foundation，无 HTTP server/OpenAPI/CLI/auth/deps；已由 turn 0155 REPORT 交付，待审） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 turn 0154，开 PR 后 REPORT 给 CODEX） |
+| 轮到谁 | **CODEX**（独立审核 PR #25 / turn 0155 REPORT） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -113,7 +113,9 @@
 | 0147 | CODEX → CC | WORK_ORDER | WP-04f | 已由 turn 0148 REPORT 接手：WP-04f 交付，PR #24 OPEN/MERGEABLE，head `e37e70fe95a18a3bf444d3270f6ba68c8a189d52`，required CI 全绿，待 Codex 独立复核。 |
 | 0148 | CC → CODEX | REPORT | WP-04f | 已由 turn 0149 DECISION 接手：PR #24 独立审核 CHANGES_REQUESTED，需修 granted approval exact binding / forged approval pass blocker。 |
 | 0149 | CODEX → CC | DECISION | WP-04f-pr24-changes-requested | 已由 turn 0150 REPORT 接手：blocker 已修，granted approval 现需完整 identity + request/decision exact binding，否则 fail-closed。 |
-| 0150 | CC → CODEX | REPORT | WP-04f-pr24-fix | PR #24 review-fix 交付：granted approval binding 已 fail-closed，新 head `97eeb9bbcef71e28717db91cf4f1bc7478bd6502`，530 测试 + lint/format/diff-check 绿，repro 现 insufficient；OPEN/MERGEABLE，未自合，auto-merge 未启用；待 Codex 独立审核。 |
+| 0150 | CC → CODEX | REPORT | WP-04f-pr24-fix | 已由 turn 0153 DECISION 接手：PR #24 独立复核通过并人工合并（auto-merge 不可用），merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`。 |
+| 0154 | CODEX → CC | WORK_ORDER | WP-04g | 已由 turn 0155 REPORT 接手：WP-04g command API idempotency/concurrency contract 交付 PR #25，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
+| 0155 | CC → CODEX | REPORT | WP-04g | WP-04g 交付：新增 `auto_bioinfo/control_plane/command_api.py`（纯本地 `evaluate_command_request`：有界 header 解析 Idempotency-Key/If-Match-Version + case-insensitive + 重复/畸形 fail-closed；强制非空·有界·可见 ASCII idempotency key；幂等绑定 canonical `(command_type,payload)` fingerprint，同 key 同载荷=replay、异载荷=conflict；乐观并发 expected-version vs caller current_version，stale/malformed fail-closed；有界 STATUSES/COMMAND_* reason codes + 审计 binding；零 I/O/clock/执行副作用）+ `__init__` 导出 + `tests/test_command_api.py`(31)；本地 561 测试绿（+31），`make lint`/`format-check` 绿，`git diff --check` clean，PR #25 required CI quality 3.10/3.11/3.12 全绿；OPEN/MERGEABLE，base `b7c271a6…`，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，未自合并/未启用 auto-merge，R0-02 WP-04h/T-04-08+ 未启动，未触碰 HTTP server/OpenAPI/CLI/auth/async/outbox/DB/deps/Docker/workflows/真实数据/外部服务/科学逻辑。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -413,4 +415,5 @@
 | 0151 | `log/0151-codex-to-ceo-blocker-WP-04f-pr24-auto-merge-disabled.md`（OPEN，已由 0152 BLOCKER 接手：owner 已启用 repo auto-merge，但 PR #24 clean 无法挂 auto-merge） |
 | 0152 | `log/0152-codex-to-ceo-blocker-WP-04f-pr24-clean-no-auto-merge.md`（OPEN，已由 0153 DECISION 接手：CEO manually merged PR #24） |
 | 0153 | `log/0153-codex-to-cc-decision-WP-04f-pr24-manual-merged.md`（OPEN，PR #24 merged by CEO，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
-| 0154 | `log/0154-codex-to-cc-workorder-WP-04g.md`（OPEN，WP-04g/T-04-07 command API idempotency + optimistic concurrency contract assigned to CC） |
+| 0154 | `log/0154-codex-to-cc-workorder-WP-04g.md`（OPEN，已由 0155 REPORT 接手：WP-04g 交付 PR #25） |
+| 0155 | `log/0155-cc-to-codex-report-WP-04g.md`（OPEN，WP-04g 交付 PR #25 OPEN/MERGEABLE，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI 全绿，待 Codex 独立审核） |
