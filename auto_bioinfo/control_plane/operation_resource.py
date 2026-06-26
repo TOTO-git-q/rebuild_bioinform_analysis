@@ -576,6 +576,38 @@ class OperationProjection:
         }
 
 
+def _raw_record_facts(record: OperationRecord) -> dict[str, Any]:
+    """Best-effort raw projection of a *possibly malformed* record; never raises.
+
+    Mirrors :meth:`OperationRecord.to_dict` for rendering a ``malformed``
+    projection, but tolerates the bad facts a hand-built record can carry: where
+    :meth:`OperationRecord.to_dict` unconditionally coerces a payload with
+    ``dict(...)`` (correct for a validated record, but raising on a non-mapping
+    ``result``/``error``), this passes a non-mapping payload through unchanged as a
+    raw fact instead of coercing it, and computes ``is_terminal`` without a
+    frozenset lookup that an unhashable status could break.  The result is the same
+    bounded shape, computed defensively so the malformed projection path is total.
+    """
+
+    def _payload(value: Any) -> Any:
+        if value is None:
+            return None
+        return dict(value) if isinstance(value, Mapping) else value
+
+    return {
+        "operation_id": record.operation_id,
+        "command_type": record.command_type,
+        "command_fingerprint": record.command_fingerprint,
+        "idempotency_key": record.idempotency_key,
+        "status": record.status,
+        "is_terminal": isinstance(record.status, str) and record.status in TERMINAL_STATUSES,
+        "result": _payload(record.result),
+        "error": _payload(record.error),
+        "created_at": record.created_at,
+        "updated_at": record.updated_at,
+    }
+
+
 def project_operation(record: Any) -> OperationProjection:
     """Project an operation for a transport adapter, never raising.
 
@@ -585,12 +617,16 @@ def project_operation(record: Any) -> OperationProjection:
     fails validation — a non-record, or a record with a malformed id/status/
     identity/payload — returns a ``malformed`` projection carrying the stable
     ``error_code`` instead of raising, so a malformed operation is still a
-    bounded, renderable outcome.
+    bounded, renderable outcome.  The malformed branch builds its raw facts via
+    :func:`_raw_record_facts` (not :meth:`OperationRecord.to_dict`, which can raise
+    when coercing a non-mapping ``result``/``error``) so the promise of a
+    never-raising projection holds even for a record carrying un-coercible
+    payloads.
     """
     errors = validate_operation_record(record)
     if errors:
         code, message = errors[0]
-        facts = record.to_dict() if isinstance(record, OperationRecord) else {}
+        facts = _raw_record_facts(record) if isinstance(record, OperationRecord) else {}
         return OperationProjection(
             category=PROJECTION_MALFORMED,
             terminal=False,

@@ -315,6 +315,44 @@ class ProjectionTest(unittest.TestCase):
         self.assertEqual(proj.category, PROJECTION_MALFORMED)
         self.assertEqual(proj.error_code, CODE_MALFORMED_PAYLOAD)
 
+    def test_non_mapping_result_payload_projects_without_raising(self):
+        # A hand-built record whose result/error is not mapping-like must still
+        # project as malformed rather than raising when the projection renders its
+        # raw facts (regression: to_dict()'s dict(...) coercion blew up here).
+        for label, kwargs in (
+            ("object result", {"status": STATUS_PENDING, "result": object()}),
+            ("sequence result", {"status": STATUS_PENDING, "result": ["bad"]}),
+            ("object error", {"status": STATUS_FAILED, "error": object()}),
+            ("sequence error", {"status": STATUS_FAILED, "error": [("k", "v", "x")]}),
+        ):
+            with self.subTest(label):
+                bad = OperationRecord(
+                    operation_id="op-1",
+                    command_type="create_project",
+                    command_fingerprint=_FINGERPRINT,
+                    **kwargs,
+                )
+                proj = project_operation(bad)
+                self.assertEqual(proj.category, PROJECTION_MALFORMED)
+                self.assertTrue(proj.is_malformed)
+                self.assertIn(proj.error_code, ERROR_CODES)
+                # The raw, un-coercible payload is passed through verbatim, not lost.
+                self.assertIn("result", proj.operation)
+                self.assertIn("error", proj.operation)
+
+    def test_unhashable_status_projects_without_raising(self):
+        # An unhashable status would break a bare `status in TERMINAL_STATUSES`
+        # lookup; the projection must still classify it as malformed, not raise.
+        bad = OperationRecord(
+            operation_id="op-1",
+            command_type="create_project",
+            command_fingerprint=_FINGERPRINT,
+            status=["running"],
+        )
+        proj = project_operation(bad)
+        self.assertEqual(proj.category, PROJECTION_MALFORMED)
+        self.assertEqual(proj.operation["is_terminal"], False)
+
 
 class ValidateRecordTest(unittest.TestCase):
     def test_well_formed_record_has_no_errors(self):
