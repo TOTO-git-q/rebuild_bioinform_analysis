@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-03B_DISPATCHED** |
+| execution_gate | **WP-03B_DELIVERED_PENDING_REVIEW** |
 | 当前阶段 | WP-03b Event-log idempotency key + transition/snapshot consistency hardening |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-03b：event-log idempotency key + projection consistency hardening；仍不触碰真实数据/外部服务/DB/Docker） |
-| 当前唯一可执行 Work Order | **WP-03b Event-log idempotency key + transition/snapshot consistency hardening**（turn 0117，base `f686e41a5128456666ff58d17d17e17817257939`） |
+| 当前唯一可执行 Work Order | **WP-03b Event-log idempotency key + transition/snapshot consistency hardening**（turn 0117，base `f686e41a5128456666ff58d17d17e17817257939`；CC 已交付 PR #18，head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（执行 WP-03b，turn 0117） |
+| 轮到谁 | **CODEX**（独立审核 WP-03b PR #18，turn 0118） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -80,7 +80,8 @@
 | 0114 | CC → CODEX | REPORT | WP-03a-pr17-review-fix2 | 已由 turn 0115 BLOCKER 接手：PR #17 独立审核通过，但仓库 auto-merge 未启用，Codex 无法按 turn 0063 合并策略完成 merge |
 | 0115 | CODEX → CEO | BLOCKER | WP-03a-pr17-auto-merge-disabled | 已由 turn 0116 接手：repo auto-merge 已启用，PR #17 已合并，merge commit `f686e41a5128456666ff58d17d17e17817257939` |
 | 0116 | CODEX → CC | DECISION | WP-03a-pr17-auto-merged | WP-03a PR #17 已通过 GitHub auto-merge 合入，merge commit `f686e41a5128456666ff58d17d17e17817257939`；按 turn 0117 启动 WP-03b |
-| 0117 | CODEX → CC | WORK_ORDER | WP-03b | 启动 WP-03b：event-log idempotency key + transition/snapshot consistency hardening；phase-0/no DB |
+| 0117 | CODEX → CC | WORK_ORDER | WP-03b | 已由 turn 0118 REPORT 接手：WP-03b 已实现，PR #18 OPEN/MERGEABLE，head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`，required CI 全绿，待 Codex 独立审核 |
+| 0118 | CC → CODEX | REPORT | WP-03b | WP-03b 交付：idempotency_key（events.py）+ append_event 幂等 + verify_projection 漂移检测（store.py）+ 测试；PR #18 OPEN/MERGEABLE，head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`，本地 360 测试 + lint/format-check 绿 + required CI quality 3.10/3.11/3.12 全绿；未自合并，R0-02 外无新工作 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -193,10 +194,11 @@
 | 0114 | 已由 turn 0115 BLOCKER 接手：PR #17 独立审核通过，但仓库未启用 auto-merge，Codex 无法按既定策略合并 |
 | 0115 | 已由 turn 0116 DECISION 接手：repo `allow_auto_merge=true` 后，PR #17 已经 GitHub auto-merge 合入，merge commit `f686e41a5128456666ff58d17d17e17817257939` |
 | 0116 | 已由 turn 0117 WORK_ORDER 接手：WP-03a merged，启动 WP-03b event-log idempotency key + transition/snapshot consistency hardening |
+| 0117 | 已由 turn 0118 REPORT 接手：WP-03b 交付 PR #18（head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`），events.py idempotency_key + store.py append_event 幂等 + verify_projection 漂移检测 + 9 新测试，本地 360 测试 + lint/format-check + required CI quality 3.10/3.11/3.12 全绿，未自合并/OPEN/MERGEABLE |
 
 ## 当前开放任务
 
-1. **WP-03b**：已派发给 CC（turn 0117），等待 CC 实现并开 PR。
+1. **WP-03b**：CC 已实现并交付 PR #18（turn 0118，head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`，OPEN/MERGEABLE，required CI 全绿）；等待 Codex 独立审核。
 2. **WP-03c / DB / outbox / broker / API / runtime execution**：WP-03b 真合并前不得派发。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-03b 不做。
 
@@ -331,4 +333,5 @@
 | 0114 | `log/0114-cc-to-codex-report-WP-03a-pr17-review-fix2.md`（OPEN，已由 0115 接手：PR #17 approved but auto-merge disabled） |
 | 0115 | `log/0115-codex-to-ceo-blocker-WP-03a-pr17-auto-merge-disabled.md`（OPEN，已由 0116 接手：auto-merge enabled + PR #17 merged） |
 | 0116 | `log/0116-codex-to-cc-decision-WP-03a-pr17-auto-merged.md`（OPEN，WP-03a PR #17 auto-merged，merge commit `f686e41a5128456666ff58d17d17e17817257939`） |
-| 0117 | `log/0117-codex-to-cc-workorder-WP-03b.md`（OPEN，启动 WP-03b event-log idempotency key + projection consistency hardening） |
+| 0117 | `log/0117-codex-to-cc-workorder-WP-03b.md`（OPEN，已由 0118 接手：WP-03b 交付 PR #18，待 Codex 独立审核） |
+| 0118 | `log/0118-cc-to-codex-report-WP-03b.md`（OPEN，WP-03b 交付：PR #18 head `c1f9cdc42132adac6ece3be84ad4cadab28766cd`，OPEN/MERGEABLE，required CI 全绿，待 Codex 独立审核） |
