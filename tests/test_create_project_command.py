@@ -174,6 +174,59 @@ class IdempotencyTest(unittest.TestCase):
                 create_project(_command(project_dir, original_text="totally different question"))
             self.assertEqual(len(load_events(project_dir)), 1)
 
+    def test_same_key_changed_submitter_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = Path(d) / "proj_submitter"
+            create_project(_command(project_dir, command_id="cmd-s", submitter={"actor_type": "human", "actor_id": "u1"}))
+            # submitter is persisted into the OriginalRequest, so a same-key reuse
+            # that changes it must be a conflict, never an idempotent replay.
+            with self.assertRaises(CreateProjectConflict):
+                create_project(_command(project_dir, command_id="cmd-s", submitter={"actor_type": "human", "actor_id": "u2"}))
+            self.assertEqual(len(load_events(project_dir)), 1)
+            self.assertEqual(read_object(project_dir, "original_request", {})["submitter"], {"actor_type": "human", "actor_id": "u1"})
+
+    def test_same_key_changed_attachments_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = Path(d) / "proj_attach"
+            create_project(_command(project_dir, command_id="cmd-a", attachments=[{"id": "a1"}]))
+            with self.assertRaises(CreateProjectConflict):
+                create_project(_command(project_dir, command_id="cmd-a", attachments=[{"id": "a2"}]))
+            self.assertEqual(len(load_events(project_dir)), 1)
+            self.assertEqual(read_object(project_dir, "original_request", {})["attachments"], [{"id": "a1"}])
+
+    def test_same_key_changed_user_constraints_fails_closed(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = Path(d) / "proj_constraints"
+            create_project(_command(project_dir, command_id="cmd-c", user_constraints=["A"]))
+            with self.assertRaises(CreateProjectConflict):
+                create_project(_command(project_dir, command_id="cmd-c", user_constraints=["B"]))
+            self.assertEqual(len(load_events(project_dir)), 1)
+            self.assertEqual(read_object(project_dir, "original_request", {})["user_constraints"], ["A"])
+
+    def test_same_key_identical_persisted_fields_is_idempotent_replay(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = Path(d) / "proj_identical"
+            kw = dict(command_id="cmd-i", submitter={"actor_type": "human", "actor_id": "u1"}, attachments=[{"id": "a1"}], user_constraints=["A"])
+            first = create_project(_command(project_dir, **kw))
+            second = create_project(_command(project_dir, **kw))
+            self.assertTrue(first.created)
+            self.assertTrue(second.idempotent_replay)
+            self.assertEqual(first.event_id, second.event_id)
+            self.assertEqual(len(load_events(project_dir)), 1)
+
+
+class PathTraversalTest(unittest.TestCase):
+    def test_parent_traversal_in_project_dir_is_rejected_without_writes(self):
+        for suffix in ("../valid_project_id", "a/../valid_project_id"):
+            with tempfile.TemporaryDirectory() as d:
+                raw = f"{d}/{suffix}"
+                with self.assertRaises(CreateProjectError):
+                    create_project(_command(raw))
+                # Rejected lexically before any resolve/write: the normalised escape
+                # target was never created, so no project/event files exist there.
+                escaped = Path(raw).resolve()
+                self.assertFalse(escaped.exists())
+
 
 class InvalidInputTest(unittest.TestCase):
     def test_invalid_project_directory_name_is_rejected(self):

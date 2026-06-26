@@ -110,19 +110,38 @@ class CreateProjectResult:
         return asdict(self)
 
 
-def _command_identity(project_id: str, title: str, original_text: str, policy: dict[str, Any]) -> dict[str, Any]:
+def _command_identity(project_id: str, title: str, request: dict[str, Any], policy: dict[str, Any]) -> dict[str, Any]:
     """The facts that define "the same logical CreateProject".
 
     Two commands sharing an idempotency key are a true retry only when these
     match exactly; the policy is pinned by both its id and its content hash so a
-    silent governance change is treated as a conflict, never a retry."""
+    silent governance change is treated as a conflict, never a retry.  Every
+    field that is persisted into the ``OriginalRequest`` and influences project
+    semantics is included — ``request_id`` only hashes ``project_id`` +
+    ``original_text``, so ``submitter``/``attachments``/``user_constraints`` are
+    listed explicitly; otherwise a same-key reuse that changed them would be
+    mistaken for an idempotent replay."""
     return {
         "project_id": project_id,
         "title": title,
-        "original_text": original_text,
+        "original_text": request.get("original_text", ""),
+        "submitter": request.get("submitter", {}),
+        "attachments": request.get("attachments", []),
+        "user_constraints": request.get("user_constraints", []),
         "project_policy_id": policy.get("project_policy_id", ""),
         "policy_content_hash": policy.get("content_hash", ""),
     }
+
+
+def _has_parent_traversal(raw_project_dir: str) -> bool:
+    """True if ``raw_project_dir`` contains a parent-traversal (``..``) component.
+
+    Checked lexically on the *user-supplied* string before any resolution, and
+    both ``/`` and ``\\`` are treated as separators so a Windows-style path
+    cannot smuggle a ``..`` segment past a POSIX-only split.  Validating only
+    ``Path(...).name`` is not enough: ``inside/../proj`` has a clean ``name`` yet
+    escapes its intended parent once normalised."""
+    return any(part == ".." for part in raw_project_dir.replace("\\", "/").split("/"))
 
 
 def _result(
@@ -181,6 +200,14 @@ def create_project(command: CreateProjectCommand) -> CreateProjectResult:
     Raises :class:`CreateProjectError` on invalid input or a clashing existing
     project, and :class:`CreateProjectConflict` on a same-key conflicting retry.
     """
+    # Reject lexical parent traversal in the *raw* command value before resolving
+    # or writing anything: a path like ``inside/../proj`` has a clean final name
+    # but would escape its intended parent once normalised (fail closed).
+    if _has_parent_traversal(command.project_dir):
+        raise CreateProjectError(
+            f"project_dir {command.project_dir!r} contains a parent-traversal ('..') path component; refusing to resolve or write outside the intended location"
+        )
+
     project_dir = Path(command.project_dir)
     project_id = project_dir.name
 
@@ -212,7 +239,7 @@ def create_project(command: CreateProjectCommand) -> CreateProjectResult:
     if request_errors or policy_errors:
         raise CreateProjectError(f"invalid CreateProject command: {'; '.join(request_errors + policy_errors)}")
 
-    identity = _command_identity(project_id, command.title, command.original_text, policy)
+    identity = _command_identity(project_id, command.title, request, policy)
     key = command.command_id.strip() or make_stable_id("create_project_command", identity)
 
     # Idempotency: a project already initialised here is either a true retry or a
