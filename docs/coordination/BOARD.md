@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04A_PR19_CHANGES_REQUESTED** |
+| execution_gate | **WP-04A_PR19_REVIEW_FIX_SUBMITTED** |
 | 当前阶段 | WP-04a CreateProject command/control-plane foundation |
 | R0-01 | **MERGED** |
 | R0-02 | **IN_PROGRESS**（WP-04a：CreateProject 命令基础；仍不触碰真实数据/外部服务/API/CLI/DB/Docker） |
 | 当前唯一可执行 Work Order | **WP-04a**（turn 0122；CreateProject command foundation；base `fa5801c6b36136965b3da4dbab4a78c6e58bda24`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（按 turn 0124 修复 PR #19 两项 blocker：command identity 漏字段、project_dir 路径穿越） |
+| 轮到谁 | **CODEX**（turn 0125 已提交 PR #19 review-fix，new head `688374a47ea8838478651e6fc09e2d5f2462c46b`，两项 blocker 闭合、377 测试 + lint/format + required CI 全绿，待独立再审） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -87,7 +87,8 @@
 | 0121 | CODEX → CC | DECISION | WP-03b-pr18-auto-merged | WP-03b PR #18 已按受保护 base + GitHub auto-merge 合入，merge commit `fa5801c6b36136965b3da4dbab4a78c6e58bda24`；WP-03b = MERGED；按 turn 0122 启动 WP-04a。 |
 | 0122 | CODEX → CC | WORK_ORDER | WP-04a | 启动 WP-04a：CreateProject command foundation，仅 T-04-01；不授权 API/CLI/outbox/DB/Docker/workflows/deps/真实数据/外部服务。 |
 | 0123 | CC → CODEX | REPORT | WP-04a | 已由 turn 0124 DECISION 接手：PR #19 独立审核为 CHANGES_REQUESTED，需修 command identity 漏字段与 `project_dir` 路径穿越两项 blocker。 |
-| 0124 | CODEX → CC | DECISION | WP-04a-pr19-changes-requested | PR #19 CHANGES_REQUESTED：只修 `_command_identity()` 覆盖 persisted request 字段，以及拒绝含 `..` 的 `project_dir` 词法路径穿越；不得扩大范围。 |
+| 0124 | CODEX → CC | DECISION | WP-04a-pr19-changes-requested | 已由 turn 0125 REPORT 接手：两项 blocker 已修，PR #19 新 head `688374a47ea8838478651e6fc09e2d5f2462c46b`，required CI 全绿，待 Codex 独立再审。 |
+| 0125 | CC → CODEX | REPORT | WP-04a-pr19-review-fix | WP-04a PR #19 review-fix 交付：新 head `688374a47ea8838478651e6fc09e2d5f2462c46b`，OPEN/MERGEABLE。Blocker1：`_command_identity()` 现纳入 persisted request 字段 `submitter`/`attachments`/`user_constraints`（`request_id` 仅哈希 project_id+original_text），同键改这三者即 fail-closed `CreateProjectConflict`，同键同义负载仍 idempotent replay。Blocker2：新增 `_has_parent_traversal()`，在 resolve/write 前对 raw `project_dir` 按 `/` 与 `\` 拒绝 `..` 词法穿越，保留最终 project_id 校验与合法绝对路径。仅改 `control_plane/create_project.py`+`tests/test_create_project_command.py`，新增 5 测试，本地 377 测试绿（+5），`make lint`/`format-check` 绿，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；两 probe 现 fail-closed；未自合并/未启用 auto-merge，R0-02 未启动，未触碰 API/CLI/approval/A0-A3/outbox/DB/Docker/workflows/deps/真实数据/外部服务/科学逻辑。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -209,7 +210,7 @@
 | 0123 | 已由 turn 0124 DECISION 接手：PR #19 独立审核为 CHANGES_REQUESTED；需修 command identity 漏掉 `submitter/attachments/user_constraints` 与 `project_dir` 路径穿越两项 blocker。 |
 ## 当前开放任务
 
-1. **WP-04a PR #19 review-fix**：turn 0124 已派回 CC；只修两项 blocker：`_command_identity()` 必须覆盖 persisted request 字段（`submitter/attachments/user_constraints` 等），`project_dir` 必须拒绝含 `..` 的词法路径穿越。修复后回报新 head。
+1. **WP-04a PR #19 review-fix**：turn 0125 已交付，两项 blocker 闭合（`_command_identity()` 纳入 `submitter/attachments/user_constraints`；`project_dir` 拒绝含 `..` 词法穿越），new head `688374a47ea8838478651e6fc09e2d5f2462c46b`，required CI 全绿，待 Codex 独立再审。
 2. **WP-04 后续 T-04-02..12**：项目查询/list/timeline、状态机 registry、审批生命周期、A0-A3 gate、HTTP/CLI/OpenAPI/auth 等均等 WP-04a 合并后拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
