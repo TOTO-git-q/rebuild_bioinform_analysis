@@ -290,9 +290,35 @@ class EventIdempotencyKeyTest(unittest.TestCase):
             append_event(p, event)
             self.assertEqual(len(load_events(p)), before + 1)
 
-    def test_append_event_keyed_duplicate_returns_existing(self):
-        # Re-appending a keyed event returns the already-recorded event
-        # deterministically rather than the second instance.
+    def test_append_event_keyed_identical_retry_returns_existing(self):
+        # A true retry (same key, logically identical content) returns the
+        # already-recorded event deterministically rather than the second
+        # instance, even though created_at / event_id moved with the clock.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            common = dict(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                message="resolved",
+                idempotency_key="key-B",
+            )
+            first = build_event(**common)
+            recorded = append_event(p, first)
+            # A distinct second instance carrying the same key but identical
+            # logical content is a retry; the recorded event must win.
+            second = build_event(**common)
+            returned = append_event(p, second)
+            self.assertEqual(returned, recorded)
+            self.assertEqual(len(load_events(p)), 2)  # init + first only
+
+    def test_append_event_keyed_payload_mismatch_raises(self):
+        # Reviewer probe 1: same idempotency_key but different payload/message
+        # must NOT be silently accepted by returning the old event — it is a
+        # conflict and must fail closed.
         with tempfile.TemporaryDirectory() as d:
             p = Path(d) / "proj"
             init_project_state(p, "q")
@@ -302,22 +328,46 @@ class EventIdempotencyKeyTest(unittest.TestCase):
                 actor="actor",
                 previous_stage="INTAKE",
                 next_stage="QUESTION_RESOLVED",
+                message="resolved",
+                payload={"answer": "A"},
                 idempotency_key="key-B",
             )
-            recorded = append_event(p, first)
-            # A distinct second instance carrying the same key must not win.
-            second = build_event(
+            append_event(p, first)
+            conflicting = build_event(
                 project_id=p.name,
                 event_type="QUESTION_RESOLVED",
                 actor="actor",
                 previous_stage="INTAKE",
                 next_stage="QUESTION_RESOLVED",
                 message="different message",
+                payload={"answer": "B"},
                 idempotency_key="key-B",
             )
-            returned = append_event(p, second)
-            self.assertEqual(returned, recorded)
-            self.assertEqual(returned["message"], first["message"])
+            with self.assertRaises(ValueError):
+                append_event(p, conflicting)
+            # No second line written; the inconsistent event is rejected.
+            self.assertEqual(len(load_events(p)), 2)  # init + first only
+
+    def test_append_event_malformed_existing_duplicate_key_raises(self):
+        # Reviewer probe 2: a malformed existing record carrying the key must
+        # not be returned as the dedupe target for a later valid event.
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "proj"
+            init_project_state(p, "q")
+            events_path = p / "state" / "events.jsonl"
+            # Append a malformed event (missing required fields) with the key.
+            with events_path.open("a", encoding="utf-8", newline="\n") as handle:
+                handle.write(json.dumps({"event_type": "QUESTION_RESOLVED", "idempotency_key": "key-C"}) + "\n")
+            valid = build_event(
+                project_id=p.name,
+                event_type="QUESTION_RESOLVED",
+                actor="actor",
+                previous_stage="INTAKE",
+                next_stage="QUESTION_RESOLVED",
+                idempotency_key="key-C",
+            )
+            with self.assertRaises(ValueError):
+                append_event(p, valid)
 
     def test_append_event_keyless_appends_each_time(self):
         # Without a key the historical append-always behavior is preserved, so

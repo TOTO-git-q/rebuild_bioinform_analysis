@@ -88,11 +88,29 @@ def append_event(project_dir: str | Path, event: dict[str, Any]) -> dict[str, An
     # no second log line and deterministically returns the already-recorded
     # event. Keyless events keep the historical append-always behavior, so the
     # existing init/transition write paths are unchanged.
+    #
+    # The key must dedupe *true retries only* — it can never mask an
+    # inconsistent or corrupt event. So a same-key match is honored only when
+    # the existing record is itself well-formed AND the incoming event is
+    # logically identical to it; otherwise we fail closed with ``ValueError``
+    # rather than silently returning a stale/forged record.
     key = event.get("idempotency_key")
     if key is not None:
+        # Identity fields that define "the same logical event"; a same-key
+        # event differing on any of these is a conflict, not a retry.
+        # ``created_at`` / ``event_id`` are excluded by design — they move with
+        # the wall clock, which is exactly why an explicit key exists.
+        identity = ["project_id", "event_type", "actor", "previous_stage", "next_stage", "object_refs", "message", "payload_hash", "payload"]
         for existing in load_events(project_dir):
-            if existing.get("idempotency_key") == key:
-                return existing  # idempotent: already recorded
+            if existing.get("idempotency_key") != key:
+                continue
+            existing_missing = [field for field in required if field not in existing]
+            if existing_missing:
+                raise ValueError(f"idempotency_key {key!r} maps to a malformed existing event missing required fields: {', '.join(existing_missing)}")
+            conflicts = [field for field in identity if existing.get(field) != event.get(field)]
+            if conflicts:
+                raise ValueError(f"idempotency_key {key!r} conflict: incoming event differs from the recorded event on: {', '.join(conflicts)}")
+            return existing  # idempotent: identical retry already recorded
     path = _events_path(project_dir)
     with path.open("a", encoding="utf-8", newline="\n") as handle:
         handle.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
