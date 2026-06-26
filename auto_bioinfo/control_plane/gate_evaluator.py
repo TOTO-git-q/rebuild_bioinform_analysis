@@ -38,8 +38,12 @@ cannot drift from it.  The *automation level* declared in a project's
 whose tier is at or below the policy's automation level auto-clears, while a
 higher-risk gate needs an explicit human approval (decision D-04 / ADR-010).  A
 present approval record always takes precedence over the auto-clear path: an
-explicit grant passes, an explicit rejection blocks, and a pending/expired/
-cancelled record is treated conservatively as *not yet approved*.
+explicit rejection blocks, a pending/expired/cancelled record is treated
+conservatively as *not yet approved*, and a grant passes **only** when it carries
+a non-blank approval identity and a recorded decision whose binding matches the
+request and gate exactly — a forged or incomplete "granted" payload (no identity,
+no decision, or a decision bound to a different request/project/subject/version)
+fails closed and can never clear the gate.
 
 This module evaluates a gate as a pure decision only; it does not drive an
 approval lifecycle, persist anything, or expose any HTTP/CLI surface.
@@ -94,6 +98,11 @@ CODE_POLICY_PROJECT_MISMATCH = "GATE_POLICY_PROJECT_MISMATCH"
 CODE_SUBJECT_BINDING_MISMATCH = "GATE_SUBJECT_BINDING_MISMATCH"
 CODE_STALE_VERSION = "GATE_STALE_VERSION"
 CODE_UNKNOWN_APPROVAL_STATE = "GATE_UNKNOWN_APPROVAL_STATE"
+# A granted approval can only pass if it carries its exact approval identity and
+# a decision record that binds the same request/project/subject/version/verb.
+CODE_APPROVAL_IDENTITY_MISSING = "GATE_APPROVAL_IDENTITY_MISSING"
+CODE_APPROVAL_BINDING_INCOMPLETE = "GATE_APPROVAL_BINDING_INCOMPLETE"
+CODE_DECISION_BINDING_MISMATCH = "GATE_DECISION_BINDING_MISMATCH"
 
 REASON_CODES = (
     CODE_AUTO_CLEARED,
@@ -110,6 +119,9 @@ REASON_CODES = (
     CODE_SUBJECT_BINDING_MISMATCH,
     CODE_STALE_VERSION,
     CODE_UNKNOWN_APPROVAL_STATE,
+    CODE_APPROVAL_IDENTITY_MISSING,
+    CODE_APPROVAL_BINDING_INCOMPLETE,
+    CODE_DECISION_BINDING_MISMATCH,
 )
 
 # Lifecycle/approval states that are *not yet a valid grant* map to a stable
@@ -183,16 +195,28 @@ class GateDecision:
 
 @dataclass(frozen=True)
 class _ApprovalView:
-    """A normalised, read-only projection of whatever approval form was supplied."""
+    """A normalised, read-only projection of whatever approval form was supplied.
+
+    The ``decision_*`` fields mirror the bound :class:`ApprovalDecision` when one
+    is present (``has_decision``); they let the evaluator verify that a *granted*
+    approval's decision binds the same request/project/subject/version/verb rather
+    than trusting the lifecycle ``state`` alone.
+    """
 
     approval_request_id: str
-    project_id: str
-    gate: str
-    subject_type: str
-    subject_id: str
+    project_id: Any
+    gate: Any
+    subject_type: Any
+    subject_id: Any
     subject_version: Any
     state: str
+    has_decision: bool
+    decision_request_id: str
+    decision_project_id: Any
+    decision_subject_type: Any
+    decision_subject_id: Any
     decision_subject_version: Any
+    decision_verb: Any
 
 
 def _is_positive_int(value: Any) -> bool:
@@ -246,6 +270,7 @@ def _project_approval(approval: Any) -> _ApprovalView | None:
     else:
         return None
 
+    has_decision = decision is not None
     return _ApprovalView(
         approval_request_id=str(request.get("approval_request_id", "") or ""),
         project_id=request.get("project_id"),
@@ -254,7 +279,13 @@ def _project_approval(approval: Any) -> _ApprovalView | None:
         subject_id=request.get("subject_id"),
         subject_version=request.get("subject_version"),
         state=state if isinstance(state, str) else "",
-        decision_subject_version=(decision.get("subject_version") if decision is not None else None),
+        has_decision=has_decision,
+        decision_request_id=(str(decision.get("approval_request_id", "") or "") if has_decision else ""),
+        decision_project_id=(decision.get("project_id") if has_decision else None),
+        decision_subject_type=(decision.get("subject_type") if has_decision else None),
+        decision_subject_id=(decision.get("subject_id") if has_decision else None),
+        decision_subject_version=(decision.get("subject_version") if has_decision else None),
+        decision_verb=(decision.get("decision") if has_decision else None),
     )
 
 
@@ -409,20 +440,7 @@ def _evaluate_with_approval(gate: str, gate_input: GateEvaluationInput, policy: 
 
     state = view.state
     if state == "granted":
-        # A grant must itself bind the exact version it ruled on; a grant whose
-        # recorded decision targets a different (stale) version cannot pass.
-        if view.decision_subject_version is not None and view.decision_subject_version != gate_input.subject_version:
-            return _insufficient(
-                gate,
-                gate_input,
-                policy,
-                view.approval_request_id,
-                CODE_STALE_VERSION,
-                f"granted decision targets version {view.decision_subject_version}, not the subject version {gate_input.subject_version} under review",
-            )
-        return _decision(
-            gate, gate_input, policy, view.approval_request_id, OUTCOME_PASS, CODE_APPROVAL_GRANTED, "an explicit, exactly-bound approval grants this gate"
-        )
+        return _evaluate_granted(gate, gate_input, policy, view)
     if state == "rejected":
         return _decision(
             gate, gate_input, policy, view.approval_request_id, OUTCOME_BLOCK, CODE_APPROVAL_REJECTED, "an explicit human rejection blocks this gate"
@@ -445,6 +463,69 @@ def _evaluate_with_approval(gate: str, gate_input: GateEvaluationInput, policy: 
         view.approval_request_id,
         CODE_UNKNOWN_APPROVAL_STATE,
         f"approval state {state!r} is not one of {', '.join(APPROVAL_STATES)}",
+    )
+
+
+def _evaluate_granted(gate: str, gate_input: GateEvaluationInput, policy: dict[str, Any], view: _ApprovalView) -> GateDecision:
+    """Decide a ``granted`` approval, passing only on a complete, exact binding.
+
+    The lifecycle ``state`` alone is never trusted.  A grant may pass only if it
+    carries a non-blank approval identity *and* a recorded decision whose binding
+    matches the request and the gate input exactly: same approval request id,
+    project, subject type/id, the exact (non-stale) subject version, and an
+    ``approved`` verb.  A missing identity, a missing decision, a stale decision
+    version, or any mismatched decision binding fails closed and cannot pass — a
+    forged or incomplete approval can never clear the gate.
+    """
+    # 1. Exact approval identity is mandatory; a blank id cannot bind anything.
+    if not _nonblank(view.approval_request_id):
+        return _insufficient(
+            gate,
+            gate_input,
+            policy,
+            view.approval_request_id,
+            CODE_APPROVAL_IDENTITY_MISSING,
+            "granted approval lacks a non-blank approval_request_id; an empty identity cannot pass",
+        )
+    # 2. A grant must carry the decision record that produced it.
+    if not view.has_decision:
+        return _insufficient(
+            gate,
+            gate_input,
+            policy,
+            view.approval_request_id,
+            CODE_APPROVAL_BINDING_INCOMPLETE,
+            "granted approval carries no bound decision record; a granted state alone cannot pass",
+        )
+    # 3. The decision must bind the exact version it ruled on.
+    if view.decision_subject_version != gate_input.subject_version:
+        return _insufficient(
+            gate,
+            gate_input,
+            policy,
+            view.approval_request_id,
+            CODE_STALE_VERSION,
+            f"granted decision targets version {view.decision_subject_version}, not the subject version {gate_input.subject_version} under review",
+        )
+    # 4. The decision must answer the same request and bind the same project/
+    #    subject, by an approve verb; any mismatch is a forged/cross-bound grant.
+    if (
+        view.decision_request_id != view.approval_request_id
+        or view.decision_project_id != gate_input.project_id
+        or view.decision_subject_type != gate_input.subject_type
+        or view.decision_subject_id != gate_input.subject_id
+        or view.decision_verb != "approved"
+    ):
+        return _insufficient(
+            gate,
+            gate_input,
+            policy,
+            view.approval_request_id,
+            CODE_DECISION_BINDING_MISMATCH,
+            "granted decision binding does not match the approval request and gate exactly (request id/project/subject/verb)",
+        )
+    return _decision(
+        gate, gate_input, policy, view.approval_request_id, OUTCOME_PASS, CODE_APPROVAL_GRANTED, "an explicit, exactly-bound approval grants this gate"
     )
 
 
@@ -508,6 +589,9 @@ __all__ = [
     "CODE_SUBJECT_BINDING_MISMATCH",
     "CODE_STALE_VERSION",
     "CODE_UNKNOWN_APPROVAL_STATE",
+    "CODE_APPROVAL_IDENTITY_MISSING",
+    "CODE_APPROVAL_BINDING_INCOMPLETE",
+    "CODE_DECISION_BINDING_MISMATCH",
     "GateDecision",
     "GateEvaluationInput",
     "evaluate_gate",

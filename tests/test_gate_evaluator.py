@@ -24,13 +24,16 @@ from auto_bioinfo.control_plane.approval_lifecycle import (
     reject,
 )
 from auto_bioinfo.control_plane.gate_evaluator import (
+    CODE_APPROVAL_BINDING_INCOMPLETE,
     CODE_APPROVAL_CANCELLED,
     CODE_APPROVAL_EXPIRED,
     CODE_APPROVAL_GRANTED,
+    CODE_APPROVAL_IDENTITY_MISSING,
     CODE_APPROVAL_PENDING,
     CODE_APPROVAL_REJECTED,
     CODE_APPROVAL_REQUIRED,
     CODE_AUTO_CLEARED,
+    CODE_DECISION_BINDING_MISMATCH,
     CODE_INVALID_POLICY,
     CODE_MALFORMED_INPUT,
     CODE_POLICY_PROJECT_MISMATCH,
@@ -49,7 +52,7 @@ from auto_bioinfo.control_plane.gate_evaluator import (
     GateEvaluationInput,
     evaluate_gate,
 )
-from auto_bioinfo.core.schemas import ApprovalRequest, ProjectPolicy
+from auto_bioinfo.core.schemas import CANONICAL_SCHEMA_VERSION, ApprovalRequest, ProjectPolicy
 
 PROJECT = "proj-alpha"
 HUMAN = {"actor_type": "human", "actor_id": "reviewer-1", "display_name": "Reviewer One"}
@@ -158,12 +161,86 @@ class ApprovalGrantBlockTest(unittest.TestCase):
         self.assertEqual(decision.outcome, OUTCOME_NEEDS_APPROVAL)
         self.assertEqual(decision.reason_code, CODE_APPROVAL_CANCELLED)
 
-    def test_granted_bare_approval_request_dict_also_passes(self):
-        # A raw ApprovalRequest projection already in the granted state is honoured.
-        req = _request(gate="A2", subject_version=2, state="granted")
-        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=req))
+    def test_granted_lifecycle_record_dict_projection_passes(self):
+        # A real granted ApprovalLifecycleRecord, supplied as its dict projection,
+        # carries its bound decision and passes through the dict path too.
+        record = approve(create_approval_request(_request(gate="A2", subject_version=2)), decided_by=HUMAN, rationale="ok")
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=record.to_dict()))
         self.assertEqual(decision.outcome, OUTCOME_PASS)
         self.assertEqual(decision.reason_code, CODE_APPROVAL_GRANTED)
+        self.assertEqual(decision.binding["approval_request_id"], record.approval_request_id)
+
+
+class ForgedGrantFailsClosedTest(unittest.TestCase):
+    """A 'granted' lifecycle state alone never passes: the grant must carry a
+    non-blank approval identity and a decision bound exactly to the request/gate.
+    """
+
+    def test_granted_bare_approval_request_without_decision_fails_closed(self):
+        # A raw ApprovalRequest projection claiming granted but carrying no bound
+        # decision is incomplete/forged and must never pass (was previously a
+        # permissive pass — replaced with this fail-closed regression).
+        req = _request(gate="A2", subject_version=2, state="granted")
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=req))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_APPROVAL_BINDING_INCOMPLETE)
+        self.assertFalse(decision.passed)
+
+    def test_granted_approval_with_blank_identity_fails_closed(self):
+        # The exact minimal repro from the review: a granted payload with no
+        # approval_request_id must not pass with an empty identity.
+        forged = {
+            "schema_version": CANONICAL_SCHEMA_VERSION,
+            "project_id": PROJECT,
+            "subject_type": "research_spec",
+            "subject_id": "rs-0001",
+            "subject_version": 2,
+            "gate": "A2",
+            "state": "granted",
+        }
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=forged))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_APPROVAL_IDENTITY_MISSING)
+        self.assertFalse(decision.passed)
+        self.assertEqual(decision.binding["approval_request_id"], "")
+
+    def test_granted_lifecycle_with_forged_decision_request_id_fails_closed(self):
+        # A real granted record whose decision is re-pointed at a different
+        # approval request id is a forged binding and must fail closed.
+        record = approve(create_approval_request(_request(gate="A2", subject_version=2)), decided_by=HUMAN, rationale="ok")
+        projection = record.to_dict()
+        projection["decision"]["approval_request_id"] = "approval_request:forged"
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=projection))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_DECISION_BINDING_MISMATCH)
+        self.assertFalse(decision.passed)
+
+    def test_granted_lifecycle_with_decision_for_other_project_fails_closed(self):
+        record = approve(create_approval_request(_request(gate="A2", subject_version=2)), decided_by=HUMAN)
+        projection = record.to_dict()
+        projection["decision"]["project_id"] = "proj-other"
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=projection))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_DECISION_BINDING_MISMATCH)
+
+    def test_granted_lifecycle_with_reject_verb_decision_fails_closed(self):
+        # A granted state whose recorded decision verb is not "approved" is
+        # internally inconsistent and must not pass.
+        record = approve(create_approval_request(_request(gate="A2", subject_version=2)), decided_by=HUMAN)
+        projection = record.to_dict()
+        projection["decision"]["decision"] = "rejected"
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=projection))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_DECISION_BINDING_MISMATCH)
+
+    def test_granted_lifecycle_with_stale_decision_version_fails_closed(self):
+        # A decision that ruled on a superseded version cannot pass the gate.
+        record = approve(create_approval_request(_request(gate="A2", subject_version=2)), decided_by=HUMAN)
+        projection = record.to_dict()
+        projection["decision"]["subject_version"] = 1
+        decision = evaluate_gate(_input(gate="A2", subject_version=2, policy=_policy(automation_level="A0"), approval=projection))
+        self.assertEqual(decision.outcome, OUTCOME_INSUFFICIENT)
+        self.assertEqual(decision.reason_code, CODE_STALE_VERSION)
 
 
 class StaleAndMismatchedApprovalTest(unittest.TestCase):
