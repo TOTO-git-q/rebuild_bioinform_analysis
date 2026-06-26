@@ -9,10 +9,23 @@ only records intent and the facts needed to reconstruct a project's timeline.
 WP-04a delivers the first slice: :func:`create_project`. WP-04b adds the
 read-only query slice over the projects it records: :func:`get_project`,
 :func:`query_timeline`, :func:`list_projects`, and :func:`project_blockers`.
+WP-04e adds the local ApprovalRequest lifecycle (:func:`create_approval_request`,
+:func:`cancel`, :func:`expire`, :func:`decide`).
 """
 
 from __future__ import annotations
 
+from .approval_lifecycle import (
+    ApprovalLifecycleError,
+    ApprovalLifecycleRecord,
+    approve,
+    cancel,
+    create_approval_request,
+    decide,
+    expire,
+    is_due,
+    reject,
+)
 from .create_project import (
     CreateProjectCommand,
     CreateProjectConflict,
@@ -37,6 +50,15 @@ from .queries import (
 )
 
 __all__ = [
+    "ApprovalLifecycleError",
+    "ApprovalLifecycleRecord",
+    "approve",
+    "cancel",
+    "create_approval_request",
+    "decide",
+    "expire",
+    "is_due",
+    "reject",
     "CreateProjectCommand",
     "CreateProjectConflict",
     "CreateProjectError",
