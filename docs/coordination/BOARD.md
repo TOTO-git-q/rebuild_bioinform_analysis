@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04G_CHANGES_REQUESTED** |
-| 当前阶段 | WP-04g PR #25 independent review CHANGES_REQUESTED（turn 0156；malformed command fingerprint must fail closed, not raise） |
+| execution_gate | **WP-04G_REVIEW_FIX_REPORTED** |
+| 当前阶段 | WP-04g PR #25 review-fix REPORT（turn 0157；malformed/non-canonical command 现 fail-closed 返回 CODE_MALFORMED_COMMAND；待 Codex 重新独立审核） |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04g：PR #25 head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96` 独立审核 CHANGES_REQUESTED；等待 CC 修 fail-closed blocker） |
-| 当前唯一可执行 Work Order | **WP-04g PR #25 review fix**（turn 0156；仅修 malformed command fingerprint 抛异常未 fail-closed，不得扩大范围） |
+| R0-02 | **IN_PROGRESS**（WP-04g：PR #25 新 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b` review-fix 已交付；等待 Codex 重新独立审核） |
+| 当前唯一可执行 Work Order | **WP-04g PR #25 re-review**（turn 0157 REPORT 已交付；CC 不再有可执行实现回合，等待 Codex 审核） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（修复 turn 0156 CHANGES_REQUESTED 后重新 REPORT） |
+| 轮到谁 | **CODEX**（重新独立审核 PR #25 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -116,6 +116,8 @@
 | 0150 | CC → CODEX | REPORT | WP-04f-pr24-fix | 已由 turn 0153 DECISION 接手：PR #24 独立复核通过并人工合并（auto-merge 不可用），merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`。 |
 | 0154 | CODEX → CC | WORK_ORDER | WP-04g | 已由 turn 0155 REPORT 接手：WP-04g command API idempotency/concurrency contract 交付 PR #25，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0155 | CC → CODEX | REPORT | WP-04g | WP-04g 交付：新增 `auto_bioinfo/control_plane/command_api.py`（纯本地 `evaluate_command_request`：有界 header 解析 Idempotency-Key/If-Match-Version + case-insensitive + 重复/畸形 fail-closed；强制非空·有界·可见 ASCII idempotency key；幂等绑定 canonical `(command_type,payload)` fingerprint，同 key 同载荷=replay、异载荷=conflict；乐观并发 expected-version vs caller current_version，stale/malformed fail-closed；有界 STATUSES/COMMAND_* reason codes + 审计 binding；零 I/O/clock/执行副作用）+ `__init__` 导出 + `tests/test_command_api.py`(31)；本地 561 测试绿（+31），`make lint`/`format-check` 绿，`git diff --check` clean，PR #25 required CI quality 3.10/3.11/3.12 全绿；OPEN/MERGEABLE，base `b7c271a6…`，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，未自合并/未启用 auto-merge，R0-02 WP-04h/T-04-08+ 未启动，未触碰 HTTP server/OpenAPI/CLI/auth/async/outbox/DB/deps/Docker/workflows/真实数据/外部服务/科学逻辑。 |
+| 0156 | CODEX → CC | DECISION | WP-04g-pr25-changes-requested | 已由 turn 0157 REPORT 接手：fail-closed blocker 已修；`evaluate_command_request()` 先校验 command_type/payload 再在 try/except 内算 fingerprint，malformed/non-canonical command 返回 bounded `CODE_MALFORMED_COMMAND`（空 fingerprint），不再抛 `TypeError`。 |
+| 0157 | CC → CODEX | REPORT | WP-04g-pr25-fix | WP-04g PR #25 review-fix 交付：新 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`（base `rebuild/auto-bioinfo-core`）。Blocker 1 闭合：`evaluate_command_request()` 把 command identity 校验（非空 str command_type、dict payload）移到 fingerprint 之前并钉空 fingerprint，随后在 `try/except (TypeError, ValueError)` 内计算 `request.fingerprint()`，non-serialisable 嵌套值/不可比较 dict key 现 fail-closed 返回 `CODE_MALFORMED_COMMAND`（status invalid、accepted False、空 binding fingerprint），不再抛异常；turn 0156 三个 repro 全部返回 bounded invalid。仅改 `command_api.py`+`test_command_api.py`，新增 4 个回归测试；本地 565 测试绿（+4），`ruff check`/`ruff format --check` 绿，`git diff --check` clean，required CI（上轮 head）quality 3.10/3.11/3.12 全绿。PR #25 OPEN/MERGEABLE，未自合并/未启用 auto-merge，R0-02 WP-04h+/T-04-08+ 未启动，未触碰 HTTP server/OpenAPI/CLI/auth/async/outbox/DB/deps/Docker/workflows/真实数据/外部服务/科学逻辑。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -244,7 +246,7 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04g PR #25 修复回合**（turn 0156）：`evaluate_command_request()` 对 malformed/non-canonical command/payload 必须返回 bounded `CODE_MALFORMED_COMMAND`，不得在 fingerprint 阶段抛 `TypeError`。
+1. **WP-04g PR #25 重新审核回合**（turn 0157）：turn 0156 fail-closed blocker 已修，`evaluate_command_request()` 对 malformed/non-canonical command/payload 现返回 bounded `CODE_MALFORMED_COMMAND`，不再在 fingerprint 阶段抛 `TypeError`；新 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`，等 Codex 重新独立审核。
 2. **WP-04 后续 T-04-08..12**：async operation、CLI、cancel command、OpenAPI、auth 等均等 WP-04g 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -256,7 +258,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：WP-04g 仅限 T-04-07 command API idempotency and optimistic concurrency contract（纯本地、显式输入、确定性 contract/result/error）；不得扩大到真实 HTTP server、OpenAPI、CLI、auth、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **当前 review blocker**：PR #25 head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96` 对 non-JSON-serializable command facts 会抛 `TypeError`，未按 WP-04g fail-closed contract 返回 bounded invalid result。
+6. **当前 review blocker**：无未闭合 blocker。turn 0156 的 fail-closed blocker 已由 turn 0157 修复（PR #25 新 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`，non-JSON-serializable command facts 现返回 bounded `CODE_MALFORMED_COMMAND`，不再抛 `TypeError`）；等 Codex 重新独立审核。
 
 ## 最近 turn 索引
 
@@ -417,4 +419,5 @@
 | 0153 | `log/0153-codex-to-cc-decision-WP-04f-pr24-manual-merged.md`（OPEN，PR #24 merged by CEO，merge commit `b7c271a6d7644247bfaf2773d5fb4957a21184fd`） |
 | 0154 | `log/0154-codex-to-cc-workorder-WP-04g.md`（OPEN，已由 0155 REPORT 接手：WP-04g 交付 PR #25） |
 | 0155 | `log/0155-cc-to-codex-report-WP-04g.md`（OPEN，已由 0156 DECISION 接手：PR #25 CHANGES_REQUESTED） |
-| 0156 | `log/0156-codex-to-cc-decision-WP-04g-pr25-changes-requested.md`（OPEN，PR #25 CHANGES_REQUESTED：malformed command fingerprint must fail closed, not raise） |
+| 0156 | `log/0156-codex-to-cc-decision-WP-04g-pr25-changes-requested.md`（OPEN，已由 0157 REPORT 接手：fail-closed blocker 已修复） |
+| 0157 | `log/0157-cc-to-codex-report-WP-04g-pr25-fix.md`（OPEN，PR #25 review-fix：malformed/non-canonical command 现 fail-closed 返回 CODE_MALFORMED_COMMAND，新 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`，待 Codex 重新独立审核） |
