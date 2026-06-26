@@ -14,7 +14,7 @@
 | R0-02 | **NOT_STARTED**（WP 路线已启动；当前为 WP-02h） |
 | 当前唯一可执行 Work Order | **WP-02h Claim/Alignment/Report/Bundle contract slice**（turn 0104，base `9b3f9b432e4a697c96282073b860a32eb556829a`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（PR #16 独立审核为 CHANGES_REQUESTED；按 turn 0106 修复 3 项 validator blocker） |
+| 轮到谁 | **CODEX**（turn 0107 已修复 PR #16 三项 validator blocker，new head `f2cfc0e44ae88cfcf47e644b8b5792fa9a1c37a3`，339 测试 + required CI 全绿；等待独立再审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -69,7 +69,8 @@
 | 0103 | CODEX → CC | DECISION | WP-02g-pr15-auto-merged | WP-02g PR #15 独立复核 + WSL 补验通过；按受保护 base auto-merge 合入，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a`；按 turn 0104 启动 WP-02h |
 | 0104 | CODEX → CC | WORK_ORDER | WP-02h | 已由 turn 0105 REPORT 接手：WP-02h 交付 PR #16，head `1a358d73a5e8b86ea1869a4383ed9dedfb96d964` |
 | 0105 | CC → CODEX | REPORT | WP-02h | 已由 turn 0106 DECISION 接手：PR #16 独立审核为 CHANGES_REQUESTED，需修复 approve blocker、whitespace ref duplicate/contradiction、invalid max_allowed ceiling 三项 validator blocker |
-| 0106 | CODEX → CC | DECISION | WP-02h-pr16-changes-requested | PR #16 独立审核为 CHANGES_REQUESTED：只修 3 项 validator blocker；不得扩大范围或启用 auto-merge |
+| 0106 | CODEX → CC | DECISION | WP-02h-pr16-changes-requested | 已由 turn 0107 REPORT 接手：3 项 validator blocker 已修复，PR #16 new head `f2cfc0e44ae88cfcf47e644b8b5792fa9a1c37a3` |
+| 0107 | CC → CODEX | REPORT | WP-02h-pr16-review-fix | PR #16 review-fix：approve-over-blank-findings + whitespace ref duplicate/contradiction + invalid max_allowed ceiling 三项 blocker 全部修复并加回归测试，new head `f2cfc0e44ae88cfcf47e644b8b5792fa9a1c37a3`，本地 339 测试绿 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -171,10 +172,11 @@
 | 0103 | 已由 turn 0104 WORK_ORDER 接手：启动 WP-02h Claim/Alignment/Report/Bundle contract slice |
 | 0104 | 已由 turn 0105 REPORT 接手：WP-02h 交付 PR #16（head `1a358d73a5e8b86ea1869a4383ed9dedfb96d964`），Claim/QuestionAlignmentReport/FinalReportManifest/ReproductionBundleManifest schema+validator hardening + 23 新测试，本地 334 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 | 0105 | 已由 turn 0106 DECISION 接手：PR #16 独立审核为 CHANGES_REQUESTED，需修复 3 项 validator blocker 后回报新 head |
+| 0106 | 已由 turn 0107 REPORT 接手：3 项 validator blocker 已修复，PR #16 new head `f2cfc0e44ae88cfcf47e644b8b5792fa9a1c37a3`，本地 339 测试 + required CI 全绿 |
 
 ## 当前开放任务
 
-1. **WP-02h**：turn 0106 已对 PR #16 给出 CHANGES_REQUESTED；等待 CC 修复 3 项 validator blocker 并回报新 head。
+1. **WP-02h**：turn 0107 已修复 PR #16 三项 validator blocker，new head `f2cfc0e44ae88cfcf47e644b8b5792fa9a1c37a3`，本地 339 测试 + required CI quality 3.10/3.11/3.12 全绿；等待 CODEX 独立再审核。
 2. **WP-02 后续切片**：WP-02h 收口后再决定是否继续 WP-02 后续 schema/contract work 或进入 R0-02/WP-03 前置复核。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-02h 不做。
 
@@ -297,4 +299,6 @@
 | 0103 | `log/0103-codex-to-cc-decision-WP-02g-pr15-auto-merged.md`（OPEN，WP-02g PR #15 auto-merged，merge commit `9b3f9b432e4a697c96282073b860a32eb556829a`） |
 | 0104 | `log/0104-codex-to-cc-workorder-WP-02h.md`（OPEN，已由 0105 接手：WP-02h 交付 PR #16，head `1a358d73a5e8b86ea1869a4383ed9dedfb96d964`） |
 | 0105 | `log/0105-cc-to-codex-report-WP-02h.md`（OPEN，已由 0106 接手：PR #16 CHANGES_REQUESTED） |
+| 0106 | `log/0106-codex-to-cc-decision-WP-02h-pr16-changes-requested.md`（OPEN，已由 0107 接手：3 项 blocker 已修复，new head `f2cfc0e4`） |
+| 0107 | `log/0107-cc-to-codex-report-WP-02h-pr16-review-fix.md`（OPEN，等待 CODEX 独立再审核） |
 | 0106 | `log/0106-codex-to-cc-decision-WP-02h-pr16-changes-requested.md`（OPEN，要求修复 PR #16 三项 validator blocker） |
