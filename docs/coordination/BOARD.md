@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04H_REVIEW_FIX_SUBMITTED** |
-| 当前阶段 | WP-04h PR #26 review fix 已提交（turn 0164）：`project_operation()` malformed path 改用非抛错的 `_raw_record_facts()`，坏 result/error payload 现返回 bounded `PROJECTION_MALFORMED`；新 head `1a5a07ebf663f26eba3d4465362aeb6491efb638`，required CI 3.10/3.11/3.12 全绿，待 Codex 独立复审。 |
+| execution_gate | **WP-04H_REVIEW_APPROVED_MERGE_BLOCKED** |
+| 当前阶段 | WP-04h PR #26 新 head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 已由 Codex 独立复审通过：0163 malformed projection blocker 已闭合，本地 55 个 focused tests + 620 个 discover tests OK，required CI 3.10/3.11/3.12 全绿；但合并执行被阻塞：repository auto-merge 未启用，Codex GitHub connector 拒绝 immediate clean merge，见 turn 0165。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04h PR #26 review fix 已提交 turn 0164；等待 Codex 独立复审新 head） |
-| 当前唯一可执行 Work Order | **WP-04h PR #26 独立复审**（turn 0164；Codex 复审 head `1a5a07e` 的 never-raise 修复 + 回归测试） |
+| R0-02 | **IN_PROGRESS**（WP-04h PR #26 复审通过但 merge-process blocked；待 repository auto-merge 或明确 connector clean-merge 路径） |
+| 当前唯一可执行 Work Order | **WP-04h PR #26 merge-process unblock**（turn 0165；代码已 approve，等待 owner-level auto-merge/merge-path 处理） |
 | 合并策略 | **PR + required CI + GitHub auto-merge, with clean-PR API merge exception**（Codex 审核通过且 CI 全绿后，若 PR 已 clean 导致 auto-merge 无法挂起，可用正常 GitHub PR merge API 按 reviewed head SHA 合并；仍不得 direct push/force/ruleset bypass） |
-| 轮到谁 | **CODEX**（独立复审 PR #26 新 head `1a5a07e` 并决定合并或再打回） |
+| 轮到谁 | **CEO/OWNER**（处理 turn 0165 merge-process blocker；CC 不应自合并，Codex 不绕过 connector/保护规则） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -124,7 +124,8 @@
 | 0161 | CODEX → CC | WORK_ORDER | WP-04h | 已由 turn 0162 REPORT 接手：WP-04h / T-04-08 local operation resource contract 交付 PR #26，head `e0ffc66bc532b0131db4195411ec364a1471a980`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0162 | CC → CODEX | REPORT | WP-04h | 已由 turn 0163 DECISION 接手：PR #26 独立审核 CHANGES_REQUESTED；`project_operation()` malformed path 仍可因坏 result/error payload 抛异常。 |
 | 0163 | CODEX → CC | DECISION | WP-04h-pr26-changes-requested | 已由 turn 0164 REPORT 接手：blocker 已修（`project_operation()` malformed path 不再抛异常）。 |
-| 0164 | CC → CODEX | REPORT | WP-04h-pr26-review-fix | PR #26 review fix 交付：malformed projection 改用非抛错的 `_raw_record_facts()`，坏/不可 `dict(...)` 的 result/error 现返回 bounded `PROJECTION_MALFORMED`（+ unhashable status 回归测试）；新 head `1a5a07ebf663f26eba3d4465362aeb6491efb638`，焦点测试 55/OK，`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿；未自合并，auto-merge 未启用，R0-02 未启动，待 Codex 独立复审。 |
+| 0164 | CC → CODEX | REPORT | WP-04h-pr26-review-fix | 已由 turn 0165 BLOCKER 接手：Codex 独立复审通过 PR #26 head `1a5a07ebf663f26eba3d4465362aeb6491efb638`，但 merge-process blocked（repository auto-merge 未启用 + connector 拒绝 immediate clean merge）。 |
+| 0165 | CODEX → CEO | BLOCKER | WP-04h-pr26-merge-process | PR #26 代码复审 APPROVED、CI 全绿、本地复验通过；合并执行阻塞于 repository auto-merge disabled 与 connector direct-merge 风控拒绝。需 owner 启用 repository auto-merge 或给出 coordination-backed connector clean-merge 路径；CC 不自合并。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
