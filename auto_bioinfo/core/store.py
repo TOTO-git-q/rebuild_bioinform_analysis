@@ -7,6 +7,12 @@ from typing import Any
 from .events import build_event
 from .state import STAGES, TERMINAL_STAGES, allowed_next_stages, build_initial_state, with_stage
 
+# The event log is only trustworthy if its first record is the canonical project
+# initialization event; replay is anchored to this type so a forged/corrupt log
+# cannot seed an arbitrary projection.
+PROJECT_INITIALIZED_EVENT = "PROJECT_STATE_INITIALIZED"
+LEGACY_MIGRATION_EVENT = "LEGACY_PROJECT_MIGRATED"
+
 
 def _v5_dir(project_dir: str | Path) -> Path:
     path = Path(project_dir) / "state"
@@ -117,6 +123,87 @@ def load_project_state(project_dir: str | Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"project_state.json not found: {path}")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def rebuild_state(project_dir: str | Path) -> dict[str, Any]:
+    """Reconstruct the canonical project state purely from the event log.
+
+    ``state/events.jsonl`` is the authoritative, append-only record; the
+    ``project_state.json`` snapshot is only a cache of this projection (ADR-0003).
+    Replaying the log here means the state can never be silently rewritten by
+    editing the snapshot: ``current_stage`` / ``stage_history`` are derived from
+    the stage of each event, and the policy fields are re-applied from the
+    ``PROJECT_STATE_INITIALIZED`` / ``LEGACY_PROJECT_MIGRATED`` events.
+
+    ``updated_at`` is pinned to the last event's ``created_at`` so the projection
+    is deterministic — the same log always rebuilds to the same value (except
+    ``updated_at``, which the live snapshot stamps with its own wall clock).
+    """
+    events = load_events(project_dir)
+    if not events:
+        raise ValueError(f"cannot rebuild state: empty event log in {_events_path(project_dir)}")
+
+    # --- Fail closed on a corrupt/forged log -------------------------------
+    # The first event must be a well-formed initialization event so the
+    # projection can never be seeded from an arbitrary record. Every later
+    # event is validated through the same transition guard used on write, so a
+    # structurally complete but semantically illegal event (wrong project,
+    # unknown stage, illegal edge) is rejected instead of silently applied.
+    init_event = events[0]
+    if init_event.get("event_type") != PROJECT_INITIALIZED_EVENT:
+        raise ValueError(f"corrupt event log: first event must be {PROJECT_INITIALIZED_EVENT}, got {init_event.get('event_type')!r}")
+    if init_event.get("previous_stage") != "":
+        raise ValueError("corrupt event log: initialization event must have empty previous_stage")
+    if init_event.get("next_stage") != "INTAKE":
+        raise ValueError("corrupt event log: initialization event must enter INTAKE")
+    project_id = init_event.get("project_id")
+    if not project_id:
+        raise ValueError("corrupt event log: initialization event missing project_id")
+
+    init_payload = init_event.get("payload") or {}
+    rebuilt = build_initial_state(
+        project_id=project_id,
+        user_question=init_payload.get("user_question", ""),
+        execution_mode=init_payload.get("execution_mode", "DEMO"),
+        project_policy_ref=init_payload.get("project_policy_ref", ""),
+    )
+    for event in events[1:]:
+        payload = event.get("payload") or {}
+        if event.get("project_id") != project_id:
+            raise ValueError(f"corrupt event log: event project_id {event.get('project_id')!r} does not match {project_id!r}")
+        previous_stage = event.get("previous_stage")
+        if previous_stage != rebuilt["current_stage"]:
+            raise ValueError(f"corrupt event log: event previous_stage {previous_stage!r} does not match current stage {rebuilt['current_stage']!r}")
+        next_stage = event.get("next_stage")
+        if next_stage not in STAGES:
+            raise ValueError(f"corrupt event log: unknown next_stage {next_stage!r}")
+
+        if event.get("event_type") == LEGACY_MIGRATION_EVENT:
+            # A conservative in-place migration never advances the stage.
+            if next_stage != previous_stage:
+                raise ValueError("corrupt event log: legacy migration must not change stage")
+            rebuilt["execution_mode"] = payload.get("execution_mode", rebuilt["execution_mode"])
+            rebuilt["project_policy_ref"] = payload.get("project_policy_ref", rebuilt["project_policy_ref"])
+            rebuilt["migrated_from_legacy"] = True
+            continue
+
+        # Reuse the single transition guard instead of a parallel machine, and
+        # run it for every non-legacy event — including a forged same-stage
+        # no-op the legal write path could never produce (validate_transition
+        # rejects self-loops). Only LEGACY_PROJECT_MIGRATED may be a no-op.
+        validate_transition(previous_stage, next_stage)
+        rebuilt = with_stage(rebuilt, next_stage)
+    rebuilt["updated_at"] = events[-1]["created_at"]
+    return rebuilt
+
+
+def load_state(project_dir: str | Path) -> dict[str, Any]:
+    """``EventStorePort.load_state``: authoritative state from the event log.
+
+    Always rebuilds from the append-only log rather than trusting the snapshot,
+    so a corrupted or stale ``project_state.json`` cannot change the answer.
+    """
+    return rebuild_state(project_dir)
 
 
 def load_events(project_dir: str | Path) -> list[dict[str, Any]]:
