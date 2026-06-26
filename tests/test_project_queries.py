@@ -247,6 +247,65 @@ class BlockerProjectionTest(unittest.TestCase):
                 project_blockers(Path(d) / "ghost")
 
 
+class MissingTypedObjectsTest(unittest.TestCase):
+    """An event-log project whose typed object records are gone must be treated
+    as malformed — never recreated, never summarised as a blank-but-valid
+    project (WP-04b PR #20 blockers 1 and 2)."""
+
+    @staticmethod
+    def _objects_dir(project_dir):
+        return Path(project_dir) / "state" / "objects"
+
+    def _strip_objects(self, project_dir):
+        """Delete the project's ``state/objects/`` directory entirely."""
+        objects = self._objects_dir(project_dir)
+        for child in objects.iterdir():
+            child.unlink()
+        objects.rmdir()
+        self.assertFalse(objects.exists())
+
+    def test_get_project_does_not_recreate_missing_objects_dir(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = _make_project(d, "proj_no_objs")
+            self._strip_objects(project_dir)
+            with self.assertRaises(ProjectQueryError):
+                get_project(project_dir)
+            # The read-only query must not have re-materialised state/objects/.
+            self.assertFalse(self._objects_dir(project_dir).exists())
+
+    def test_list_projects_does_not_recreate_missing_objects_dir(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = _make_project(d, "proj_no_objs")
+            self._strip_objects(project_dir)
+            list_projects(d)
+            self.assertFalse(self._objects_dir(project_dir).exists())
+
+    def test_get_project_fails_closed_when_required_objects_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            project_dir = _make_project(d, "proj_malformed")
+            self._strip_objects(project_dir)
+            with self.assertRaises(ProjectQueryError) as ctx:
+                get_project(project_dir)
+            # Fails closed naming the missing records, not a blank summary.
+            self.assertIn("project", str(ctx.exception))
+            self.assertIn("original_request", str(ctx.exception))
+            self.assertIn("project_policy", str(ctx.exception))
+
+    def test_list_skips_project_missing_required_objects_not_counted(self):
+        with tempfile.TemporaryDirectory() as d:
+            _make_project(d, "good_proj")
+            malformed = _make_project(d, "malformed_proj")
+            self._strip_objects(malformed)
+
+            page = list_projects(d)
+            # Only the healthy project counts; the malformed one is skipped.
+            self.assertEqual([e.project_id for e in page.items], ["good_proj"])
+            self.assertEqual(page.total, 1)
+            skipped = {s.name: s.reason for s in page.skipped}
+            self.assertIn("malformed_proj", skipped)
+            self.assertIn("malformed project", skipped["malformed_proj"])
+
+
 class ReadOnlyGuaranteeTest(unittest.TestCase):
     def test_queries_do_not_create_or_modify_project_files(self):
         with tempfile.TemporaryDirectory() as d:

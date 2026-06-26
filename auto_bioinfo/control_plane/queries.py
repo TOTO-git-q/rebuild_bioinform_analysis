@@ -19,27 +19,35 @@ project. Concretely it offers four local (in-process, non-HTTP) queries:
   ``HUMAN_REVIEW_REQUIRED``); it invents no business facts.
 
 All state is rebuilt through the existing core helpers (``load_state``,
-``load_events``, ``verify_projection``) and object records (``read_object``), so
-the answers stay consistent with the event store rather than introducing a
-parallel read model. This slice deliberately does **not** implement approval
-lifecycle, policy/gate decisions, an HTTP API, or a CLI.
+``load_events``, ``verify_projection``) and the persisted typed object records,
+which this layer reads strictly no-write (see ``_read_object_no_write``), so the
+answers stay consistent with the event store rather than introducing a parallel
+read model. This slice deliberately does **not** implement approval lifecycle,
+policy/gate decisions, an HTTP API, or a CLI.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
 from ..core.state import TERMINAL_STAGES
 from ..core.store import load_events, load_state, verify_projection
-from ..execution.objects import read_object
 from .create_project import ORIGINAL_REQUEST_OBJECT, PROJECT_OBJECT, PROJECT_POLICY_OBJECT
 
 # A project's authoritative existence is its append-only log; the snapshot is
 # only a cache (ADR-0003), so this — not ``project_state.json`` — is the file
 # that decides whether a directory *is* a project for query purposes.
 _EVENTS_RELPATH = ("state", "events.jsonl")
+
+# Where WP-04a persists the typed object records this query layer reads. We read
+# these files directly (see ``_read_object_no_write``) rather than via
+# ``execution.objects.read_object``, because that helper routes through
+# ``_objects_dir`` which ``mkdir``s ``state/objects/`` as a side effect — a write
+# that WP-04b's strictly read-only queries must never perform.
+_OBJECTS_RELPATH = ("state", "objects")
 
 # A recoverable pause that still blocks forward progress until a human acts.
 HUMAN_REVIEW_STAGE = "HUMAN_REVIEW_REQUIRED"
@@ -222,6 +230,27 @@ def _events_file(project_dir: Path) -> Path:
     return project_dir.joinpath(*_EVENTS_RELPATH)
 
 
+def _object_file(project_dir: Path, name: str) -> Path:
+    return project_dir.joinpath(*_OBJECTS_RELPATH, f"{name}.json")
+
+
+def _read_object_no_write(project_dir: Path, name: str) -> Any | None:
+    """Read a typed object record strictly without writing anything.
+
+    Unlike :func:`execution.objects.read_object`, which routes through
+    ``_objects_dir`` and ``mkdir``s ``state/objects/`` as a side effect, this read
+    never materialises a directory or file: a missing record simply returns
+    ``None`` and the filesystem is left untouched. This is what keeps the query
+    path read-only even when a project's ``state/objects/`` directory is absent.
+    A corrupt record raises (``json`` decode error) so callers fail closed rather
+    than masquerading a broken project as a valid one.
+    """
+    path = _object_file(project_dir, name)
+    if not path.is_file():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
 def _is_project_dir(project_dir: Path) -> bool:
     """A directory is queryable iff its append-only event log exists.
 
@@ -322,7 +351,11 @@ def project_blockers(project_dir: str | Path) -> list[BlockerItem]:
 def get_project(project_dir: str | Path) -> ProjectSummary:
     """Return a deterministic :class:`ProjectSummary` for one project (read-only).
 
-    Raises :class:`ProjectNotFoundError` when ``project_dir`` has no event log.
+    Raises :class:`ProjectNotFoundError` when ``project_dir`` has no event log,
+    and :class:`ProjectQueryError` when the event log exists but one of the
+    required typed object records (``project``, ``original_request``,
+    ``project_policy``) is missing — such a project is malformed, so it fails
+    closed rather than returning a summary with blank required fields.
     The stage and state id come from the rebuilt log projection (not the cached
     snapshot), so a stale or tampered ``project_state.json`` cannot change the
     answer — any divergence instead surfaces in ``drift``/``blockers``.
@@ -332,9 +365,22 @@ def get_project(project_dir: str | Path) -> ProjectSummary:
         raise ProjectNotFoundError(f"not a queryable project (no event log at {_events_file(path)})")
 
     state = load_state(path)
-    project = read_object(path, PROJECT_OBJECT, {}) or {}
-    request = read_object(path, ORIGINAL_REQUEST_OBJECT, {}) or {}
-    policy = read_object(path, PROJECT_POLICY_OBJECT, {}) or {}
+    # Read every required record without writing; a missing record (``None``)
+    # marks a malformed project that must not be summarised as if it were valid.
+    project = _read_object_no_write(path, PROJECT_OBJECT)
+    request = _read_object_no_write(path, ORIGINAL_REQUEST_OBJECT)
+    policy = _read_object_no_write(path, PROJECT_POLICY_OBJECT)
+    missing = [
+        name
+        for name, record in (
+            (PROJECT_OBJECT, project),
+            (ORIGINAL_REQUEST_OBJECT, request),
+            (PROJECT_POLICY_OBJECT, policy),
+        )
+        if record is None
+    ]
+    if missing:
+        raise ProjectQueryError(f"malformed project at {path}: missing required typed object record(s): {', '.join(missing)}")
 
     request_id = request.get("request_id", "")
     if not request_id:
