@@ -108,6 +108,31 @@ EVIDENCE_REPLICATION_STATUSES = ("single_dataset", "multi_dataset", "replicated"
 # evidence record may not claim one of these by default.
 EVIDENCE_REPLICATED_STATUSES = ("multi_dataset", "replicated")
 
+# --- WP-02h / T-02-15..17: Claim / Alignment / Reproduction vocabularies -------
+
+# Bounded final decision of a QuestionAlignmentReport (REQ-OBJ-17).  ``approve``
+# is the only *passing* decision; ``needs_review`` and ``reject`` keep an
+# unresolved or failed alignment honest (validated by
+# :func:`auto_bioinfo.core.validation.validate_question_alignment_report`).  Kept
+# in sync with the deterministic auditor in
+# :mod:`auto_bioinfo.core.alignment_auditor` (which this WO does not change).
+ALIGNMENT_DECISIONS = ("approve", "needs_review", "reject")
+# The single decision that asserts the claims stay aligned to the question; it may
+# never stand while a blocker, unsupported claim, overclaim, scope drift, or
+# traceability gap is recorded.
+ALIGNMENT_PASSING_DECISIONS = ("approve",)
+
+# Reproducibility vocabularies (REQ-OBJ-18).  ``reproducibility_level`` is the
+# *strength* of the reproduction (how closely outputs must match); the bounded
+# ``reproduction_status`` is the recorded verdict.  ``reproduced`` /
+# ``partially_reproduced`` assert (at least partial) reproduction; ``pending`` /
+# ``not_reproduced`` / ``failed`` keep an unproven or failed reproduction honest.
+# The manifest only *records* these facts; it never runs or materialises a bundle.
+REPRODUCIBILITY_LEVELS = ("bitwise", "numerical", "statistical", "qualitative", "unspecified")
+REPRODUCTION_STATUSES = ("pending", "reproduced", "partially_reproduced", "not_reproduced", "failed")
+# The statuses that assert (at least partial) reproduction.
+REPRODUCTION_REPRODUCED_STATUSES = ("reproduced", "partially_reproduced")
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -1189,6 +1214,25 @@ class DatasetManifest:
 
 @dataclass
 class Claim:
+    """A bounded scientific statement backed by evidence (REQ-OBJ-16).
+
+    The legacy seven-field construction
+    (``claim_id`` / ``text`` / ``claim_level`` / ``evidence_item_refs`` /
+    ``supports_subquestion_ids`` / ``scope`` / ``limitations``) is preserved and
+    stays first; ``evidence_item_refs`` is the claim's *supporting* evidence.  The
+    statement is hardened with the facts that keep a claim from overreaching: its
+    hard ``claim_ceiling`` (the level it may never cross), the ``opposing_evidence_refs``
+    that argue against it, and the ``uncertainty`` it carries.
+
+    Every field is a recorded fact or reference, never an action.  A claim never
+    raises its own claim level, bypasses QC/gates, creates evidence, or authorises
+    export/publishing: the authority-like flags are pinned ``False`` and
+    :func:`auto_bioinfo.core.validation.validate_claim` rejects any attempt to make
+    them truthy.  (Note: ``scientific_output_eligible`` is a legitimate cached
+    projection of the eligibility decision, not an authority flag, and is recomputed
+    by the admission gate.)
+    """
+
     claim_id: str
     text: str
     claim_level: str
@@ -1206,10 +1250,53 @@ class Claim:
     release_status: str = "DEMONSTRATION_ONLY"
     scientific_eligibility_decision_id: str = ""
     scientific_output_eligible: bool = False
+    # --- WP-02h / T-02-15: bounded statement hardening (REQ-OBJ-16) ---
+    # The hard ceiling this claim may never cross, the evidence that opposes it,
+    # and the uncertainty it carries.  ``evidence_item_refs`` above stays the
+    # supporting evidence; an opposing ref may not also be a supporting ref.
+    claim_ceiling: str = "association"
+    opposing_evidence_refs: list[str] = field(default_factory=list)
+    uncertainty: dict[str, Any] = field(default_factory=dict)
+    # The statement confers no authority of its own; these stay False.
+    raises_claim_level: bool = False
+    bypasses_qc: bool = False
+    bypasses_gates: bool = False
+    creates_evidence: bool = False
+    authorizes_export: bool = False
+    publishes: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id."""
+        return {"text": self.text, "claim_level": self.claim_level, "evidence_item_refs": list(self.evidence_item_refs)}
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["claim_id"]:
+            data["claim_id"] = make_stable_id("claim", self.canonical())
+        return data
 
 
 @dataclass
 class QuestionAlignmentReport:
+    """Whether the final claims still answer the original question (REQ-OBJ-17).
+
+    The legacy ``QuestionAlignmentReport(report_id, final_decision, unsupported_claims)``
+    shape is preserved.  ``final_decision`` uses the bounded
+    :data:`ALIGNMENT_DECISIONS` vocabulary — ``approve`` is the only passing
+    verdict.  The report is hardened with the alignment facts a reviewer needs: the
+    ``scope_drift_findings`` (claims that drifted outside the requested scope), the
+    ``overclaim_findings`` (claims above their ceiling), the ``omitted_evidence``
+    (negative/failed evidence that was dropped), the ``traceability_gaps`` (claims
+    that cannot be traced back to evidence/sub-question), and any hard
+    ``blocker_facts``.
+
+    The report only *records* an alignment verdict; it never publishes, exports, or
+    raises a claim level (validated by
+    :func:`auto_bioinfo.core.validation.validate_question_alignment_report`, which
+    rejects an ``approve`` decision while any blocker / unsupported claim / overclaim
+    / scope drift / traceability gap is recorded).
+    """
+
     report_id: str
     final_decision: str
     unsupported_claims: list[str]
@@ -1217,10 +1304,38 @@ class QuestionAlignmentReport:
     generated_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "recorded"
+    # --- WP-02h / T-02-16: alignment-fact hardening (REQ-OBJ-17) ---
+    research_spec_id: str = ""
+    project_id: str = ""
+    scope_drift_findings: list[dict[str, Any]] = field(default_factory=list)
+    overclaim_findings: list[dict[str, Any]] = field(default_factory=list)
+    omitted_evidence: list[dict[str, Any]] = field(default_factory=list)
+    traceability_gaps: list[dict[str, Any]] = field(default_factory=list)
+    blocker_facts: list[str] = field(default_factory=list)
+    # The report records an alignment verdict only; these stay False.
+    authorizes_export: bool = False
+    publishes: bool = False
+    raises_claim_level: bool = False
+    bypasses_gates: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
 class FinalReportManifest:
+    """Manifest of the produced final report and the claims it presents.
+
+    Hardened only as far as report/claim traceability needs (REQ-OBJ-17 support):
+    the ``claim_ids`` it presents stay the spine, and an optional
+    ``alignment_report_id`` lets the manifest point at the
+    :class:`QuestionAlignmentReport` that cleared it.  This object describes the
+    report's contents only; it never generates, exports, or publishes a report —
+    the authority-like flags are pinned ``False`` and
+    :func:`auto_bioinfo.core.validation.validate_final_report_manifest` rejects any
+    attempt to make them truthy.
+    """
+
     final_report_id: str
     report_path: str
     claim_ids: list[str]
@@ -1228,6 +1343,68 @@ class FinalReportManifest:
     generated_at: str = field(default_factory=now_iso)
     provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
     status: str = "draft"
+    # --- WP-02h / T-02-16: report/claim traceability (REQ-OBJ-17 support) ---
+    alignment_report_id: str = ""
+    # The manifest records contents only; it never generates or releases a report.
+    authorizes_export: bool = False
+    publishes: bool = False
+    generates_report: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class ReproductionBundleManifest:
+    """A manifest of what it takes to reproduce a result (REQ-OBJ-18).
+
+    Records the ``files`` the bundle ships (each a ``{path, ...}`` fact, optionally
+    checksummed), the ``run_order`` over those files, the ``environment_facts`` the
+    run assumes, the ``expected_outputs`` it should produce, the ``comparison_rules``
+    that decide whether a re-run matches, the ``reproducibility_level`` (how closely
+    outputs must match) and the bounded ``reproduction_status`` verdict.
+
+    The manifest is a contract record only: it never downloads, materialises,
+    exports, or runs a bundle, never locks a dataset, and never creates formal
+    evidence or authorises release.  The authority-like flags are pinned ``False``
+    and :func:`auto_bioinfo.core.validation.validate_reproduction_bundle_manifest`
+    rejects any attempt to make them truthy — a manifest is never authorisation.
+    """
+
+    bundle_id: str
+    project_id: str
+    files: list[dict[str, Any]] = field(default_factory=list)
+    run_order: list[str] = field(default_factory=list)
+    environment_facts: dict[str, Any] = field(default_factory=dict)
+    expected_outputs: list[dict[str, Any]] = field(default_factory=list)
+    comparison_rules: list[dict[str, Any]] = field(default_factory=list)
+    reproducibility_level: str = "unspecified"
+    reproduction_status: str = "pending"
+    schema_version: str = CANONICAL_SCHEMA_VERSION
+    created_at: str = field(default_factory=now_iso)
+    provenance: list[dict[str, Any]] = field(default_factory=_default_provenance)
+    status: str = "draft"
+    # The manifest records facts only; it confers no authority. These stay False.
+    materializes_bundle: bool = False
+    exports_bundle: bool = False
+    publishes: bool = False
+    authorizes_real_execution: bool = False
+    locks_dataset: bool = False
+    creates_formal_evidence: bool = False
+
+    def canonical(self) -> dict[str, Any]:
+        """Content-only deterministic projection used for the stable id."""
+        return {
+            "project_id": self.project_id,
+            "files": sorted(str(f.get("path", "")) for f in self.files if isinstance(f, dict)),
+            "run_order": list(self.run_order),
+        }
+
+    def to_dict(self) -> dict[str, Any]:
+        data = asdict(self)
+        if not data["bundle_id"]:
+            data["bundle_id"] = make_stable_id("reproduction_bundle", self.canonical())
+        return data
 
 
 @dataclass

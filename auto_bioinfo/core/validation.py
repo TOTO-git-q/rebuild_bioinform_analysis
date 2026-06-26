@@ -3,6 +3,8 @@ from typing import Any
 
 from . import common
 from .schemas import (
+    ALIGNMENT_DECISIONS,
+    ALIGNMENT_PASSING_DECISIONS,
     AMBIGUITY_STATES,
     APPROVAL_DECISIONS,
     APPROVAL_STATES,
@@ -24,6 +26,8 @@ from .schemas import (
     QC_CHECK_STATUSES,
     QC_OVERALL_STATUSES,
     QC_PASSED_OVERALL_STATUSES,
+    REPRODUCIBILITY_LEVELS,
+    REPRODUCTION_STATUSES,
     TASK_RUN_RESULT_STATUSES,
     DependencyGraph,
     WorkflowPlan,
@@ -280,6 +284,21 @@ def validate_approval_decision(decision: dict[str, Any], request: dict[str, Any]
 def _has_nonblank_entry(value: Any) -> bool:
     """True when ``value`` is a list with at least one non-blank string entry."""
     return isinstance(value, list) and any(isinstance(item, str) and item.strip() for item in value)
+
+
+def _is_blank_finding(item: Any) -> bool:
+    """True when a finding entry is malformed/blank (no fact recorded).
+
+    A finding must carry a fact: ``None``, a blank string, or an empty container
+    record nothing and are rejected rather than silently treated as clean.
+    """
+    if item is None:
+        return True
+    if isinstance(item, str):
+        return not item.strip()
+    if isinstance(item, (dict, list, tuple, set)):
+        return len(item) == 0
+    return False
 
 
 # --- WP-02b / T-02-03: ResearchSpec, AmbiguityReport, ScopeBundle, Ontology --
@@ -919,7 +938,9 @@ def _string_list_errors(value: Any, field: str, *, require_unique: bool = False)
     if any((not isinstance(item, str)) or not item.strip() for item in value):
         errors.append(f"{field}: entries must be non-empty strings (a blank fact is not a fact)")
     if require_unique:
-        normalized = [item for item in value if isinstance(item, str)]
+        # Compare refs on their trimmed identity so a whitespace-padded copy
+        # (``"x"`` vs ``" x "``) is rejected as the same semantic ref.
+        normalized = [item.strip() for item in value if isinstance(item, str)]
         if len(set(normalized)) != len(normalized):
             errors.append(f"{field}: duplicate entries are not allowed")
     return errors
@@ -1507,5 +1528,307 @@ def validate_evidence_item(item: dict[str, Any]) -> list[str]:
             "publishes",
         ),
         "evidence item",
+    )
+    return errors
+
+
+# --- WP-02h / T-02-15..17: Claim, Alignment & Reproduction contract validators -
+
+
+def _populated_scope(scope: Any) -> bool:
+    """True when ``scope`` is an object with at least one non-empty axis fact.
+
+    A scope axis counts as populated when it is a non-blank string or a list with
+    at least one non-blank string entry; an empty dict, or a dict whose every axis
+    is blank/empty, is not a scope.
+    """
+    if not isinstance(scope, dict) or not scope:
+        return False
+    for value in scope.values():
+        if isinstance(value, str) and value.strip():
+            return True
+        if _has_nonblank_entry(value):
+            return True
+    return False
+
+
+def validate_claim(claim: dict[str, Any], max_allowed: str | None = None) -> list[str]:
+    """Validate a Claim as a bounded, evidence-backed statement (REQ-OBJ-16).
+
+    Identity (``claim_id``) must be present and well-formed, ``text`` must be a
+    non-blank statement, and ``claim_level`` must be a valid :data:`CLAIM_LEVELS`
+    value.  A claim may never exceed its own ``claim_ceiling`` (nor, when supplied,
+    an external ``max_allowed`` ceiling) — overclaim is rejected.  A claim must be
+    *supported*: it has to record at least one supporting ``evidence_item_refs`` and
+    a non-empty ``scope`` (a statement with no evidence or no scope is unbounded).
+    Supporting and ``opposing_evidence_refs`` must each be distinct, non-blank refs
+    and the same ref may not appear as both supporting and opposing (a contradictory
+    support/opposing fact).  The statement carries no authority: any truthy
+    authority-like flag — raising a claim level, bypassing QC/gates, creating
+    evidence, or authorising export/publishing — is rejected.  This validates the
+    contract record only; it never synthesises or admits a claim.
+    """
+    errors = validate_required_fields(claim, ["schema_version", "claim_id", "text", "claim_level"])
+    errors += common.validate_identifier(claim.get("claim_id", ""), "claim_id")
+    if not str(claim.get("text", "") or "").strip():
+        errors.append("text: a claim must record a non-blank statement")
+
+    claim_level = claim.get("claim_level")
+    if claim_level not in CLAIM_LEVELS:
+        errors.append(f"claim_level: must be one of {', '.join(CLAIM_LEVELS)}")
+
+    ceiling = claim.get("claim_ceiling")
+    if ceiling is not None and ceiling not in CLAIM_LEVELS:
+        errors.append(f"claim_ceiling: must be one of {', '.join(CLAIM_LEVELS)}")
+    # A claim may never sit above its own ceiling — overclaim is rejected.
+    if claim_level in CLAIM_LEVELS and ceiling in CLAIM_LEVELS and CLAIM_LEVELS.index(claim_level) > CLAIM_LEVELS.index(ceiling):
+        errors.append(f"claim_level {claim_level} exceeds claim_ceiling {ceiling}; a claim may not be raised above its ceiling")
+    # ...nor above an external ceiling supplied by the caller (e.g. project ceiling).
+    # An invalid external ceiling is normalised (trimmed) or rejected — it may never
+    # be silently skipped in a way that would let a higher claim level through.
+    if max_allowed is not None:
+        normalized_ceiling = max_allowed.strip() if isinstance(max_allowed, str) else max_allowed
+        if normalized_ceiling not in CLAIM_LEVELS:
+            errors.append(f"max_allowed: external ceiling must be one of {', '.join(CLAIM_LEVELS)} (an invalid ceiling may not be silently ignored)")
+        elif claim_level in CLAIM_LEVELS and CLAIM_LEVELS.index(claim_level) > CLAIM_LEVELS.index(normalized_ceiling):
+            errors.append(f"claim_level {claim_level} exceeds allowed ceiling {normalized_ceiling}")
+
+    # Evidence refs: a claim must be supported, and a ref may not be both supporting
+    # and opposing.  Supporting evidence lives in ``evidence_item_refs``.
+    for list_field in ("evidence_item_refs", "opposing_evidence_refs", "supports_subquestion_ids", "limitations"):
+        if claim.get(list_field) is not None:
+            errors += _string_list_errors(claim.get(list_field), list_field, require_unique=True)
+    if not _has_nonblank_entry(claim.get("evidence_item_refs")):
+        errors.append("evidence_item_refs: a claim must reference at least one supporting evidence item (an unsupported claim is rejected)")
+    supporting = {r.strip() for r in (claim.get("evidence_item_refs") or []) if isinstance(r, str) and r.strip()}
+    opposing = {r.strip() for r in (claim.get("opposing_evidence_refs") or []) if isinstance(r, str) and r.strip()}
+    contradiction = supporting & opposing
+    if contradiction:
+        errors.append(f"opposing_evidence_refs: {sorted(contradiction)} listed as both supporting and opposing evidence (contradictory)")
+
+    # A claim must bind a non-empty scope — an unscoped statement is unbounded.
+    scope = claim.get("scope")
+    if scope is not None and not isinstance(scope, dict):
+        errors.append("scope: expected an object of scope facts")
+    elif not _populated_scope(scope):
+        errors.append("scope: a claim must record a non-empty scope (at least one populated axis)")
+
+    if claim.get("uncertainty") is not None and not isinstance(claim.get("uncertainty"), dict):
+        errors.append("uncertainty: expected an object of recorded facts")
+
+    errors += _reject_truthy_authority_flags(
+        claim,
+        (
+            "raises_claim_level",
+            "claim_level_raised",
+            "bypasses_qc",
+            "bypasses_gates",
+            "creates_evidence",
+            "creates_formal_evidence",
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+            "authorizes_real_execution",
+        ),
+        "claim",
+    )
+    return errors
+
+
+def validate_question_alignment_report(report: dict[str, Any]) -> list[str]:
+    """Validate a QuestionAlignmentReport (REQ-OBJ-17).
+
+    Identity (``report_id``) is required and well-formed and ``final_decision`` must
+    be one of the bounded :data:`ALIGNMENT_DECISIONS`.  The alignment-fact lists
+    (``unsupported_claims`` / ``scope_drift_findings`` / ``overclaim_findings`` /
+    ``omitted_evidence`` / ``traceability_gaps``) must be lists and ``blocker_facts``
+    a list of distinct, non-blank strings.  A *passing* decision (``approve``) may
+    not stand while any blocker, unsupported claim, overclaim, scope drift, or
+    traceability gap is recorded — an approval over open findings is rejected.  The
+    report records a verdict only: any truthy authority-like flag (publishing,
+    exporting, raising a claim level, or bypassing gates) is rejected.  This
+    validates the contract record only; it never runs the alignment audit.
+    """
+    errors = validate_required_fields(report, ["schema_version", "report_id", "final_decision"])
+    errors += common.validate_identifier(report.get("report_id", ""), "report_id")
+
+    decision = report.get("final_decision")
+    if decision not in ALIGNMENT_DECISIONS:
+        errors.append(f"final_decision: must be one of {', '.join(ALIGNMENT_DECISIONS)}")
+
+    finding_fields = ("unsupported_claims", "scope_drift_findings", "overclaim_findings", "omitted_evidence", "traceability_gaps")
+    for list_field in finding_fields:
+        value = report.get(list_field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            errors.append(f"{list_field}: expected a list")
+            continue
+        # A blank/empty finding is malformed — it must not be treated as clean.
+        for idx, item in enumerate(value):
+            if _is_blank_finding(item):
+                errors.append(f"{list_field}[{idx}]: a finding must record a non-blank fact (a blank finding is malformed)")
+    if report.get("blocker_facts") is not None:
+        errors += _string_list_errors(report.get("blocker_facts"), "blocker_facts", require_unique=True)
+
+    # A passing decision may not stand while any blocker/finding list is non-empty —
+    # a non-empty list (even one holding only blank/falsy entries) blocks approval.
+    if decision in ALIGNMENT_PASSING_DECISIONS:
+        open_findings = [name for name in (*finding_fields, "blocker_facts") if isinstance(report.get(name), list) and len(report.get(name)) > 0]
+        if open_findings:
+            errors.append(f"final_decision {decision!r}: cannot approve while alignment findings remain open ({', '.join(sorted(open_findings))})")
+
+    errors += _reject_truthy_authority_flags(
+        report,
+        (
+            "authorizes_export",
+            "authorizes_publishing",
+            "publishes",
+            "raises_claim_level",
+            "claim_level_raised",
+            "bypasses_gates",
+        ),
+        "question alignment report",
+    )
+    return errors
+
+
+def validate_final_report_manifest(manifest: dict[str, Any]) -> list[str]:
+    """Validate a FinalReportManifest for report/claim traceability (REQ-OBJ-17).
+
+    Identity (``final_report_id``) is required and well-formed, ``report_path`` must
+    be a non-blank fact, and the ``claim_ids`` it presents must be distinct, non-blank
+    refs.  The manifest describes the report's contents only: any truthy
+    authority-like flag (generating, exporting, or publishing a report) is rejected.
+    Hardened only as far as report/claim traceability needs; report generation is out
+    of scope.
+    """
+    errors = validate_required_fields(manifest, ["schema_version", "final_report_id", "report_path", "claim_ids"])
+    errors += common.validate_identifier(manifest.get("final_report_id", ""), "final_report_id")
+    report_path = manifest.get("report_path")
+    if report_path is not None and not (isinstance(report_path, str) and report_path.strip()):
+        errors.append("report_path: a final report manifest must record a non-blank report path fact")
+    if manifest.get("claim_ids") is not None:
+        errors += _string_list_errors(manifest.get("claim_ids"), "claim_ids", require_unique=True)
+    errors += _reject_truthy_authority_flags(
+        manifest,
+        ("generates_report", "authorizes_export", "authorizes_publishing", "publishes", "bypasses_gates"),
+        "final report manifest",
+    )
+    return errors
+
+
+def validate_reproduction_bundle_manifest(manifest: dict[str, Any]) -> list[str]:
+    """Validate a ReproductionBundleManifest as a manifest contract (REQ-OBJ-18).
+
+    Identity (``bundle_id`` / ``project_id``) is required and well-formed.  ``files``
+    must be a non-empty list of ``{path, ...}`` facts whose paths are distinct and
+    non-blank (a missing file list, a blank path, or a duplicate file is rejected).
+    ``run_order`` must be distinct, non-blank steps and every step must reference a
+    declared file path — an out-of-order step over an unknown file is an invalid run
+    order.  ``expected_outputs`` are declared by name and ``comparison_rules`` may
+    only reference a declared expected output — a rule over an undeclared output is
+    rejected.  ``reproducibility_level`` and ``reproduction_status`` must use the
+    bounded :data:`REPRODUCIBILITY_LEVELS` / :data:`REPRODUCTION_STATUSES`
+    vocabularies.  The manifest records facts only: any truthy authority-like flag
+    (materialising, exporting, publishing, locking a dataset, authorising REAL
+    execution, or creating formal evidence) is rejected.  This validates the contract
+    record only; it never builds, runs, or exports a bundle.
+    """
+    errors = validate_required_fields(manifest, ["schema_version", "bundle_id", "project_id"])
+    errors += common.validate_identifier(manifest.get("bundle_id", ""), "bundle_id")
+    errors += common.validate_identifier(manifest.get("project_id", ""), "project_id")
+
+    # Files: a non-empty list of {path, ...} facts with distinct, non-blank paths.
+    files = manifest.get("files")
+    declared_paths: set[str] = set()
+    if not isinstance(files, list) or not files:
+        errors.append("files: a reproduction bundle must record at least one file fact")
+    else:
+        for idx, entry in enumerate(files):
+            if not isinstance(entry, dict):
+                errors.append(f"files[{idx}]: each file must be an object carrying a path fact")
+                continue
+            path = str(entry.get("path", "") or "").strip()
+            if not path:
+                errors.append(f"files[{idx}]: missing required file path")
+            elif path in declared_paths:
+                errors.append(f"files[{idx}]: duplicate file path {path!r} — bundle files must be unique")
+            else:
+                declared_paths.add(path)
+
+    # Run order: distinct, non-blank steps, each referencing a declared file path.
+    run_order = manifest.get("run_order")
+    if run_order is not None:
+        errors += _string_list_errors(run_order, "run_order", require_unique=True)
+        if isinstance(run_order, list):
+            for step in run_order:
+                if isinstance(step, str) and step.strip() and step not in declared_paths:
+                    errors.append(f"run_order: step {step!r} is not a declared bundle file (invalid run order)")
+
+    if manifest.get("environment_facts") is not None and not isinstance(manifest.get("environment_facts"), dict):
+        errors.append("environment_facts: expected an object of recorded facts")
+
+    # Expected outputs are declared by name; comparison rules may only target one.
+    expected_outputs = manifest.get("expected_outputs")
+    declared_outputs: set[str] = set()
+    if expected_outputs is not None:
+        if not isinstance(expected_outputs, list):
+            errors.append("expected_outputs: expected a list of declared output facts")
+        else:
+            for idx, output in enumerate(expected_outputs):
+                if isinstance(output, dict):
+                    name = str(output.get("name", output.get("output_name", "")) or "").strip()
+                elif isinstance(output, str):
+                    name = output.strip()
+                else:
+                    name = ""
+                if not name:
+                    errors.append(f"expected_outputs[{idx}]: each expected output must record a non-blank name")
+                elif name in declared_outputs:
+                    errors.append(f"expected_outputs[{idx}]: duplicate expected output {name!r}")
+                else:
+                    declared_outputs.add(name)
+
+    comparison_rules = manifest.get("comparison_rules")
+    if comparison_rules is not None:
+        if not isinstance(comparison_rules, list):
+            errors.append("comparison_rules: expected a list of comparison-rule objects")
+        else:
+            for idx, rule in enumerate(comparison_rules):
+                if not isinstance(rule, dict):
+                    errors.append(f"comparison_rules[{idx}]: each comparison rule must be an object")
+                    continue
+                target = str(rule.get("expected_output", rule.get("output", rule.get("name", ""))) or "").strip()
+                if not target:
+                    errors.append(f"comparison_rules[{idx}]: a comparison rule must name the expected output it compares")
+                elif target not in declared_outputs:
+                    errors.append(f"comparison_rules[{idx}]: references undeclared expected output {target!r}")
+
+    level = manifest.get("reproducibility_level")
+    if level is not None and level not in REPRODUCIBILITY_LEVELS:
+        errors.append(f"reproducibility_level: must be one of {', '.join(REPRODUCIBILITY_LEVELS)}")
+    status = manifest.get("reproduction_status")
+    if status is not None and status not in REPRODUCTION_STATUSES:
+        errors.append(f"reproduction_status: must be one of {', '.join(REPRODUCTION_STATUSES)}")
+
+    errors += _reject_truthy_authority_flags(
+        manifest,
+        (
+            "materializes_bundle",
+            "materializes",
+            "exports_bundle",
+            "exports",
+            "publishes",
+            "authorizes_publishing",
+            "authorizes_real_execution",
+            "real_execution_authorized",
+            "locks_dataset",
+            "dataset_locked",
+            "creates_formal_evidence",
+            "creates_evidence",
+            "bypasses_gates",
+        ),
+        "reproduction bundle manifest",
     )
     return errors
