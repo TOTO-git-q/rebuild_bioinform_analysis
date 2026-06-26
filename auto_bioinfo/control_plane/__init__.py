@@ -10,7 +10,10 @@ WP-04a delivers the first slice: :func:`create_project`. WP-04b adds the
 read-only query slice over the projects it records: :func:`get_project`,
 :func:`query_timeline`, :func:`list_projects`, and :func:`project_blockers`.
 WP-04e adds the local ApprovalRequest lifecycle (:func:`create_approval_request`,
-:func:`cancel`, :func:`expire`, :func:`decide`).
+:func:`cancel`, :func:`expire`, :func:`decide`).  WP-04f adds the pure, local
+A0–A3 admission gate evaluator (:func:`evaluate_gate`) that reads a project's
+policy and an optional approval record as data and returns a bounded,
+reason-coded :class:`GateDecision`.
 """
 
 from __future__ import annotations
@@ -32,6 +35,14 @@ from .create_project import (
     CreateProjectError,
     CreateProjectResult,
     create_project,
+)
+from .gate_evaluator import (
+    GATE_NAMES,
+    OUTCOMES,
+    REASON_CODES,
+    GateDecision,
+    GateEvaluationInput,
+    evaluate_gate,
 )
 from .queries import (
     BlockerItem,
@@ -59,6 +70,12 @@ __all__ = [
     "expire",
     "is_due",
     "reject",
+    "GATE_NAMES",
+    "OUTCOMES",
+    "REASON_CODES",
+    "GateDecision",
+    "GateEvaluationInput",
+    "evaluate_gate",
     "CreateProjectCommand",
     "CreateProjectConflict",
     "CreateProjectError",
