@@ -17,6 +17,11 @@ reason-coded :class:`GateDecision`.  WP-04g adds the pure, local command API
 idempotency / optimistic-concurrency contract (:func:`evaluate_command_request`)
 that decides — without any I/O or HTTP surface — whether a mutating command may
 be applied, replayed, or fails closed on a key conflict or stale version.
+WP-04h adds the pure, local operation-resource state/result contract
+(:func:`new_operation`, :func:`apply_transition`, :func:`project_operation`,
+:func:`operation_from_command_result`) that models a long-running command's
+operation as a deterministic, bounded lifecycle value — with no actual
+asynchronous execution.
 """
 
 from __future__ import annotations
@@ -57,6 +62,23 @@ from .gate_evaluator import (
     GateEvaluationInput,
     evaluate_gate,
 )
+from .operation_resource import (
+    ALLOWED_TRANSITIONS,
+    ERROR_CODES,
+    OPERATION_STATUSES,
+    PROJECTION_CATEGORIES,
+    OperationError,
+    OperationProjection,
+    OperationRecord,
+    apply_transition,
+    can_transition,
+    is_operation_status,
+    is_terminal_status,
+    new_operation,
+    operation_from_command_result,
+    project_operation,
+    validate_operation_record,
+)
 from .queries import (
     BlockerItem,
     Page,
@@ -89,6 +111,21 @@ __all__ = [
     "GateDecision",
     "GateEvaluationInput",
     "evaluate_gate",
+    "ALLOWED_TRANSITIONS",
+    "ERROR_CODES",
+    "OPERATION_STATUSES",
+    "PROJECTION_CATEGORIES",
+    "OperationError",
+    "OperationProjection",
+    "OperationRecord",
+    "apply_transition",
+    "can_transition",
+    "is_operation_status",
+    "is_terminal_status",
+    "new_operation",
+    "operation_from_command_result",
+    "project_operation",
+    "validate_operation_record",
     "CommandApiResult",
     "CommandRecord",
     "CommandRequest",
