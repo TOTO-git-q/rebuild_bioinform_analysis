@@ -8,13 +8,13 @@
 |---|---|
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
-| execution_gate | **WP-04G_APPROVED_AUTO_MERGE_BLOCKED_CLEAN** |
-| 当前阶段 | WP-04g PR #25 独立复核 APPROVED（head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`）；GitHub auto-merge 启用失败：`UNPROCESSABLE: Pull request is in clean status`，等待 CEO 手动 merge 或写入 clean-PR 合并策略修订。 |
+| execution_gate | **CLEAN_PR_MERGE_POLICY_AUTHORIZED** |
+| 当前阶段 | clean PR 合并策略已授权（turn 0159）；PR #25 已独立复核通过且 required CI 全绿，Codex 可用正常 GitHub PR merge API 按 reviewed head SHA 合并。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04g：PR #25 已由 Codex 独立复核通过；受 clean-status auto-merge blocker 阻塞，尚未合并） |
-| 当前唯一可执行 Work Order | **CEO action: PR #25 merge path**（Codex 已审核通过但不得直接合并；需 CEO 手动 merge PR #25 或写入 clean PR 合并策略修订） |
-| 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CEO**（PR #25 clean 状态无法挂 auto-merge；Codex 已停止在直接合并前） |
+| R0-02 | **IN_PROGRESS**（WP-04g：PR #25 approved；clean PR merge-policy exception 已授权，待 Codex merge API 合并并记录 merge SHA） |
+| 当前唯一可执行 Work Order | **Codex merge PR #25 via GitHub PR merge API**（仅限 reviewed head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`；不得 direct push/force/ruleset bypass） |
+| 合并策略 | **PR + required CI + GitHub auto-merge, with clean-PR API merge exception**（Codex 审核通过且 CI 全绿后，若 PR 已 clean 导致 auto-merge 无法挂起，可用正常 GitHub PR merge API 按 reviewed head SHA 合并；仍不得 direct push/force/ruleset bypass） |
+| 轮到谁 | **CODEX**（按 turn 0159 clean PR 例外合并 PR #25 并记录结果） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -118,7 +118,8 @@
 | 0155 | CC → CODEX | REPORT | WP-04g | WP-04g 交付：新增 `auto_bioinfo/control_plane/command_api.py`（纯本地 `evaluate_command_request`：有界 header 解析 Idempotency-Key/If-Match-Version + case-insensitive + 重复/畸形 fail-closed；强制非空·有界·可见 ASCII idempotency key；幂等绑定 canonical `(command_type,payload)` fingerprint，同 key 同载荷=replay、异载荷=conflict；乐观并发 expected-version vs caller current_version，stale/malformed fail-closed；有界 STATUSES/COMMAND_* reason codes + 审计 binding；零 I/O/clock/执行副作用）+ `__init__` 导出 + `tests/test_command_api.py`(31)；本地 561 测试绿（+31），`make lint`/`format-check` 绿，`git diff --check` clean，PR #25 required CI quality 3.10/3.11/3.12 全绿；OPEN/MERGEABLE，base `b7c271a6…`，head `b2f5298ac34c4c581d81b1e86f39a98f12ad1d96`，未自合并/未启用 auto-merge，R0-02 WP-04h/T-04-08+ 未启动，未触碰 HTTP server/OpenAPI/CLI/auth/async/outbox/DB/deps/Docker/workflows/真实数据/外部服务/科学逻辑。 |
 | 0156 | CODEX → CC | DECISION | WP-04g-pr25-changes-requested | 已由 turn 0157 REPORT 接手：fail-closed blocker 已修；`evaluate_command_request()` 先校验 command_type/payload 再在 try/except 内算 fingerprint，malformed/non-canonical command 返回 bounded `CODE_MALFORMED_COMMAND`（空 fingerprint），不再抛 `TypeError`。 |
 | 0157 | CC → CODEX | REPORT | WP-04g-pr25-fix | 已由 turn 0158 BLOCKER 接手：Codex 独立复核通过 PR #25 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`，但 GitHub 拒绝对 clean PR 启用 auto-merge。 |
-| 0158 | CODEX → CEO | BLOCKER | WP-04g-pr25-clean-no-auto-merge | PR #25 独立复核 APPROVED，required CI 全绿，本地 565 测试绿；尝试 GitHub auto-merge 被拒：`UNPROCESSABLE: Pull request is in clean status`。按合并策略 Codex 不得直接 merge，等待 CEO 手动 merge 或写入 clean PR 策略修订。 |
+| 0158 | CODEX → CEO | BLOCKER | WP-04g-pr25-clean-no-auto-merge | 已由 turn 0159 DECISION 接手：clean PR merge-policy exception 授权，Codex 可用正常 GitHub PR merge API 合并已审核通过且 CI 全绿的 clean PR。 |
+| 0159 | CODEX → CC | DECISION | clean-pr-merge-policy | CEO 授权 clean PR 处理策略：Codex 独立审核通过 + required CI 全绿 + 无硬停点时，若 GitHub 已 clean 导致 auto-merge 无法挂起，可用正常 GitHub PR merge API 按 reviewed head SHA 合并；仍禁止 direct push/force/ruleset bypass。立即适用于 PR #25。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -247,7 +248,7 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04g PR #25 merge blocker**（turn 0158）：Codex 已独立复核通过 PR #25 head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b`，原 fail-closed blocker 闭合，本地/CI 证据均通过；但 GitHub 对 clean PR 拒绝启用 auto-merge，等 CEO 手动 merge 或写入 clean PR 策略修订。
+1. **WP-04g PR #25 merge by Codex**（turn 0159）：clean PR merge-policy exception 已授权；Codex 可用正常 GitHub PR merge API 按 reviewed head `d2e93473fcfbf4ee97022b2043ad0e6fde85731b` 合并 PR #25，然后记录 merge SHA 并派 WP-04h。
 2. **WP-04 后续 T-04-08..12**：async operation、CLI、cancel command、OpenAPI、auth 等均等 WP-04g 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
@@ -258,8 +259,8 @@
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：WP-04g 仅限 T-04-07 command API idempotency and optimistic concurrency contract（纯本地、显式输入、确定性 contract/result/error）；不得扩大到真实 HTTP server、OpenAPI、CLI、auth、async operation、outbox、DB、Docker、deps、workflow、真实数据或外部服务。
-5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；Codex 独立审核通过后只能启用 `gh pr merge <PR> --auto --merge`，不得直接 push/硬合 base，不得绕过 required CI。
-6. **当前 merge blocker**：PR #25 已 APPROVED，但 GitHub `enablePullRequestAutoMerge` 返回 `UNPROCESSABLE: Pull request is in clean status`；Codex 按策略不得直接合并 protected base，等待 CEO 手动 merge 或策略修订。
+5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；标准优先 auto-merge。clean PR 例外：Codex 独立审核通过 + required CI 全绿 + 无硬停点，且 GitHub clean 导致 auto-merge 不可挂起时，Codex 可用正常 GitHub PR merge API 按 reviewed head SHA 合并；不得 direct push/force/ruleset bypass。
+6. **当前 merge blocker**：已解除为流程内异常处理；若 GitHub 正常 PR merge API 仍被保护规则或权限拒绝，Codex 必须重新写 blocker。
 
 ## 最近 turn 索引
 
@@ -422,4 +423,5 @@
 | 0155 | `log/0155-cc-to-codex-report-WP-04g.md`（OPEN，已由 0156 DECISION 接手：PR #25 CHANGES_REQUESTED） |
 | 0156 | `log/0156-codex-to-cc-decision-WP-04g-pr25-changes-requested.md`（OPEN，已由 0157 REPORT 接手：fail-closed blocker 已修复） |
 | 0157 | `log/0157-cc-to-codex-report-WP-04g-pr25-fix.md`（OPEN，已由 0158 BLOCKER 接手：PR #25 复核通过但 clean PR 无法启用 auto-merge） |
-| 0158 | `log/0158-codex-to-ceo-blocker-WP-04g-pr25-clean-no-auto-merge.md`（OPEN，PR #25 APPROVED；GitHub auto-merge rejected clean PR，等待 CEO merge/policy decision） |
+| 0158 | `log/0158-codex-to-ceo-blocker-WP-04g-pr25-clean-no-auto-merge.md`（OPEN，已由 0159 DECISION 接手：clean PR merge-policy exception 授权） |
+| 0159 | `log/0159-codex-to-cc-decision-clean-pr-merge-policy.md`（OPEN，clean PR merge-policy exception 授权；PR #25 可由 Codex 用正常 GitHub PR merge API 合并） |
