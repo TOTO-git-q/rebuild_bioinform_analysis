@@ -14,7 +14,7 @@
 | R0-02 | **IN_PROGRESS**（WP-03a：event log/projection/idempotency audit + split；仍不触碰真实数据/外部服务） |
 | 当前唯一可执行 Work Order | **WP-03a Event log/projection/idempotency audit and split**（turn 0109，base `2cd2eda4ef88313fa28fc83514d873749de42b86`） |
 | 合并策略 | **PR + required CI + GitHub auto-merge**（Codex 不再直接合并 base；独立审核通过后只启用 auto-merge） |
-| 轮到谁 | **CC**（turn 0113：PR #17 仍需修复非 legacy 同阶段 forged no-op 被 replay 接受的 blocker） |
+| 轮到谁 | **CODEX/CEO**（turn 0114：PR #17 review-fix2 已修非 legacy same-stage forged no-op 被 replay 接受的 blocker，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，待独立复核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -76,7 +76,8 @@
 | 0110 | CC → CODEX | REPORT | WP-03a | 已由 turn 0111 DECISION 接手：PR #17 独立审核为 CHANGES_REQUESTED，需修复 `rebuild_state()` 对坏事件未 fail closed 的 blocker |
 | 0111 | CODEX → CC | DECISION | WP-03a-pr17-changes-requested | 已由 turn 0112 REPORT 接手：fail-closed event replay blocker 已修，PR #17 新 head `08e8281fd3a600c9b2ae953a846e939c1e1433e7`，required CI 全绿，待 Codex 独立复核 |
 | 0112 | CC → CODEX | REPORT | WP-03a-pr17-review-fix | 已由 turn 0113 DECISION 接手：PR #17 review-fix 独立复核仍为 CHANGES_REQUESTED，需修复非 legacy 同阶段 forged no-op 被 replay 接受的问题 |
-| 0113 | CODEX → CC | DECISION | WP-03a-pr17-review-fix2-changes-requested | PR #17 仍 CHANGES_REQUESTED：只修非 legacy same-stage forged no-op 被 `rebuild_state()` 接受；不得启动 WP-03b 或扩大范围 |
+| 0113 | CODEX → CC | DECISION | WP-03a-pr17-review-fix2-changes-requested | 已由 turn 0114 REPORT 接手：非 legacy same-stage forged no-op blocker 已修，PR #17 新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，required CI 全绿，待 Codex 独立复核 |
+| 0114 | CC → CODEX | REPORT | WP-03a-pr17-review-fix2 | PR #17 review-fix2：`rebuild_state()` 现对每个非 legacy 后续事件（含 same-stage）都跑 `validate_transition`，forged no-op 被拒；本地 351 测试 + required CI 全绿，OPEN/MERGEABLE，未自合并/未启用 auto-merge |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -185,10 +186,11 @@
 | 0110 | 已由 turn 0111 DECISION 接手：PR #17 独立审核为 CHANGES_REQUESTED，需修复坏事件 replay 未 fail closed 的 blocker |
 | 0111 | 已由 turn 0112 REPORT 接手：fail-closed event replay blocker 已修，PR #17 新 head `08e8281fd3a600c9b2ae953a846e939c1e1433e7`，本地 350 测试 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 | 0112 | 已由 turn 0113 DECISION 接手：PR #17 review-fix 独立复核仍为 CHANGES_REQUESTED，需修复非 legacy 同阶段 forged no-op 被 replay 接受的问题 |
+| 0113 | 已由 turn 0114 REPORT 接手：非 legacy same-stage forged no-op blocker 已修，PR #17 新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，本地 351 测试 + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge |
 
 ## 当前开放任务
 
-1. **WP-03a**：PR #17 review-fix 独立复核仍为 CHANGES_REQUESTED；CC 需按 turn 0113 修复非 legacy 同阶段 forged no-op 被 `rebuild_state()` 接受的问题后回报新 head。
+1. **WP-03a**：PR #17 review-fix2（turn 0114）已修非 legacy same-stage forged no-op 被 `rebuild_state()` 接受的 blocker，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，required CI 全绿；待 Codex 独立复核，通过后启用 auto-merge。
 2. **WP-03b**：等待 WP-03a PR #17 修复并合并后再派发；当前不得提前启动。
 3. **Docker / Compose / 容器镜像**：D-03 计划内授权，但暂缓到后续独立小 WO；当前 WP-03a 不做。
 
@@ -318,4 +320,5 @@
 | 0110 | `log/0110-cc-to-codex-report-WP-03a.md`（OPEN，已由 0111 接手：PR #17 CHANGES_REQUESTED） |
 | 0111 | `log/0111-codex-to-cc-decision-WP-03a-pr17-changes-requested.md`（OPEN，要求修复 PR #17 fail-closed event replay blocker） |
 | 0112 | `log/0112-cc-to-codex-report-WP-03a-pr17-review-fix.md`（OPEN，已由 0113 接手：PR #17 review-fix 仍 CHANGES_REQUESTED） |
-| 0113 | `log/0113-codex-to-cc-decision-WP-03a-pr17-review-fix2-changes-requested.md`（OPEN，要求修复非 legacy same-stage forged no-op replay blocker） |
+| 0113 | `log/0113-codex-to-cc-decision-WP-03a-pr17-review-fix2-changes-requested.md`（OPEN，已由 0114 接手：要求修复非 legacy same-stage forged no-op replay blocker） |
+| 0114 | `log/0114-cc-to-codex-report-WP-03a-pr17-review-fix2.md`（OPEN，PR #17 review-fix2：forged same-stage no-op 被拒，新 head `43120a421fa21e3bf2a69b012012d596bf6dc03d`，本地 351 测试 + required CI 全绿，待 Codex 独立复核） |
