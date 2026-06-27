@@ -44,8 +44,17 @@ and withhold every ``unknown`` field**, redact inline secrets from admitted valu
 return an inert :class:`ContextBuildDecision` whose public projection never leaks a raw
 sensitive value — all before any model/provider call exists, with no content egress.
 
-Later T-05 slices (tool broker, audit/usage/budget machinery) are out of scope for this
-foundation.
+WP-05f / T-05-06 adds the local tool allowlist & Tool Broker contract: a
+:class:`ToolRegistry` allowlist of admitted tool identities/versions plus a
+:class:`ToolBroker` that, given an inert :class:`ToolCallRequest`, checks it fail-closed
+against the allowlist (an unknown / disabled / version-mismatched / caller-disallowed
+tool is denied), blocks raw sensitive arguments and redacts the rest before any handler
+sees them, runs only the registered deterministic in-process handler for an authorized
+call, and returns an inert :class:`ToolMediationDecision` carrying a bounded redacted
+result — with no real tool / shell / subprocess / network / provider call and no egress.
+
+Later T-05 slices (raw-output artifact storage, audit/usage/budget machinery) are out of
+scope for this foundation.
 """
 
 from __future__ import annotations
@@ -210,6 +219,53 @@ from .structured_output import (
 )
 from .structured_output import CODE_MALFORMED_RESPONSE as CODE_ADMIT_MALFORMED_RESPONSE
 from .structured_output import REASON_CODES as STRUCTURED_OUTPUT_REASON_CODES
+from .tool_broker import (
+    ALLOWLIST_CODES,
+    CODE_ARGUMENTS_TOO_LARGE,
+    CODE_CALLER_NOT_ALLOWED,
+    CODE_DUPLICATE_TOOL,
+    CODE_HANDLER_ERROR,
+    CODE_MALFORMED_ALLOWED_CALLERS,
+    CODE_MALFORMED_ARGUMENTS,
+    CODE_MALFORMED_HANDLER,
+    CODE_MALFORMED_IDENTITY,
+    CODE_MALFORMED_RESULT,
+    CODE_MALFORMED_TOOL_ID,
+    CODE_MALFORMED_TOOL_VERSIONS,
+    CODE_NON_PUBLIC_ARGUMENT,
+    CODE_NONSERIALIZABLE_ARGUMENTS,
+    CODE_RESULT_TOO_LARGE,
+    CODE_SENSITIVE_ARGUMENT,
+    CODE_TOO_MANY_ARGUMENTS,
+    CODE_TOOL_DISABLED,
+    CODE_UNKNOWN_TOOL,
+    CODE_VERSION_MISMATCH,
+    EXECUTION_CODES,
+    MAX_ALLOWED_CALLERS,
+    MAX_ARG_NAME_LENGTH,
+    MAX_ARGUMENTS_BYTES,
+    MAX_CALLER_ID_LENGTH,
+    MAX_PAYLOAD_DEPTH,
+    MAX_PROJECT_REF_LENGTH,
+    MAX_RESULT_BYTES,
+    MAX_TOOL_ARGUMENTS,
+    MAX_TOOL_ID_LENGTH,
+    MAX_TOOL_VERSION_LENGTH,
+    MAX_TOOL_VERSIONS,
+    STATUS_ALLOWED,
+    STATUS_DENIED,
+    ToolBroker,
+    ToolBrokerError,
+    ToolCallRequest,
+    ToolMediationDecision,
+    ToolRegistry,
+    ToolSpec,
+)
+from .tool_broker import CODE_MALFORMED_REQUEST as CODE_TOOL_MALFORMED_REQUEST
+from .tool_broker import REASON_CODES as TOOL_BROKER_REASON_CODES
+from .tool_broker import REGISTRY_CODES as TOOL_REGISTRY_CODES
+from .tool_broker import REQUEST_CODES as TOOL_REQUEST_CODES
+from .tool_broker import STATUSES as TOOL_BROKER_STATUSES
 
 __all__ = [
     "CODE_CONTENT_TOO_LONG",
@@ -364,4 +420,49 @@ __all__ = [
     "ContextFieldOutcome",
     "build_model_context",
     "classify_field_sensitivity",
+    "MAX_TOOL_ID_LENGTH",
+    "MAX_TOOL_VERSION_LENGTH",
+    "MAX_CALLER_ID_LENGTH",
+    "MAX_PROJECT_REF_LENGTH",
+    "MAX_TOOL_VERSIONS",
+    "MAX_ALLOWED_CALLERS",
+    "MAX_TOOL_ARGUMENTS",
+    "MAX_ARG_NAME_LENGTH",
+    "MAX_PAYLOAD_DEPTH",
+    "MAX_ARGUMENTS_BYTES",
+    "MAX_RESULT_BYTES",
+    "STATUS_ALLOWED",
+    "STATUS_DENIED",
+    "TOOL_BROKER_STATUSES",
+    "CODE_TOOL_MALFORMED_REQUEST",
+    "CODE_MALFORMED_IDENTITY",
+    "CODE_MALFORMED_ARGUMENTS",
+    "CODE_TOO_MANY_ARGUMENTS",
+    "CODE_ARGUMENTS_TOO_LARGE",
+    "CODE_NONSERIALIZABLE_ARGUMENTS",
+    "CODE_SENSITIVE_ARGUMENT",
+    "CODE_NON_PUBLIC_ARGUMENT",
+    "CODE_UNKNOWN_TOOL",
+    "CODE_TOOL_DISABLED",
+    "CODE_VERSION_MISMATCH",
+    "CODE_CALLER_NOT_ALLOWED",
+    "CODE_HANDLER_ERROR",
+    "CODE_MALFORMED_RESULT",
+    "CODE_RESULT_TOO_LARGE",
+    "TOOL_REQUEST_CODES",
+    "ALLOWLIST_CODES",
+    "EXECUTION_CODES",
+    "TOOL_BROKER_REASON_CODES",
+    "CODE_MALFORMED_TOOL_ID",
+    "CODE_MALFORMED_TOOL_VERSIONS",
+    "CODE_MALFORMED_ALLOWED_CALLERS",
+    "CODE_MALFORMED_HANDLER",
+    "CODE_DUPLICATE_TOOL",
+    "TOOL_REGISTRY_CODES",
+    "ToolBrokerError",
+    "ToolSpec",
+    "ToolRegistry",
+    "ToolCallRequest",
+    "ToolMediationDecision",
+    "ToolBroker",
 ]
