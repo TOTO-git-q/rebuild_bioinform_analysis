@@ -21,6 +21,7 @@ no network, provider SDK, credential access, or content egress.
 """
 
 import unittest
+from dataclasses import FrozenInstanceError
 
 from auto_bioinfo.agent_gateway.context_builder import (
     CODE_MALFORMED_FIELDS,
@@ -329,7 +330,7 @@ class NoSideEffectTest(unittest.TestCase):
     def test_decision_is_a_frozen_value(self):
         decision = build_model_context(policy=_public_policy(), fields={}, requested_fields=[])
         self.assertIsInstance(decision, ContextBuildDecision)
-        with self.assertRaises(Exception):
+        with self.assertRaises(FrozenInstanceError):
             decision.status = "tampered"  # frozen dataclass
 
 

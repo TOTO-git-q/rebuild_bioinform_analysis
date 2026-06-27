@@ -50,6 +50,37 @@ foundation.
 
 from __future__ import annotations
 
+from .context_builder import (
+    BUILD_CODES,
+    CODE_MALFORMED_FIELDS,
+    CODE_MALFORMED_POLICY,
+    CODE_MALFORMED_REQUEST,
+    CODE_MISSING_POLICY,
+    CODE_POLICY_DISALLOWED,
+    CODE_SENSITIVE_BLOCKED,
+    CODE_TOO_MANY_FIELDS,
+    CODE_UNKNOWN_FIELD,
+    CODE_UNKNOWN_SENSITIVITY,
+    DECLARABLE_SENSITIVITIES,
+    FIELD_CODES,
+    MAX_CONTEXT_FIELDS,
+    MAX_FIELD_NAME_LENGTH,
+    MAX_VALUE_SCAN_DEPTH,
+    POLICY_EGRESS_TIERS,
+    SENSITIVITIES,
+    SENSITIVITY_INTERNAL,
+    SENSITIVITY_PUBLIC,
+    SENSITIVITY_SENSITIVE,
+    SENSITIVITY_UNKNOWN,
+    STATUS_BLOCKED,
+    STATUS_BUILT,
+    ContextBuildDecision,
+    ContextFieldOutcome,
+    build_model_context,
+    classify_field_sensitivity,
+)
+from .context_builder import REASON_CODES as CONTEXT_BUILDER_REASON_CODES
+from .context_builder import STATUSES as CONTEXT_BUILD_STATUSES
 from .llm_provider import (
     CODE_CONTENT_TOO_LONG,
     CODE_EMPTY_MESSAGES,
@@ -179,37 +210,6 @@ from .structured_output import (
 )
 from .structured_output import CODE_MALFORMED_RESPONSE as CODE_ADMIT_MALFORMED_RESPONSE
 from .structured_output import REASON_CODES as STRUCTURED_OUTPUT_REASON_CODES
-from .context_builder import (
-    BUILD_CODES,
-    CODE_MALFORMED_FIELDS,
-    CODE_MALFORMED_POLICY,
-    CODE_MALFORMED_REQUEST,
-    CODE_MISSING_POLICY,
-    CODE_POLICY_DISALLOWED,
-    CODE_SENSITIVE_BLOCKED,
-    CODE_TOO_MANY_FIELDS,
-    CODE_UNKNOWN_FIELD,
-    CODE_UNKNOWN_SENSITIVITY,
-    DECLARABLE_SENSITIVITIES,
-    FIELD_CODES,
-    MAX_CONTEXT_FIELDS,
-    MAX_FIELD_NAME_LENGTH,
-    MAX_VALUE_SCAN_DEPTH,
-    POLICY_EGRESS_TIERS,
-    SENSITIVITIES,
-    SENSITIVITY_INTERNAL,
-    SENSITIVITY_PUBLIC,
-    SENSITIVITY_SENSITIVE,
-    SENSITIVITY_UNKNOWN,
-    STATUS_BLOCKED,
-    STATUS_BUILT,
-    ContextBuildDecision,
-    ContextFieldOutcome,
-    build_model_context,
-    classify_field_sensitivity,
-)
-from .context_builder import REASON_CODES as CONTEXT_BUILDER_REASON_CODES
-from .context_builder import STATUSES as CONTEXT_BUILD_STATUSES
 
 __all__ = [
     "CODE_CONTENT_TOO_LONG",

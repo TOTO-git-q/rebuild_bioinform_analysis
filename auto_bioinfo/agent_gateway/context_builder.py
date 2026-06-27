@@ -141,9 +141,7 @@ REASON_CODES = BUILD_CODES + FIELD_CODES
 # ``sensitive``.  A field whose free-text value advertises its own sensitivity
 # (``SENSITIVE``/``CONFIDENTIAL``/``PHI``/``PII``/...) must never enter the model
 # context as raw content even if the caller declared it public.
-_SENSITIVE_VALUE_PATTERN = re.compile(
-    r"(?i)\b(sensitive|confidential|restricted|secret|private|phi|pii)\b"
-)
+_SENSITIVE_VALUE_PATTERN = re.compile(r"(?i)\b(sensitive|confidential|restricted|secret|private|phi|pii)\b")
 
 
 # --- Small, pure predicates --------------------------------------------------
@@ -151,12 +149,7 @@ _SENSITIVE_VALUE_PATTERN = re.compile(
 
 def _is_bounded_field_name(value: Any) -> bool:
     """True iff ``value`` is a non-blank, bounded, single-line printable-ASCII name."""
-    return (
-        isinstance(value, str)
-        and bool(value.strip())
-        and len(value) <= MAX_FIELD_NAME_LENGTH
-        and all("\x20" <= ch <= "\x7e" for ch in value)
-    )
+    return isinstance(value, str) and bool(value.strip()) and len(value) <= MAX_FIELD_NAME_LENGTH and all("\x20" <= ch <= "\x7e" for ch in value)
 
 
 def _value_looks_sensitive(value: Any, depth: int = 0) -> bool:
@@ -228,13 +221,17 @@ def _resolve_policy(policy: Any) -> tuple[_ResolvedPolicy | None, str | None]:
     elif isinstance(policy, Mapping):
         export_policy = policy.get("export_policy", {})
         ref = policy.get("project_policy_id")
-        policy_ref = ref if isinstance(ref, str) and ref else make_stable_id(
-            "context_policy",
-            {
-                "project_id": policy.get("project_id", ""),
-                "data_sensitivity": policy.get("data_sensitivity", ""),
-                "export_policy": export_policy if isinstance(export_policy, Mapping) else None,
-            },
+        policy_ref = (
+            ref
+            if isinstance(ref, str) and ref
+            else make_stable_id(
+                "context_policy",
+                {
+                    "project_id": policy.get("project_id", ""),
+                    "data_sensitivity": policy.get("data_sensitivity", ""),
+                    "export_policy": export_policy if isinstance(export_policy, Mapping) else None,
+                },
+            )
         )
     else:
         return None, CODE_MALFORMED_POLICY
