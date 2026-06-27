@@ -28,7 +28,12 @@ exit, subprocess, or entry-point side effect.  WP-04j adds the pure, local
 cancel-command contract (:func:`evaluate_cancel_request`) that decides — without
 touching any real worker/process/job — whether a tracked operation may move into
 the bounded ``cancelled`` terminal state, projecting a cancelled operation value
-only when the supplied operation state makes that transition valid.
+only when the supplied operation state makes that transition valid.  WP-04k adds
+the pure, local OpenAPI contract/spec foundation (:func:`build_openapi_spec`,
+:func:`spec_to_json`, :func:`validate_openapi_spec`) that projects the existing
+command/operation/cancel/CLI shapes as a deterministic OpenAPI 3.x document — a
+contract description only, with no running HTTP server, deployment, persistence,
+or authorization implied.
 """
 
 from __future__ import annotations
@@ -85,6 +90,14 @@ from .gate_evaluator import (
     GateEvaluationInput,
     evaluate_gate,
 )
+from .openapi_contract import (
+    IMPLEMENTED_OPERATIONS,
+    OPENAPI_VERSION,
+    VALIDATION_CODES,
+    build_openapi_spec,
+    spec_to_json,
+    validate_openapi_spec,
+)
 from .operation_resource import (
     ALLOWED_TRANSITIONS,
     ERROR_CODES,
@@ -132,6 +145,12 @@ __all__ = [
     "CancelCommand",
     "CancelDecision",
     "evaluate_cancel_request",
+    "IMPLEMENTED_OPERATIONS",
+    "OPENAPI_VERSION",
+    "VALIDATION_CODES",
+    "build_openapi_spec",
+    "spec_to_json",
+    "validate_openapi_spec",
     "GATE_NAMES",
     "OUTCOMES",
     "REASON_CODES",
