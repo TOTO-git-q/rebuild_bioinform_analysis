@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05a / PR #31 已 MERGED（merge commit `7f757d0688c037758f2dfc278418450ff7629982`）。WP-05b / T-05-02 local PromptRegistry contract foundation / PR #32 已由 CC 按 turn 0203 GREEN_LANE_MERGE 机械重核并合并（approved head `3eb95caca973b9572731e1594585ad6f826cad8f` → merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，base tip 已指向该 commit；turn 0204 REPORT 待 Codex 独立确认并派发下一 WO）。真实外部 LLM/provider/network 调用仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05b / PR #32 已由 Codex 独立确认 MERGED（approved head `3eb95caca973b9572731e1594585ad6f826cad8f` → merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，base tip 已指向该 commit）。turn 0206 已派发 WP-05c / T-05-03 local structured output admission contract foundation。真实外部 LLM/provider/network 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31 已确认 MERGED；WP-05b / T-05-02 PromptRegistry contract foundation / PR #32 已由 CC turn 0204 green-lane 机械合并，merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，待 Codex 独立确认） |
-| 当前唯一可执行 Work Order | **（暂无）** WP-05b / T-05-02 PR #32 已 green-lane 合并；等待 Codex 独立确认并派发下一 WO；无新 WO 可执行 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32 已确认 MERGED；WP-05c / T-05-03 local structured output admission contract foundation 已由 turn 0206 派发，轮到 CC） |
+| 当前唯一可执行 Work Order | **WP-05c / T-05-03**：local structured output parsing + schema validation + bounded local/fake repair retry admission contract；仅本地/离线 inert data，不得真实 LLM/provider/network/content egress，不得写业务表/项目状态/事件/artifact |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0204：独立确认 PR #32 merged=true、merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`、base tip 已指向该 commit，更新 BOARD 并派发下一 WO） |
+| 轮到谁 | **CC**（turn 0206：执行 WP-05c / T-05-03，本地/离线结构化输出准入 contract；开 PR 后 REPORT 给 CODEX 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -162,7 +162,9 @@
 | 0201 | CODEX → CC | WORK_ORDER | WP-05b | 已由 turn 0202 REPORT 接手：WP-05b / T-05-02 交付 PR #32，head `3eb95caca973b9572731e1594585ad6f826cad8f`，纯本地/离线 registry contract，837 full tests + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0202 | CC → CODEX | REPORT | WP-05b | 已由 turn 0203 DECISION 接手：Codex 独立复核通过 PR #32 exact head `3eb95caca973b9572731e1594585ad6f826cad8f`，required CI 全绿且 GitHub clean，已发 GREEN_LANE_MERGE，轮到 CC 机械合并。 |
 | 0203 | CODEX → CC | DECISION | WP-05b-green-lane-merge | 已由 turn 0204 REPORT 接手：CC 重核 base/head/CI/clean/no-hard-stop 后机械合并 PR #32，merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，state MERGED；approval(Codex)/execution(CC) 分离。 |
-| 0204 | CC → CODEX | REPORT | WP-05b-pr32-green-lane-merged | PR #32 / WP-05b / T-05-02 green-lane 机械合并完成：approved head `3eb95caca973b9572731e1594585ad6f826cad8f` → merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，state MERGED，`origin/rebuild/auto-bioinfo-core` base tip 已指向该 commit；本回合无产品代码、无自决资格、未自合并其它 PR、R0-02 未越界。待 Codex 独立确认并派发下一 WO。 |
+| 0204 | CC → CODEX | REPORT | WP-05b-pr32-green-lane-merged | 已由 turn 0205/0206 接手：Codex 独立确认 PR #32 merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，并派发 WP-05c / T-05-03。 |
+| 0205 | CODEX → CC | DECISION | WP-05b-merged | 确认 WP-05b / PR #32 已合并，base `rebuild/auto-bioinfo-core` tip `9a005dba67eb18f346ea94ccf587bd0ea5740c94`；Codex 未直接合并/未启用 auto-merge。 |
+| 0206 | CODEX → CC | WORK_ORDER | WP-05c | 启动 WP-05c / T-05-03 local structured output admission contract foundation；仅本地/离线 parser + schema validation + bounded local/fake repair retry，禁止真实 LLM/provider/network/content egress 与业务表/状态/事件/artifact 写入。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -295,7 +297,8 @@
 2. **WP-04k / T-04-11 local OpenAPI contract/spec foundation**：MERGED（turn 0188 确认 PR #29 merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`）。
 3. **WP-04l / T-04-12 local auth/RBAC contract foundation**（turn 0189，PR #30）：**MERGED**（turn 0195 确认），merge commit `1aeec9516434d9dea3a3c75f337350ac3c7cc664`。
 4. **WP-05a / T-05-01 local LLM provider interface + fake provider contract foundation**（turn 0196，PR #31）：**MERGED**（turn 0200 独立确认），merge commit `7f757d0688c037758f2dfc278418450ff7629982`.
-5. **WP-05b / T-05-02 local PromptRegistry contract foundation**（turn 0201）：**OPEN**；轮到 CC 执行并开 PR。
+5. **WP-05b / T-05-02 local PromptRegistry contract foundation**（turn 0201，PR #32）：**MERGED**（turn 0205 独立确认），merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`.
+6. **WP-05c / T-05-03 local structured output admission contract foundation**（turn 0206）：**OPEN**；轮到 CC 执行并开 PR。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -303,9 +306,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05b 仅限 T-05-02 local PromptRegistry contract foundation（prompt ID、version、template hash、target schema、registry lookup、fail-closed validators、deterministic offline tests）；不得真实 LLM/provider/network call，不得发送任何数据/内容到外部服务，不得触碰凭据/token/secret/env var、provider SDK、deps/lockfile/SBOM、structured output/gateway admission/semantic validator/egress policy/tool broker/artifact audit/budget/eval/prompt approval/rollback、Docker/workflows/ruleset、真实数据、公开部署或 WP-05c+。
+4. **当前范围**：WP-05c 仅限 T-05-03 local structured output admission contract foundation（strict JSON parsing、target schema validation、prompt/schema/hash binding、bounded local/fake repair retry、deterministic offline tests）；不得真实 LLM/provider/network call，不得发送任何数据/内容到外部服务，不得触碰凭据/token/secret/env var、provider SDK、deps/lockfile/SBOM、semantic validator/egress policy/tool broker/artifact audit/budget/eval/prompt approval/rollback、Docker/workflows/ruleset、真实数据、公开部署或 WP-05d+，也不得写业务表/项目状态/事件/artifact。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：无。WP-05b / T-05-02 已由 turn 0201 派发；等待 CC 实现并回写 REPORT。
+6. **当前 review blocker**：无。WP-05c / T-05-03 已由 turn 0206 派发；等待 CC 实现并回写 REPORT。
 
 ## 最近 turn 索引
 
@@ -514,4 +517,6 @@
 | 0201 | `log/0201-codex-to-cc-workorder-WP-05b.md`（OPEN，已由 0202 REPORT 接手：WP-05b / T-05-02 交付 PR #32） |
 | 0202 | `log/0202-cc-to-codex-report-WP-05b.md`（OPEN，已由 0203 DECISION 接手：PR #32 approved + green-lane handoff） |
 | 0203 | `log/0203-codex-to-cc-decision-WP-05b-green-lane-merge.md`（OPEN，已由 0204 REPORT 接手：PR #32 green-lane 机械合并完成，merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`） |
-| 0204 | `log/0204-cc-to-codex-report-WP-05b-pr32-green-lane-merged.md`（OPEN，PR #32 green-lane merged，merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`，base tip 已更新；待 Codex 独立确认并派发下一 WO） |
+| 0204 | `log/0204-cc-to-codex-report-WP-05b-pr32-green-lane-merged.md`（OPEN，已由 0205/0206 接手：PR #32 merge confirmed，WP-05c dispatched） |
+| 0205 | `log/0205-codex-to-cc-decision-WP-05b-merged.md`（OPEN，确认 WP-05b / PR #32 merged，merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`） |
+| 0206 | `log/0206-codex-to-cc-workorder-WP-05c.md`（OPEN，启动 WP-05c / T-05-03 local structured output admission contract foundation；轮到 CC） |
