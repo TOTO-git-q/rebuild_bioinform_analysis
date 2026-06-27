@@ -1,4 +1,4 @@
-"""Local structured-output admission contract foundation (WP-05c / T-05-03).
+"""Local structured-output admission contract (WP-05c / T-05-03, WP-05d / T-05-04).
 
 The smallest *local* contract layer the future agent gateway (WP-05) needs so it
 can take a resolved registered prompt plus an already-returned, inert
@@ -23,7 +23,14 @@ This is the foundation slice only.  It defines:
   fallback), runs a bounded local repair retry over an explicit candidate sequence,
   and returns an inert :class:`AdmissionDecision` — an accepted parsed object plus
   prompt/schema binding metadata, or a rejection reason plus bounded per-attempt
-  summaries.
+  summaries;
+- a local **domain semantic validator hook** (WP-05d / T-05-04): an offline
+  :class:`SemanticValidatorRegistry` plus :class:`SemanticValidationResult` so a
+  deterministic semantic validator runs *after* schema admission and *before* an
+  accepted object is returned, resolved only by explicit id (no silent fall-back to
+  no-op validation), failing closed when a requested validator is unknown, raises, or
+  returns a malformed result, and treating a clean semantic rejection as a repairable
+  content failure within the existing bounded retry.
 
 Design constraints (WP-05c), mirroring the WP-05a / WP-05b / WP-04 contract style:
 
@@ -48,9 +55,9 @@ Design constraints (WP-05c), mirroring the WP-05a / WP-05b / WP-04 contract styl
   artifact, queue/outbox record, ordinary domain table, or full-content log, and it
   mutates no domain object.
 
-Out of scope for T-05-03 (and deliberately *not* implemented here): any real
-provider/HTTP/SDK integration or content egress, the domain semantic validator hook
-(T-05-04), the sensitive content classifier / egress policy (T-05-05), the tool
+Out of scope for T-05-03 / T-05-04 (and deliberately *not* implemented here): any real
+provider/HTTP/SDK integration or content egress, the sensitive content classifier /
+egress policy (T-05-05), the tool
 broker (T-05-06), raw-output artifact storage / audit / budget / rate-limit /
 circuit-breaker machinery (T-05-07..11), prompt authoring / version approval /
 rollback (T-05-12), and any write of an accepted output into project state, events,
@@ -76,9 +83,13 @@ from .prompt_registry import PromptRegistry, PromptRegistryError, RegisteredProm
 # never silently truncated.
 MAX_OUTPUT_TEXT_LENGTH = 200_000
 MAX_SCHEMA_ID_LENGTH = 200
+MAX_VALIDATOR_ID_LENGTH = 200
 MAX_VALIDATION_DEPTH = 32
 MAX_REPAIR_ATTEMPTS = 8
 DEFAULT_MAX_ATTEMPTS = 3
+# A bound on how many semantic validators a single admission may request, so an
+# unbounded request list cannot turn one admission into unbounded work.
+MAX_SEMANTIC_VALIDATORS = 16
 
 # --- Bounded admission status vocabulary -------------------------------------
 STATUS_ACCEPTED = "accepted"
@@ -151,6 +162,16 @@ CODE_MALFORMED_RESPONSE = "ADMIT_MALFORMED_RESPONSE"
 CODE_MALFORMED_MAX_ATTEMPTS = "ADMIT_MALFORMED_MAX_ATTEMPTS"
 CODE_NO_CANDIDATES = "ADMIT_NO_CANDIDATES"
 CODE_REPAIR_EXHAUSTED = "ADMIT_REPAIR_EXHAUSTED"
+# semantic validator registry / definition (T-05-04):
+CODE_MALFORMED_VALIDATOR_ID = "ADMIT_MALFORMED_VALIDATOR_ID"
+CODE_MALFORMED_VALIDATOR = "ADMIT_MALFORMED_VALIDATOR"
+CODE_DUPLICATE_VALIDATOR = "ADMIT_DUPLICATE_VALIDATOR"
+CODE_UNKNOWN_VALIDATOR = "ADMIT_UNKNOWN_VALIDATOR"
+# semantic validation / admission (T-05-04):
+CODE_MALFORMED_VALIDATOR_REQUEST = "ADMIT_MALFORMED_VALIDATOR_REQUEST"
+CODE_SEMANTIC_REJECTED = "ADMIT_SEMANTIC_REJECTED"
+CODE_SEMANTIC_VALIDATOR_ERROR = "ADMIT_SEMANTIC_VALIDATOR_ERROR"
+CODE_MALFORMED_VALIDATOR_RESULT = "ADMIT_MALFORMED_VALIDATOR_RESULT"
 
 PARSE_CODES = (
     CODE_EMPTY_PAYLOAD,
@@ -178,16 +199,39 @@ ADMISSION_CODES = (
     CODE_REPAIR_EXHAUSTED,
 )
 
+# Semantic validator registry / resolution failures (T-05-04): a malformed/duplicate
+# validator definition or an unknown requested validator id.  ``CODE_UNKNOWN_VALIDATOR``
+# is the no-silent-fallback failure when a requested validator is not registered.
+VALIDATOR_REGISTRY_CODES = (
+    CODE_MALFORMED_VALIDATOR_ID,
+    CODE_MALFORMED_VALIDATOR,
+    CODE_DUPLICATE_VALIDATOR,
+    CODE_UNKNOWN_VALIDATOR,
+)
+
+# Semantic admission failures (T-05-04): a malformed request list, a content-level
+# semantic rejection (repairable), or a validator that raised / returned a malformed
+# result (a fault in the validator, not the content — not repairable).
+SEMANTIC_CODES = (
+    CODE_MALFORMED_VALIDATOR_REQUEST,
+    CODE_SEMANTIC_REJECTED,
+    CODE_SEMANTIC_VALIDATOR_ERROR,
+    CODE_MALFORMED_VALIDATOR_RESULT,
+)
+
 # Note: prompt-binding failures (unknown prompt / unknown version / template-hash
 # mismatch) are surfaced verbatim from the prompt registry's own stable
 # ``PromptRegistryError.code`` set, so an admission decision can carry the precise
 # binding reason without this module re-declaring those codes.
-REASON_CODES = PARSE_CODES + SCHEMA_CODES + ADMISSION_CODES
+REASON_CODES = PARSE_CODES + SCHEMA_CODES + ADMISSION_CODES + VALIDATOR_REGISTRY_CODES + SEMANTIC_CODES
 
 # Per-attempt failures a bounded local *repair* retry may meaningfully attempt to
 # fix with a subsequent candidate (a content-level problem).  A structurally
-# invalid response object is not "repairable" content and stops the retry early.
-REPAIRABLE_CODES = PARSE_CODES + (CODE_SCHEMA_VIOLATION,)
+# invalid response object, a binding failure, or a validator fault is not
+# "repairable" content and stops the retry early.  A *semantic rejection* (the
+# validator ran cleanly and judged the content invalid) is content-level and
+# repairable, so a later candidate may still be accepted within the attempt bound.
+REPAIRABLE_CODES = PARSE_CODES + (CODE_SCHEMA_VIOLATION, CODE_SEMANTIC_REJECTED)
 
 
 class StructuredOutputError(Exception):
@@ -449,9 +493,14 @@ def validate_instance(instance: Any, schema: Any, depth: int = 0, path: str = "$
 # --- The schema registry -----------------------------------------------------
 
 
+def _is_bounded_token(value: Any, max_length: int) -> bool:
+    """True iff ``value`` is a non-blank, bounded, single-line printable-ASCII token."""
+    return isinstance(value, str) and bool(value.strip()) and len(value) <= max_length and all("\x20" <= ch <= "\x7e" for ch in value)
+
+
 def _is_bounded_schema_id(value: Any) -> bool:
     """True iff ``value`` is a non-blank, bounded, single-line printable-ASCII id."""
-    return isinstance(value, str) and bool(value.strip()) and len(value) <= MAX_SCHEMA_ID_LENGTH and all("\x20" <= ch <= "\x7e" for ch in value)
+    return _is_bounded_token(value, MAX_SCHEMA_ID_LENGTH)
 
 
 class SchemaRegistry:
@@ -528,6 +577,110 @@ class SchemaRegistry:
         return {"schemas": {schema_id: self._by_id[schema_id] for schema_id in sorted(self._by_id)}}
 
 
+# --- Domain semantic validator hook (T-05-04) --------------------------------
+#
+# A *semantic* validator runs only after a candidate has parsed to a JSON object
+# and validated against the prompt's exact registered target schema.  It expresses
+# a deterministic, local, offline domain rule the schema alone cannot — e.g. "the
+# claimed ``score`` is consistent with the reported ``tags``" — over the already
+# admitted structured object plus inert local context/config.  A validator returns
+# a :class:`SemanticValidationResult`; it must never open a socket, read a
+# credential, reach the network, or mutate shared state.  A validator that *raises*
+# or returns a non-result is treated as a fault in the validator (fail closed, not
+# repairable); a validator that *cleanly judges the content invalid* is a content
+# rejection a later candidate may still repair within the attempt bound.
+
+
+SemanticValidator = Any  # a callable ``(structured_object, context) -> SemanticValidationResult``
+
+
+@dataclass(frozen=True)
+class SemanticValidationResult:
+    """The inert verdict of one semantic validator over an admitted object.
+
+    ``valid`` is the only field a caller should branch on: ``True`` accepts the
+    object for this validator, ``False`` is a bounded semantic rejection.  ``message``
+    is an optional human-readable note (never branch on it; it is not retained on the
+    bounded :class:`AdmissionAttempt`).  Construct with :meth:`accept` / :meth:`reject`.
+    """
+
+    valid: bool
+    message: str | None = None
+
+    @classmethod
+    def accept(cls) -> SemanticValidationResult:
+        """A passing verdict."""
+        return cls(valid=True)
+
+    @classmethod
+    def reject(cls, message: str | None = None) -> SemanticValidationResult:
+        """A failing (semantic-rejection) verdict, with an optional human note."""
+        return cls(valid=False, message=message)
+
+    def to_dict(self) -> dict[str, Any]:
+        """A deterministic projection of the verdict (stable key order)."""
+        return {"valid": self.valid, "message": self.message}
+
+
+def _is_semantic_result(value: Any) -> bool:
+    """True iff ``value`` is a well-formed :class:`SemanticValidationResult`."""
+    return isinstance(value, SemanticValidationResult) and isinstance(value.valid, bool)
+
+
+class SemanticValidatorRegistry:
+    """An in-memory registry resolving semantic validators only by explicit id.
+
+    Registration requires a non-blank bounded printable-ASCII id and a callable
+    validator, and rejects a duplicate id (fail-closed).  Resolution returns only an
+    explicitly registered validator and **never silently falls back**: an unknown id
+    raises :data:`CODE_UNKNOWN_VALIDATOR` so a requested-but-missing validator can
+    never degrade into a silent no-op.  Holding only inert callables, the registry
+    performs no I/O of its own.
+    """
+
+    def __init__(self, validators: Mapping[str, Any] | Iterable[tuple[str, Any]] | None = None) -> None:
+        self._by_id: dict[str, SemanticValidator] = {}
+        if validators is None:
+            items: Iterable[tuple[str, Any]] = ()
+        elif isinstance(validators, Mapping):
+            items = validators.items()
+        else:
+            items = validators
+        for validator_id, validator in items:
+            self.register(validator_id, validator)
+
+    def register(self, validator_id: Any, validator: Any) -> None:
+        """Register ``validator`` under ``validator_id``; fail closed on a malformed/duplicate entry."""
+        if not _is_bounded_token(validator_id, MAX_VALIDATOR_ID_LENGTH):
+            raise StructuredOutputError(CODE_MALFORMED_VALIDATOR_ID, "validator_id must be a non-blank, bounded, single-line printable-ASCII identifier")
+        if not callable(validator):
+            raise StructuredOutputError(CODE_MALFORMED_VALIDATOR, f"validator {validator_id!r} must be callable")
+        if validator_id in self._by_id:
+            raise StructuredOutputError(CODE_DUPLICATE_VALIDATOR, f"validator id {validator_id!r} is already registered")
+        self._by_id[validator_id] = validator
+
+    def resolve(self, validator_id: Any) -> SemanticValidator:
+        """Return the registered validator for ``validator_id`` or fail closed (no fallback)."""
+        validator = self._by_id.get(validator_id)
+        if validator is None:
+            raise StructuredOutputError(CODE_UNKNOWN_VALIDATOR, f"no semantic validator is registered under id {validator_id!r}")
+        return validator
+
+    def contains(self, validator_id: Any) -> bool:
+        """True iff ``validator_id`` is registered (a total, side-effect-free check)."""
+        return validator_id in self._by_id
+
+    def validator_ids(self) -> tuple[str, ...]:
+        """Return the registered validator ids in first-registration order."""
+        return tuple(self._by_id)
+
+    def __len__(self) -> int:
+        return len(self._by_id)
+
+    def __contains__(self, validator_id: object) -> bool:
+        return validator_id in self._by_id
+
+
 # --- Admission result shapes -------------------------------------------------
 
 
@@ -564,7 +717,11 @@ class AdmissionDecision:
       (``None`` when binding failed before the schema resolved);
     - ``accepted_object`` — the parsed structured object on acceptance, else ``None``;
     - ``attempts`` — bounded per-candidate summaries;
-    - ``max_attempts`` — the bound the repair retry honoured.
+    - ``max_attempts`` — the bound the repair retry honoured;
+    - ``applied_semantic_validators`` — the ordered ids of the semantic validators the
+      admission was held to (empty when none were requested or the failure happened
+      before the semantic gate was resolved), so an accepted decision records which
+      semantic gate it passed rather than leaving it implicit.
 
     The value is inert data returned to the caller; it is never written to project
     state, events, artifacts, domain tables, or full-content logs.
@@ -581,6 +738,7 @@ class AdmissionDecision:
     accepted_object: dict[str, Any] | None
     attempts: tuple[AdmissionAttempt, ...] = ()
     max_attempts: int = DEFAULT_MAX_ATTEMPTS
+    applied_semantic_validators: tuple[str, ...] = ()
 
     @property
     def accepted(self) -> bool:
@@ -601,6 +759,7 @@ class AdmissionDecision:
             "accepted_object": self.accepted_object,
             "attempts": [attempt.to_dict() for attempt in self.attempts],
             "max_attempts": self.max_attempts,
+            "applied_semantic_validators": list(self.applied_semantic_validators),
         }
 
 
@@ -614,6 +773,7 @@ def _reject(
     schema_hash: str | None = None,
     attempts: tuple[AdmissionAttempt, ...] = (),
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    applied_semantic_validators: tuple[str, ...] = (),
 ) -> AdmissionDecision:
     """Build a rejected :class:`AdmissionDecision` with whatever binding is known."""
     return AdmissionDecision(
@@ -628,7 +788,123 @@ def _reject(
         accepted_object=None,
         attempts=attempts,
         max_attempts=max_attempts,
+        applied_semantic_validators=applied_semantic_validators,
     )
+
+
+def _collect_bounded_request_ids(
+    semantic_validator_ids: Iterable[str],
+    limit: int,
+) -> list[str] | None:
+    """Pull at most ``limit + 1`` ids from the request iterable, or fail closed.
+
+    Returns the collected ids (length ``<= limit``) on success.  Returns ``None`` when
+    the request is not iterable, the iterable raises while being advanced (a misbehaving
+    request id), or it yields more than ``limit`` ids.  At most ``limit + 1`` items are
+    ever consumed — the one extra pull only detects the over-bound case — so a
+    caller-supplied generator can never be advanced into unbounded work, and any
+    iterable exception is contained here instead of leaking out of admission.
+    """
+    try:
+        iterator = iter(semantic_validator_ids)
+    except TypeError:
+        return None
+    collected: list[str] = []
+    for _ in range(limit + 1):
+        try:
+            collected.append(next(iterator))
+        except StopIteration:
+            return collected
+        except Exception:  # noqa: BLE001 - a misbehaving request id must fail closed
+            return None
+    # Reached limit + 1 successful pulls without exhaustion => more than `limit` ids.
+    return None
+
+
+def _resolve_semantic_plan(
+    semantic_validators: SemanticValidatorRegistry | Mapping[str, Any] | None,
+    semantic_validator_ids: Iterable[str] | None,
+) -> tuple[list[tuple[str, SemanticValidator]] | None, str | None]:
+    """Resolve the ordered ``(id, validator)`` plan to run, or a fail-closed reason code.
+
+    Returns ``(plan, None)`` on success — ``plan`` is empty when no semantic validation
+    was requested (the existing schema-only admission), else the validators in requested
+    order.  Returns ``(None, code)`` when the request list is malformed
+    (:data:`CODE_MALFORMED_VALIDATOR_REQUEST`), a validator definition is malformed, or a
+    requested id is unknown (:data:`CODE_UNKNOWN_VALIDATOR`) — never a silent no-op.  No
+    candidate is consumed here, so a bad semantic configuration fails closed *before* any
+    candidate is touched.
+    """
+    if semantic_validator_ids is None:
+        return [], None
+    # A bare string / bytes / mapping is never a valid *list of ids* (a string is
+    # iterable but would silently iterate characters).
+    if isinstance(semantic_validator_ids, (str, bytes, Mapping)):
+        return None, CODE_MALFORMED_VALIDATOR_REQUEST
+    requested = _collect_bounded_request_ids(semantic_validator_ids, MAX_SEMANTIC_VALIDATORS)
+    if requested is None:
+        # Not iterable, the iterable misbehaved while being advanced, or it yielded
+        # more than MAX_SEMANTIC_VALIDATORS ids — every over-bound / malformed request
+        # fails closed deterministically without leaking the iterable's own exception.
+        return None, CODE_MALFORMED_VALIDATOR_REQUEST
+    if any(not _is_bounded_token(vid, MAX_VALIDATOR_ID_LENGTH) for vid in requested):
+        return None, CODE_MALFORMED_VALIDATOR_REQUEST
+    if len(set(requested)) != len(requested):
+        return None, CODE_MALFORMED_VALIDATOR_REQUEST
+    if not requested:
+        return [], None
+
+    # Normalize the available validators into a registry; never silently fall back.
+    if isinstance(semantic_validators, SemanticValidatorRegistry):
+        registry = semantic_validators
+    elif semantic_validators is None:
+        registry = SemanticValidatorRegistry()
+    elif isinstance(semantic_validators, Mapping):
+        try:
+            registry = SemanticValidatorRegistry(semantic_validators)
+        except StructuredOutputError as exc:
+            return None, exc.code
+    else:
+        return None, CODE_MALFORMED_VALIDATOR_REQUEST
+
+    plan: list[tuple[str, SemanticValidator]] = []
+    for vid in requested:
+        try:
+            plan.append((vid, registry.resolve(vid)))
+        except StructuredOutputError as exc:
+            return None, exc.code
+    return plan, None
+
+
+def _run_semantic_validators(
+    parsed: dict[str, Any],
+    plan: list[tuple[str, SemanticValidator]],
+    context: Mapping[str, Any],
+) -> tuple[str, str | None]:
+    """Run the semantic ``plan`` over an admitted object; return ``(outcome, reason_code)``.
+
+    ``outcome`` is ``"accept"`` (every validator passed), ``"reject"`` (a validator
+    cleanly judged the content invalid — :data:`CODE_SEMANTIC_REJECTED`, repairable by a
+    later candidate), or ``"fatal"`` (a validator raised —
+    :data:`CODE_SEMANTIC_VALIDATOR_ERROR` — or returned a malformed result —
+    :data:`CODE_MALFORMED_VALIDATOR_RESULT`; a fault in the validator, not repairable).
+    Each validator sees a private deep copy of the object, so it can neither mutate the
+    object that may be accepted nor leak mutations to a later validator, and is run in
+    requested order with short-circuit on the first non-accepting outcome.
+    """
+    for _validator_id, validator in plan:
+        candidate_object = json.loads(json.dumps(parsed))
+        try:
+            result = validator(candidate_object, context)
+        except Exception:
+            # Fail closed on *any* validator fault — a broken validator must never be
+            # mistaken for a passing one.
+            return "fatal", CODE_SEMANTIC_VALIDATOR_ERROR
+        if not _is_semantic_result(result):
+            return "fatal", CODE_MALFORMED_VALIDATOR_RESULT
+        if not result.valid:
+            return "reject", CODE_SEMANTIC_REJECTED
+    return "accept", None
 
 
 def admit_structured_output(
@@ -642,6 +918,9 @@ def admit_structured_output(
     expected_schema_id: str | None = None,
     expected_schema_hash: str | None = None,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    semantic_validators: SemanticValidatorRegistry | Mapping[str, Any] | None = None,
+    semantic_validator_ids: Iterable[str] | None = None,
+    semantic_context: Mapping[str, Any] | None = None,
 ) -> AdmissionDecision:
     """Admit a structured response under a prompt's exact registered target schema.
 
@@ -651,13 +930,28 @@ def admit_structured_output(
     resolves that schema (optionally pinned to ``expected_schema_hash``), then runs a
     bounded local repair retry over ``candidates`` (each an inert
     :class:`LLMResponse`): the first candidate that is a structurally valid response,
-    parses to a JSON object, and validates under the exact target schema is
-    **accepted**; otherwise admission **fails closed**.  Returns an inert
-    :class:`AdmissionDecision` and writes nothing.
+    parses to a JSON object, validates under the exact target schema, **and** passes
+    every requested semantic validator is **accepted**; otherwise admission **fails
+    closed**.  Returns an inert :class:`AdmissionDecision` and writes nothing.
+
+    Semantic validation (T-05-04) is the optional gate that runs *after* schema
+    admission and *before* a candidate is returned: ``semantic_validator_ids`` names,
+    in order, the validators (resolved from ``semantic_validators`` — a
+    :class:`SemanticValidatorRegistry` or a plain ``{id: callable}`` mapping) that each
+    accepted object must pass, and ``semantic_context`` is inert local config handed to
+    every validator.  A requested-but-unknown validator, a malformed request list, or a
+    malformed validator definition fails closed up-front (no candidate consumed, no
+    silent fall-back to no-op validation).  A candidate the schema accepts but a
+    validator *cleanly rejects* is a repairable content failure, so a later candidate
+    may still be accepted within the bound; a validator that *raises* or returns a
+    malformed result is a fault in the validator and stops the retry early (fail
+    closed).  When no validators are requested, admission is exactly the WP-05c
+    schema-only behaviour.
 
     ``max_attempts`` bounds the retry to ``1..MAX_REPAIR_ATTEMPTS``; candidates beyond
-    the bound are never tried.  A structurally invalid response candidate stops the
-    retry early (it is not repairable content).
+    the bound are never tried — semantic validation runs only on candidates already
+    within the bound and never consumes an extra one.  A structurally invalid response
+    candidate stops the retry early (it is not repairable content).
     """
     if not _is_positive_int(max_attempts) or max_attempts > MAX_REPAIR_ATTEMPTS:
         return _reject(CODE_MALFORMED_MAX_ATTEMPTS, prompt_id=prompt_id, version=version, max_attempts=DEFAULT_MAX_ATTEMPTS)
@@ -681,6 +975,24 @@ def admit_structured_output(
         return _reject(exc.code, prompt=prompt, schema_id=schema_id, max_attempts=max_attempts)
     schema_hash = hash_payload(schema)
 
+    # 3b. Resolve the requested semantic-validator plan up-front, before any candidate
+    #     is consumed: a malformed request, malformed validator, or unknown validator
+    #     fails closed here with no silent fall-back to no-op validation.
+    plan, plan_error = _resolve_semantic_plan(semantic_validators, semantic_validator_ids)
+    if plan_error is not None:
+        return _reject(plan_error, prompt=prompt, schema_id=schema_id, schema_hash=schema_hash, max_attempts=max_attempts)
+    applied = tuple(vid for vid, _ in plan)
+    if plan and semantic_context is not None and not isinstance(semantic_context, Mapping):
+        return _reject(
+            CODE_MALFORMED_VALIDATOR_REQUEST,
+            prompt=prompt,
+            schema_id=schema_id,
+            schema_hash=schema_hash,
+            max_attempts=max_attempts,
+            applied_semantic_validators=applied,
+        )
+    context: Mapping[str, Any] = semantic_context if isinstance(semantic_context, Mapping) else {}
+
     # 4. Bounded local repair retry over the candidate sequence.  Consume the
     #    candidate iterable *lazily* and pull at most ``max_attempts`` items —
     #    ``islice`` never advances the source past the bound, so a candidate beyond
@@ -701,6 +1013,7 @@ def admit_structured_output(
                 schema_hash=schema_hash,
                 attempts=tuple(attempts),
                 max_attempts=max_attempts,
+                applied_semantic_validators=applied,
             )
         try:
             parsed = parse_structured_output(candidate.message.content)
@@ -711,6 +1024,25 @@ def admit_structured_output(
         if violations:
             attempts.append(AdmissionAttempt(index=index, accepted=False, reason_code=CODE_SCHEMA_VIOLATION))
             continue
+        # Schema admission passed; run the optional semantic gate before accepting.
+        outcome, semantic_code = _run_semantic_validators(parsed, plan, context)
+        if outcome == "reject":
+            # A clean semantic rejection is repairable: a later candidate may pass.
+            attempts.append(AdmissionAttempt(index=index, accepted=False, reason_code=semantic_code))
+            continue
+        if outcome == "fatal":
+            # A validator that raised / returned a malformed result is a fault in the
+            # validator, not repairable content: stop the retry closed.
+            attempts.append(AdmissionAttempt(index=index, accepted=False, reason_code=semantic_code))
+            return _reject(
+                semantic_code,
+                prompt=prompt,
+                schema_id=schema_id,
+                schema_hash=schema_hash,
+                attempts=tuple(attempts),
+                max_attempts=max_attempts,
+                applied_semantic_validators=applied,
+            )
         attempts.append(AdmissionAttempt(index=index, accepted=True, reason_code=None))
         return AdmissionDecision(
             status=STATUS_ACCEPTED,
@@ -724,11 +1056,19 @@ def admit_structured_output(
             accepted_object=parsed,
             attempts=tuple(attempts),
             max_attempts=max_attempts,
+            applied_semantic_validators=applied,
         )
 
     # 5a. No candidates were available at all — fail closed with the dedicated code.
     if consumed == 0:
-        return _reject(CODE_NO_CANDIDATES, prompt=prompt, schema_id=schema_id, schema_hash=schema_hash, max_attempts=max_attempts)
+        return _reject(
+            CODE_NO_CANDIDATES,
+            prompt=prompt,
+            schema_id=schema_id,
+            schema_hash=schema_hash,
+            max_attempts=max_attempts,
+            applied_semantic_validators=applied,
+        )
 
     # 5b. Every bounded attempt failed — fail closed.
     return _reject(
@@ -738,15 +1078,18 @@ def admit_structured_output(
         schema_hash=schema_hash,
         attempts=tuple(attempts),
         max_attempts=max_attempts,
+        applied_semantic_validators=applied,
     )
 
 
 __all__ = [
     "MAX_OUTPUT_TEXT_LENGTH",
     "MAX_SCHEMA_ID_LENGTH",
+    "MAX_VALIDATOR_ID_LENGTH",
     "MAX_VALIDATION_DEPTH",
     "MAX_REPAIR_ATTEMPTS",
     "DEFAULT_MAX_ATTEMPTS",
+    "MAX_SEMANTIC_VALIDATORS",
     "STATUS_ACCEPTED",
     "STATUS_REJECTED",
     "STATUSES",
@@ -776,9 +1119,19 @@ __all__ = [
     "CODE_MALFORMED_MAX_ATTEMPTS",
     "CODE_NO_CANDIDATES",
     "CODE_REPAIR_EXHAUSTED",
+    "CODE_MALFORMED_VALIDATOR_ID",
+    "CODE_MALFORMED_VALIDATOR",
+    "CODE_DUPLICATE_VALIDATOR",
+    "CODE_UNKNOWN_VALIDATOR",
+    "CODE_MALFORMED_VALIDATOR_REQUEST",
+    "CODE_SEMANTIC_REJECTED",
+    "CODE_SEMANTIC_VALIDATOR_ERROR",
+    "CODE_MALFORMED_VALIDATOR_RESULT",
     "PARSE_CODES",
     "SCHEMA_CODES",
     "ADMISSION_CODES",
+    "VALIDATOR_REGISTRY_CODES",
+    "SEMANTIC_CODES",
     "REASON_CODES",
     "REPAIRABLE_CODES",
     "StructuredOutputError",
@@ -787,6 +1140,9 @@ __all__ = [
     "validate_schema_definition",
     "validate_instance",
     "SchemaRegistry",
+    "SemanticValidator",
+    "SemanticValidationResult",
+    "SemanticValidatorRegistry",
     "AdmissionAttempt",
     "AdmissionDecision",
     "admit_structured_output",
