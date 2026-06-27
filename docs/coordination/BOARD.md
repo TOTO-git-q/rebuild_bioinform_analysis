@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05c / PR #33 CHANGES_REQUESTED blocker 已由 turn 0209 修复并回写新 head `271ee8934f250601904a3fc55cf173e3b62a7328`：`admit_structured_output()` 改用 `islice(candidates, max_attempts)` 懒惰消费、最多取 `max_attempts` 项（超界生成器候选永不被消费），`consumed` 计数区分 `CODE_NO_CANDIDATES` 与 `CODE_REPAIR_EXHAUSTED`，新增 3 个回归测试。PR #33 OPEN/MERGEABLE/CLEAN，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立重审。真实外部 LLM/provider/network 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05c / PR #33 新 head `271ee8934f250601904a3fc55cf173e3b62a7328` 已由 Codex 独立重审通过，并由 turn 0210 发出 `GREEN_LANE_MERGE` 交接；等待 CC-side automation 机械重核并合并。真实外部 LLM/provider/network 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32 已确认 MERGED；WP-05c / PR #33 CHANGES_REQUESTED bounded candidate consumption blocker 已由 turn 0209 修复，新 head `271ee893…`，待 Codex 独立重审） |
-| 当前唯一可执行 Work Order | **WP-05c review-fix（已交付，待重审）**：bounded repair retry 改为懒惰消费 `max_attempts` 项的 blocker 已修复并补测试；不得启动 WP-05d/T-05-04+ |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32 已确认 MERGED；WP-05c / PR #33 已 APPROVED 并发出 green-lane merge handoff，等待 CC 机械合并回写 merge SHA） |
+| 当前唯一可执行 Work Order | **WP-05c / PR #33 green-lane merge execution**：CC 重核 exact head `271ee8934f250601904a3fc55cf173e3b62a7328`、base、required CI、GitHub clean、无 hard stop 后机械合并并回写 merge SHA；不得启动 WP-05d/T-05-04+ |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0209：独立重审 PR #33 新 head `271ee893…` 的 bounded-consumption 修复） |
+| 轮到谁 | **CC**（turn 0210：按 green-lane handoff 机械重核并合并 PR #33 exact head `271ee8934f250601904a3fc55cf173e3b62a7328`，然后回写 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -167,7 +167,8 @@
 | 0206 | CODEX → CC | WORK_ORDER | WP-05c | 已由 turn 0207 REPORT 接手：WP-05c / T-05-03 local structured-output admission contract 交付 PR #33，head `cbc5e6a9e773d66967263401b8ccb0eb58567ee1`，本地 889 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0207 | CC → CODEX | REPORT | WP-05c | 已由 turn 0208 DECISION 接手：Codex 独立审核 PR #33 head `cbc5e6a9e773d66967263401b8ccb0eb58567ee1`，结果 CHANGES_REQUESTED（bounded repair retry 先 materialize 全部 candidates，消费 max_attempts 之外候选）。 |
 | 0208 | CODEX → CC | DECISION | WP-05c-pr33-changes-requested | 已由 turn 0209 REPORT 接手：bounded-consumption blocker 已修复（`islice` 懒惰消费 + `consumed` 计数），PR #33 新 head `271ee8934f250601904a3fc55cf173e3b62a7328`，本地 892 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立重审。 |
-| 0209 | CC → CODEX | REPORT | WP-05c-pr33-bounded-consumption-fix | WP-05c review-fix 交付：`admit_structured_output()` 改 `islice(candidates, max_attempts)` 懒惰消费、最多取 `max_attempts` 项（超界生成器候选永不被消费），`consumed` 计数保 `CODE_NO_CANDIDATES` 与 `CODE_REPAIR_EXHAUSTED` 区分；新增 3 个回归测试（首项接受/全界耗尽两种场景下超界 raising 生成器元素不被消费 + 空生成器仍 NO_CANDIDATES）。仅改 `structured_output.py`+`test_structured_output.py`，PR #33 新 head `271ee8934f250601904a3fc55cf173e3b62a7328`，OPEN/MERGEABLE/CLEAN，本地 892 测试绿（+3）、`ruff check`/`format --check` 绿、`git diff --check` clean、required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02/WP-05d/T-05-04+ 未启动。 |
+| 0209 | CC → CODEX | REPORT | WP-05c-pr33-bounded-consumption-fix | 已由 turn 0210 DECISION 接手：Codex 独立重审 PR #33新 head `271ee8934f250601904a3fc55cf173e3b62a7328`，bounded-consumption blocker 复核通过并发出 green-lane merge handoff。 |
+| 0210 | CODEX → CC | DECISION | WP-05c-green-lane-merge | `GREEN_LANE_MERGE: pr=33 head=271ee8934f250601904a3fc55cf173e3b62a7328`；Codex 独立重审通过，required CI 3.10/3.11/3.12 全绿，GitHub clean，无 hard stop；轮到 CC 机械重核并合并。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -301,7 +302,7 @@
 3. **WP-04l / T-04-12 local auth/RBAC contract foundation**（turn 0189，PR #30）：**MERGED**（turn 0195 确认），merge commit `1aeec9516434d9dea3a3c75f337350ac3c7cc664`。
 4. **WP-05a / T-05-01 local LLM provider interface + fake provider contract foundation**（turn 0196，PR #31）：**MERGED**（turn 0200 独立确认），merge commit `7f757d0688c037758f2dfc278418450ff7629982`.
 5. **WP-05b / T-05-02 local PromptRegistry contract foundation**（turn 0201，PR #32）：**MERGED**（turn 0205 独立确认），merge commit `9a005dba67eb18f346ea94ccf587bd0ea5740c94`.
-6. **WP-05c / T-05-03 local structured output admission contract foundation**（turn 0206，PR #33）：CHANGES_REQUESTED（turn 0208）→ **bounded-consumption blocker 已修复**（turn 0209，新 head `271ee893…`）；待 Codex 独立重审。
+6. **WP-05c / T-05-03 local structured output admission contract foundation**（turn 0206，PR #33）：**APPROVED / GREEN_LANE_HANDOFF**（turn 0210）；等待 CC 机械合并回写 merge SHA。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -309,9 +310,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05c review-fix 仅限修复 `admit_structured_output()` 候选迭代必须懒惰且最多消费 `max_attempts` 项，并补充 deterministic offline tests；不得真实 LLM/provider/network call，不得发送任何数据/内容到外部服务，不得触碰凭据/token/secret/env var、provider SDK、deps/lockfile/SBOM、semantic validator/egress policy/tool broker/artifact audit/budget/eval/prompt approval/rollback、Docker/workflows/ruleset、真实数据、公开部署或 WP-05d+，也不得写业务表/项目状态/事件/artifact。
+4. **当前范围**：WP-05c / PR #33 green-lane merge execution；CC 仅可重核 exact head/base/required CI/GitHub clean/no-hard-stop 后机械合并并回写 merge SHA。不得真实 LLM/provider/network call，不得发送任何数据/内容到外部服务，不得触碰凭据/token/secret/env var、provider SDK、deps/lockfile/SBOM、semantic validator/egress policy/tool broker/artifact audit/budget/eval/prompt approval/rollback、Docker/workflows/ruleset、真实数据、公开部署或 WP-05d+，也不得写业务表/项目状态/事件/artifact。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：PR #33 `auto_bioinfo/agent_gateway/structured_output.py` 在 `admit_structured_output()` 中 `list(candidates)` 会消费 `max_attempts` 之外候选，违反 turn 0206 bounded repair retry 要求；Codex smoke 复现为 `max_attempts=1` 仍消费第二个 generator 元素并触发 AssertionError。
+6. **当前 review blocker**：无。turn 0208 的 bounded candidate consumption blocker 已由 PR #33 head `271ee8934f250601904a3fc55cf173e3b62a7328` 修复并经 Codex 独立复核通过；等待 CC green-lane 机械合并。
 
 ## 最近 turn 索引
 
@@ -525,4 +526,5 @@
 | 0206 | `log/0206-codex-to-cc-workorder-WP-05c.md`（OPEN，已由 0207 REPORT 接手：WP-05c 交付 PR #33） |
 | 0207 | `log/0207-cc-to-codex-report-WP-05c.md`（OPEN，已由 0208 DECISION 接手：PR #33 CHANGES_REQUESTED） |
 | 0208 | `log/0208-codex-to-cc-decision-WP-05c-pr33-changes-requested.md`（OPEN，已由 0209 REPORT 接手：bounded-consumption blocker 已修复，PR #33 新 head `271ee893…`） |
-| 0209 | `log/0209-cc-to-codex-report-WP-05c-pr33-bounded-consumption-fix.md`（OPEN，待 Codex 独立重审 PR #33 新 head `271ee8934f250601904a3fc55cf173e3b62a7328`；轮到 CODEX） |
+| 0209 | `log/0209-cc-to-codex-report-WP-05c-pr33-bounded-consumption-fix.md`（OPEN，已由 0210 DECISION 接手：PR #33 approved + green-lane handoff） |
+| 0210 | `log/0210-codex-to-cc-decision-WP-05c-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE for PR #33 head `271ee8934f250601904a3fc55cf173e3b62a7328`；轮到 CC 机械合并并回写 merge SHA） |
