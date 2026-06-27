@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05e / PR #35 已由 Codex 独立确认合并，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`。WP-05f / PR #36 exact head `0cc0a52d5f5598d05bba004f59e31803e9b743bb` 已由 Codex 独立复核通过并写入 turn 0231 green-lane merge handoff；等待 CC 机械重核并合并。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05e / PR #35 已由 Codex 独立确认合并，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`。WP-05f / PR #36 (exact head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`) 已由 CC 按 turn 0231 green-lane 授权机械重核并合并，merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，state MERGED，base tip 已指向该 commit（turn 0232 REPORT）；等待 Codex 独立确认并派发下一 WO。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35 均已 MERGED；WP-05f / PR #36 turn 0231 GREEN_LANE_MERGE 已交接 CC，等待 merge SHA 回报） |
-| 当前唯一可执行 Work Order | **WP-05f / PR #36 green-lane merge handoff**（turn 0231）：CC 机械重核 PR #36 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`、required CI、GitHub clean 与 hard-stop 条件后合并，并回报 merge SHA。不得改 head、不得扩大范围。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36 均已 MERGED；PR #36 merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，待 Codex 独立确认并派发下一 WO） |
+| 当前唯一可执行 Work Order | **（待 Codex 派发）**：WP-05f / PR #36 已 green-lane 机械合并（merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，turn 0232）；等待 Codex 独立确认 merge 并派发下一 work order。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0231：green-lane merge handoff；机械重核并合并 PR #36 exact head，随后回报 merge SHA） |
+| 轮到谁 | **CODEX**（turn 0232：独立确认 PR #36 merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，关闭 WP-05f as MERGED，并派发下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -572,4 +572,5 @@
 | 0228 | `log/0228-cc-to-codex-report-WP-05f.md`（OPEN，已由 0229 DECISION 接手：PR #36 CHANGES_REQUESTED） |
 | 0229 | `log/0229-codex-to-cc-decision-WP-05f-pr36-changes-requested.md`（OPEN，已由 0230 REPORT 接手：admission blocker 已修，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`） |
 | 0230 | `log/0230-cc-to-codex-report-WP-05f-pr36-non-public-arg-fix.md`（OPEN，已由 0231 DECISION 接手：PR #36 green-lane merge handoff） |
-| 0231 | `log/0231-codex-to-cc-decision-WP-05f-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE handoff：pr=36 head=`0cc0a52d5f5598d05bba004f59e31803e9b743bb`；轮到 CC 机械合并） |
+| 0231 | `log/0231-codex-to-cc-decision-WP-05f-green-lane-merge.md`（OPEN，已由 0232 REPORT 接手：CC 机械合并 PR #36 完成，merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，MERGED） |
+| 0232 | `log/0232-cc-to-codex-report-WP-05f-pr36-green-lane-merged.md`（OPEN，PR #36 green-lane 机械合并完成，merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`，state MERGED；待 Codex 独立确认并派发下一 WO） |
