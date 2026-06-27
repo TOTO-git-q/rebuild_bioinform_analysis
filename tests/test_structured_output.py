@@ -444,6 +444,39 @@ class AdmissionRepairRetryTest(unittest.TestCase):
             self.assertEqual(decision.reason_code, CODE_MALFORMED_MAX_ATTEMPTS)
             self.assertEqual(decision.status, STATUS_REJECTED)
 
+    def test_accepted_candidate_never_consumes_beyond_bound_from_generator(self):
+        # The first bounded candidate is accepted; the next generator element would
+        # raise if it were ever produced.  A lazy, bounded consumer never reaches it.
+        def _candidates():
+            yield _response(_valid_payload())
+            raise AssertionError("candidate beyond max_attempts was consumed")
+
+        decision = _admit(_candidates(), max_attempts=1)
+        self.assertEqual(decision.status, STATUS_ACCEPTED)
+        self.assertEqual(len(decision.attempts), 1)
+
+    def test_exhausted_bound_never_consumes_beyond_bound_from_generator(self):
+        # All bounded attempts fail (exhaustion), yet the element just past the bound
+        # must still never be produced — even when no candidate short-circuits.
+        def _candidates():
+            yield _response('{"bad"')
+            yield _response('{"bad"')
+            raise AssertionError("candidate beyond max_attempts was consumed")
+
+        decision = _admit(_candidates(), max_attempts=2)
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_REPAIR_EXHAUSTED)
+        self.assertEqual(len(decision.attempts), 2)
+
+    def test_empty_generator_still_fails_closed_with_no_candidates(self):
+        def _candidates():
+            return
+            yield  # pragma: no cover - marks this a generator
+
+        decision = _admit(_candidates(), max_attempts=3)
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_NO_CANDIDATES)
+
 
 # --- Determinism, codes, purity ----------------------------------------------
 

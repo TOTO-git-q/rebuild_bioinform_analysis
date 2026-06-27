@@ -63,6 +63,7 @@ import json
 import math
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
+from itertools import islice
 from typing import Any
 
 from auto_bioinfo.core.ids import hash_payload
@@ -680,13 +681,16 @@ def admit_structured_output(
         return _reject(exc.code, prompt=prompt, schema_id=schema_id, max_attempts=max_attempts)
     schema_hash = hash_payload(schema)
 
-    materialised = list(candidates)
-    if not materialised:
-        return _reject(CODE_NO_CANDIDATES, prompt=prompt, schema_id=schema_id, schema_hash=schema_hash, max_attempts=max_attempts)
-
-    # 4. Bounded local repair retry over the candidate sequence.
+    # 4. Bounded local repair retry over the candidate sequence.  Consume the
+    #    candidate iterable *lazily* and pull at most ``max_attempts`` items —
+    #    ``islice`` never advances the source past the bound, so a candidate beyond
+    #    ``max_attempts`` (which could do work, block, or raise while being produced)
+    #    is never tried/consumed.  ``consumed`` distinguishes the zero-candidate case
+    #    (``CODE_NO_CANDIDATES``) from bounded exhaustion (``CODE_REPAIR_EXHAUSTED``).
     attempts: list[AdmissionAttempt] = []
-    for index, candidate in enumerate(materialised[:max_attempts]):
+    consumed = 0
+    for index, candidate in enumerate(islice(candidates, max_attempts)):
+        consumed += 1
         if validate_response(candidate):
             attempts.append(AdmissionAttempt(index=index, accepted=False, reason_code=CODE_MALFORMED_RESPONSE))
             # A structurally invalid response is not repairable content: stop closed.
@@ -722,7 +726,11 @@ def admit_structured_output(
             max_attempts=max_attempts,
         )
 
-    # 5. Every bounded attempt failed — fail closed.
+    # 5a. No candidates were available at all — fail closed with the dedicated code.
+    if consumed == 0:
+        return _reject(CODE_NO_CANDIDATES, prompt=prompt, schema_id=schema_id, schema_hash=schema_hash, max_attempts=max_attempts)
+
+    # 5b. Every bounded attempt failed — fail closed.
     return _reject(
         CODE_REPAIR_EXHAUSTED,
         prompt=prompt,
