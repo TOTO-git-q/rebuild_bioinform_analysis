@@ -834,6 +834,51 @@ class SemanticValidationAdmissionTest(unittest.TestCase):
             )
             self.assertEqual(decision.reason_code, CODE_MALFORMED_VALIDATOR_REQUEST, request)
 
+    def test_oversized_request_generator_is_bounded_and_consumes_no_candidates(self):
+        # A request-id generator that yields far more than the bound and *raises* if it
+        # is advanced past MAX_SEMANTIC_VALIDATORS + 1.  Admission must detect the
+        # over-bound request from a bounded prefix, fail closed deterministically, and
+        # never touch a response candidate.
+        def _ids():
+            for i in range(MAX_SEMANTIC_VALIDATORS + 1):
+                yield f"v{i}"
+            raise AssertionError("request id beyond MAX_SEMANTIC_VALIDATORS + 1 was consumed")
+
+        def _candidates():
+            raise AssertionError("a response candidate was consumed for a malformed validator request")
+            yield  # pragma: no cover - marks this a generator
+
+        decision = _admit(
+            _candidates(),
+            semantic_validators=_validator_registry(),
+            semantic_validator_ids=_ids(),
+        )
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_MALFORMED_VALIDATOR_REQUEST)
+        self.assertEqual(decision.attempts, ())
+        self.assertIsNone(decision.accepted_object)
+
+    def test_misbehaving_request_generator_fails_closed_without_leaking(self):
+        # A request iterable that raises *within* the bound must fail closed with the
+        # deterministic reason code rather than leaking its own exception out of
+        # admission, and must not consume any response candidate.
+        def _ids():
+            yield "score.positive"
+            raise RuntimeError("request id source exploded")
+
+        def _candidates():
+            raise AssertionError("a response candidate was consumed for a malformed validator request")
+            yield  # pragma: no cover - marks this a generator
+
+        decision = _admit(
+            _candidates(),
+            semantic_validators=_validator_registry(),
+            semantic_validator_ids=_ids(),
+        )
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_MALFORMED_VALIDATOR_REQUEST)
+        self.assertEqual(decision.attempts, ())
+
     def test_mapping_form_of_validators_is_supported(self):
         decision = _admit(
             [_response(_valid_payload(score=3))],

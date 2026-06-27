@@ -792,6 +792,35 @@ def _reject(
     )
 
 
+def _collect_bounded_request_ids(
+    semantic_validator_ids: Iterable[str],
+    limit: int,
+) -> list[str] | None:
+    """Pull at most ``limit + 1`` ids from the request iterable, or fail closed.
+
+    Returns the collected ids (length ``<= limit``) on success.  Returns ``None`` when
+    the request is not iterable, the iterable raises while being advanced (a misbehaving
+    request id), or it yields more than ``limit`` ids.  At most ``limit + 1`` items are
+    ever consumed — the one extra pull only detects the over-bound case — so a
+    caller-supplied generator can never be advanced into unbounded work, and any
+    iterable exception is contained here instead of leaking out of admission.
+    """
+    try:
+        iterator = iter(semantic_validator_ids)
+    except TypeError:
+        return None
+    collected: list[str] = []
+    for _ in range(limit + 1):
+        try:
+            collected.append(next(iterator))
+        except StopIteration:
+            return collected
+        except Exception:  # noqa: BLE001 - a misbehaving request id must fail closed
+            return None
+    # Reached limit + 1 successful pulls without exhaustion => more than `limit` ids.
+    return None
+
+
 def _resolve_semantic_plan(
     semantic_validators: SemanticValidatorRegistry | Mapping[str, Any] | None,
     semantic_validator_ids: Iterable[str] | None,
@@ -812,11 +841,11 @@ def _resolve_semantic_plan(
     # iterable but would silently iterate characters).
     if isinstance(semantic_validator_ids, (str, bytes, Mapping)):
         return None, CODE_MALFORMED_VALIDATOR_REQUEST
-    try:
-        requested = list(semantic_validator_ids)
-    except TypeError:
-        return None, CODE_MALFORMED_VALIDATOR_REQUEST
-    if len(requested) > MAX_SEMANTIC_VALIDATORS:
+    requested = _collect_bounded_request_ids(semantic_validator_ids, MAX_SEMANTIC_VALIDATORS)
+    if requested is None:
+        # Not iterable, the iterable misbehaved while being advanced, or it yielded
+        # more than MAX_SEMANTIC_VALIDATORS ids — every over-bound / malformed request
+        # fails closed deterministically without leaking the iterable's own exception.
         return None, CODE_MALFORMED_VALIDATOR_REQUEST
     if any(not _is_bounded_token(vid, MAX_VALIDATOR_ID_LENGTH) for vid in requested):
         return None, CODE_MALFORMED_VALIDATOR_REQUEST
