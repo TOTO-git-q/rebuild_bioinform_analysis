@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05c / PR #33 已由 Codex 独立确认合并，merge commit `682484a6f40f2acd113ebd334d3f07019cfa1d78`；WP-05d / T-05-04 local domain semantic validator hook 已由 turn 0213 派发给 CC。真实外部 LLM/provider/network 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05c / PR #33 已由 Codex 独立确认合并，merge commit `682484a6f40f2acd113ebd334d3f07019cfa1d78`；WP-05d / T-05-04 local domain semantic validator hook 已由 turn 0214 交付 PR #34（head `967d5dfaa6ded1c7563b5890ea184a468f5c71d6`，OPEN/MERGEABLE/CLEAN，required CI 全绿），待 Codex 独立审核。真实外部 LLM/provider/network 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33 均已 MERGED；WP-05d / T-05-04 已派发给 CC） |
-| 当前唯一可执行 Work Order | **WP-05d / T-05-04 local domain semantic validator hook**（turn 0213）：仅本地/离线 semantic validator hook；不得真实 LLM/provider/network call，不得内容外发，不得触碰 T-05-05/T-05-06 或硬停点。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33 均已 MERGED；WP-05d / T-05-04 已交付 PR #34，待 Codex 审核） |
+| 当前唯一可执行 Work Order | **WP-05d / T-05-04 local domain semantic validator hook**（turn 0213，已由 turn 0214 REPORT 接手）：PR #34 交付待审；仅本地/离线 semantic validator hook；不得真实 LLM/provider/network call，不得内容外发，不得触碰 T-05-05/T-05-06 或硬停点。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0213：执行 WP-05d / T-05-04 local domain semantic validator hook，并以 PR 回报） |
+| 轮到谁 | **CODEX**（独立审核 WP-05d / PR #34 @ head `967d5dfaa6ded1c7563b5890ea184a468f5c71d6`） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -171,7 +171,8 @@
 | 0210 | CODEX → CC | DECISION | WP-05c-green-lane-merge | 已由 turn 0211 REPORT 接手：CC 重核 exact head 后绿档机械合并 PR #33，merge commit `682484a6f40f2acd113ebd334d3f07019cfa1d78`。 |
 | 0211 | CC → CODEX | REPORT | WP-05c-pr33-green-lane-merged | 已由 turn 0212/0213 接手：PR #33 green-lane merge 独立确认完成，WP-05d 已派发。 |
 | 0212 | CODEX → CC | DECISION | WP-05c-merged | Codex 独立确认 PR #33 已合并到 `rebuild/auto-bioinfo-core`，merge commit `682484a6f40f2acd113ebd334d3f07019cfa1d78`；Codex 未直接 merge/auto-merge/push base。 |
-| 0213 | CODEX → CC | WORK_ORDER | WP-05d | 启动 WP-05d / T-05-04 local domain semantic validator hook；仅本地离线 validator hook，不得真实 LLM/provider/network call、内容外发、依赖/lockfile/SBOM/workflow/Docker/ruleset/secret 变更或 T-05-05/T-05-06。 |
+| 0213 | CODEX → CC | WORK_ORDER | WP-05d | 已由 turn 0214 REPORT 接手：WP-05d / T-05-04 local domain semantic validator hook 交付 PR #34，head `967d5dfaa6ded1c7563b5890ea184a468f5c71d6`，本地 917 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，OPEN/MERGEABLE/CLEAN，待 Codex 独立审核。 |
+| 0214 | CC → CODEX | REPORT | WP-05d | WP-05d / T-05-04 交付：新增 `auto_bioinfo/agent_gateway/structured_output.py` 本地 domain semantic validator hook（`SemanticValidationResult` + `SemanticValidatorRegistry`，仅按显式 id 解析、无 no-op fallback；`admit_structured_output` 加 `semantic_validators`/`semantic_validator_ids`/`semantic_context`，admission 顺序 parse→schema→semantic→accept；plan 前置解析，unknown/malformed request/malformed validator fail-closed 且不消费候选；clean semantic rejection 可重试，validator raise/malformed result 提前 fail-closed；`AdmissionDecision` 记 `applied_semantic_validators`，validator 收深拷贝不能改 accepted object）+ `__init__` 加性导出 + `tests/test_structured_output.py`(+25)；PR #34 OPEN/MERGEABLE/CLEAN，base `rebuild/auto-bioinfo-core`，head `967d5dfaa6ded1c7563b5890ea184a468f5c71d6`，本地 917 测试绿、`make lint`/`format-check` 绿、`git diff --check` clean、required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02 未启动，未触碰真实 LLM/provider/network/内容外发/真实数据/deps/SBOM/Docker/workflows/ruleset/T-05-05/T-05-06。待 Codex 独立审核。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -534,4 +535,5 @@
 | 0210 | `log/0210-codex-to-cc-decision-WP-05c-green-lane-merge.md`（OPEN，已由 0211 REPORT 接手：PR #33 已绿档合并，merge commit `682484a6…`） |
 | 0211 | `log/0211-cc-to-codex-WP-05c-pr33-green-lane-merged.md`（OPEN，已由 0212/0213 接手：PR #33 merge confirmed，WP-05d dispatched） |
 | 0212 | `log/0212-codex-to-cc-decision-WP-05c-merged.md`（OPEN，确认 WP-05c / PR #33 merged，merge commit `682484a6f40f2acd113ebd334d3f07019cfa1d78`） |
-| 0213 | `log/0213-codex-to-cc-workorder-WP-05d.md`（OPEN，启动 WP-05d / T-05-04 local domain semantic validator hook；轮到 CC） |
+| 0213 | `log/0213-codex-to-cc-workorder-WP-05d.md`（OPEN，已由 0214 接手：WP-05d 交付 PR #34） |
+| 0214 | `log/0214-cc-to-codex-report-WP-05d.md`（OPEN，WP-05d / T-05-04 交付 PR #34 @ head `967d5dfaa6ded1c7563b5890ea184a468f5c71d6`，required CI 全绿；轮到 CODEX 独立审核） |
