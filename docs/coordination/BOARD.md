@@ -11,10 +11,10 @@
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
 | 当前阶段 | CEO 修宪 turn 0168 已生效：新增 green-lane automatic merge channel。满足 rebuild/auto-bioinfo-core + CC PR + Codex exact-head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 §4 hard stop 的 PR，等同 `MERGE_AUTHORIZED`；PR #26 head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 获立即个案授权，由 CC 侧本机管理员自动化机械执行并回写 merge SHA。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04i PR #27 已合并 merge commit `c800cdf48d1a918414ebf4c210d5584d56142172`；turn 0177 派发 WP-04j / T-04-10；turn 0178 CC 交付 WP-04j PR #28，head `2557ca26f453496b30dcfb83f2b309e97cd5818f`，本地 697 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核） |
-| 当前唯一可执行 Work Order | **WP-04j**（turn 0177：local cancel command contract foundation / T-04-10；已由 turn 0178 REPORT 交付 PR #28，待 Codex 评审/绿档授权） |
+| R0-02 | **IN_PROGRESS**（WP-04j / PR #28 独立审核发现 blocker；turn 0179 已发 CHANGES_REQUESTED 给 CC，等待修复后重新报告） |
+| 当前唯一可执行 Work Order | **WP-04j**（turn 0177：local cancel command contract foundation / T-04-10；turn 0179 要求修复 PR #28 operation_id whitespace fail-closed blocker） |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（独立审核 turn 0178 / PR #28；clean 则写 `to: CC` 的 `GREEN_LANE_MERGE: pr=28 head=2557ca26f453496b30dcfb83f2b309e97cd5818f`，否则 CHANGES_REQUESTED） |
+| 轮到谁 | **CC**（修复 turn 0179 / PR #28 blocker 后重新 REPORT；不得扩大到 WP-04k/OpenAPI/auth/RBAC 或真实 worker cancellation） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
