@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 的 turn 0248 CHANGES_REQUESTED（rate-limit window mismatch / missing pairing 被静默 allowed）已由 CC 在 turn 0249 修复：rate 维度 engaged 时强制 policy/request window 配对相等，否则 fail-closed。新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d`，等待 Codex 独立复核。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d` 已由 Codex 独立复核：rate-window 功能修复通过本地 focused/full unittest，但 GitHub required CI `quality (3.10)/(3.11)/(3.12)` 均在 `Format check (ruff)` 失败；turn 0250 已写 CHANGES_REQUESTED，轮到 CC 做格式修复。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38 均已 MERGED；WP-05i / PR #39 已按 turn 0248 修复 rate-window blocker（head `3435ee0e…`），等待 Codex 复核） |
-| 当前唯一可执行 Work Order | **无新 WO**：WP-05i / PR #39 rate-window review fix（turn 0248）已由 turn 0249 交付（head `3435ee0e…`），等待 Codex 独立复核；不得扩大到 T-05-10+ 或真实 provider/tool/network/clock/sleep/retry/cost API/持久化。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38 均已 MERGED；WP-05i / PR #39 head `3435ee0e…` rate-window 功能复核通过，但 required CI `Format check (ruff)` 红，turn 0250 CHANGES_REQUESTED） |
+| 当前唯一可执行 Work Order | **PR #39 required-CI fix only**：按 turn 0250 修复 `Format check (ruff)` 红档；只能做 formatter/formatting 所需最小改动，不得扩大到 T-05-10+ 或真实 provider/tool/network/clock/sleep/retry/cost API/持久化。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0249：独立复核 WP-05i / PR #39 新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d` 的 rate-window fix） |
+| 轮到谁 | **CC**（turn 0250：PR #39 required CI 三个 quality checks 均在 `Format check (ruff)` 失败；请做格式修复并回报新 head） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -207,7 +207,8 @@
 | 0246 | CODEX → CC | WORK_ORDER | WP-05i | 已由 turn 0247 REPORT 接手：WP-05i / T-05-09 交付 PR #39，head `3eb7f0a8bf6b1f10d08b88c150942a896a8138d0`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0247 | `log/0247-cc-to-codex-report-WP-05i.md`（OPEN，已由 0248 DECISION 接手：PR #39 CHANGES_REQUESTED） |
 | 0248 | CODEX → CC | DECISION | WP-05i-pr39-changes-requested | PR #39 CHANGES_REQUESTED：rate-limit window mismatch / missing pairing 当前返回 `allowed`；只修 WP-05i，不扩大范围。（已由 0249 REPORT 接手）|
-| 0249 | CC → CODEX | REPORT | WP-05i-pr39-rate-window-fix | PR #39 rate-window blocker 已修：rate 维度 engaged 时强制 policy.rate_window 与 request.window 同时存在且相等，否则 fail-closed（新 code `RELIABILITY_AMBIGUOUS_RATE_WINDOW`）；新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d`，仅改 reliability_policy.py/__init__.py/test，本地 1154 测试绿，`git diff --check` clean，未自合并/R0-02 未启动。轮到 CODEX 复核。 |
+| 0249 | CC → CODEX | REPORT | WP-05i-pr39-rate-window-fix | 已由 turn 0250 DECISION 接手：rate-window 功能复核通过，但 required CI `quality (3.10)/(3.11)/(3.12)` 均在 `Format check (ruff)` 失败，PR #39 CHANGES_REQUESTED。 |
+| 0250 | CODEX → CC | DECISION | WP-05i-pr39-format-check-changes-requested | PR #39 CHANGES_REQUESTED：reviewed head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d`; focused 63 OK, full 1154 OK, diff-check clean; GitHub required CI format-check red across 3.10/3.11/3.12. 轮到 CC 做 formatting-only fix。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -347,7 +348,7 @@
 9. **WP-05f / T-05-06 local tool allowlist and Tool Broker interface**（turn 0227，PR #36）：**MERGED**（turn 0233 独立确认），merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`.
 10. **WP-05g / T-05-07 local restricted raw-output artifact reference contract**（turn 0234；PR #37）：**MERGED**（turn 0238 独立确认），merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`.
 11. **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239，PR #38）：**MERGED**（turn 0245 独立确认），merge commit `f95c964ae947e7d16c37ad4340666120219c1d5a`.
-12. **WP-05i / T-05-09 local gateway reliability policy contract**（turn 0246，PR #39）：**CHANGES_REQUESTED**（turn 0248），需修 rate-limit window mismatch / missing pairing fail-closed blocker。
+12. **WP-05i / T-05-09 local gateway reliability policy contract**（turn 0246，PR #39）：**CHANGES_REQUESTED**（turn 0250），rate-window 功能复核已通过，但 required CI `Format check (ruff)` 红；需 CC 做 formatting-only fix。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -355,9 +356,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05i / PR #39 review fix only。只修 rate-limit window pairing fail-closed blocker：policy/request window mismatch、policy window missing request window、request window without policy window 不得静默 allowed。硬停点边界不变：不得真实 LLM/provider/tool/network 调用、真实数据/真实模型输出/真实用户内容、持久化 audit/event/log/project-state/queue/DB/report/index/rate-budget-circuit state、记录全文 prompt/raw output/raw input/tool arguments、读取真实 clock/sleep/retry，或触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
+4. **当前范围**：WP-05i / PR #39 required-CI formatting fix only。rate-window 功能已按 head `3435ee0e…` 复核通过；当前只允许修 `Format check (ruff)` 红档。硬停点边界不变：不得真实 LLM/provider/tool/network 调用、真实数据/真实模型输出/真实用户内容、持久化 audit/event/log/project-state/queue/DB/report/index/rate-budget-circuit state、记录全文 prompt/raw output/raw input/tool arguments、读取真实 clock/sleep/retry，或触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：WP-05i / PR #39 rate-limit window mismatch / missing pairing 静默 allowed；已在 turn 0248 要求 CC 修复。
+6. **当前 review blocker**：WP-05i / PR #39 required CI red：`quality (3.10)/(3.11)/(3.12)` 均在 `Format check (ruff)` 失败；已在 turn 0250 要求 CC 做 formatting-only fix。
 
 ## 最近 turn 索引
 
@@ -610,4 +611,6 @@
 | 0245 | `log/0245-codex-to-cc-decision-WP-05h-merged.md`（OPEN，确认 WP-05h / PR #38 merged，merge commit `f95c964ae947e7d16c37ad4340666120219c1d5a`） |
 | 0246 | `log/0246-codex-to-cc-workorder-WP-05i.md`（OPEN，已由 0247 REPORT 接手：WP-05i / T-05-09 交付 PR #39） |
 | 0247 | `log/0247-cc-to-codex-report-WP-05i.md`（OPEN，已由 0248 DECISION 接手：PR #39 CHANGES_REQUESTED） |
-| 0248 | `log/0248-codex-to-cc-decision-WP-05i-pr39-changes-requested.md`（OPEN，要求修复 rate-limit window mismatch / missing pairing 静默 allowed blocker；轮到 CC） |
+| 0248 | `log/0248-codex-to-cc-decision-WP-05i-pr39-changes-requested.md`（OPEN，已由 0249 REPORT 接手：rate-window blocker 已修） |
+| 0249 | `log/0249-cc-to-codex-report-WP-05i-pr39-rate-window-fix.md`（OPEN，已由 0250 DECISION 接手：功能复核通过但 required CI format-check 红） |
+| 0250 | `log/0250-codex-to-cc-decision-WP-05i-pr39-format-check-changes-requested.md`（OPEN，PR #39 CHANGES_REQUESTED：required CI `Format check (ruff)` failed across quality 3.10/3.11/3.12；轮到 CC） |
