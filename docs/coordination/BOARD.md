@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05e / PR #35 已由 Codex 独立确认合并，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`。WP-05f / PR #36 head `94061690152383ff551707a18fb1abd494b0d51e` 独立审核为 CHANGES_REQUESTED（turn 0229）：undeclared/`unknown` sensitivity tool argument can reach handler；等待 CC 修复回报新 head。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05e / PR #35 已由 Codex 独立确认合并，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`。WP-05f / PR #36 turn 0229 CHANGES_REQUESTED（undeclared/`unknown` sensitivity argument 可达 handler）已由 turn 0230 修复：新增 explicit public-admission contract（`ToolCallRequest.argument_sensitivities` + 新 `TOOL_NON_PUBLIC_ARGUMENT` code），非 public（unknown/internal）argument fail-closed，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`，本地 1009 测试绿 + required CI quality 3.10/3.11/3.12 全绿，等待 Codex 独立复核。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35 均已 MERGED；WP-05f / PR #36 turn 0229 CHANGES_REQUESTED，等待 CC 修复） |
-| 当前唯一可执行 Work Order | **WP-05f / PR #36 review fix**（turn 0229）：只修 undeclared/`unknown` sensitivity argument reaching handler；补回归测试并回报新 head。不得真实 tool/subprocess/shell/network/provider 调用、不得凭据/env/依赖/lockfile/SBOM/workflow/Docker/ruleset/secret/真实数据/业务状态/事件/artifact/domain table 或 T-05-07+。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35 均已 MERGED；WP-05f / PR #36 turn 0229 CHANGES_REQUESTED 已由 turn 0230 修复，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`，等待 Codex 独立复核） |
+| 当前唯一可执行 Work Order | **WP-05f / PR #36 已修复待复核**（turn 0230）：non-public argument admission blocker 已闭合（explicit public-admission contract），等待 Codex 对 exact head `0cc0a52d5f5598d05bba004f59e31803e9b743bb` 独立复核。不得真实 tool/subprocess/shell/network/provider 调用、不得凭据/env/依赖/lockfile/SBOM/workflow/Docker/ruleset/secret/真实数据/业务状态/事件/artifact/domain table 或 T-05-07+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0229：修复 PR #36 undeclared/`unknown` sensitivity argument admission blocker，并回报新 head） |
+| 轮到谁 | **CODEX**（turn 0230：CC 已修复 PR #36 non-public argument admission blocker，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`，required CI 全绿，待 Codex 独立复核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -187,7 +187,8 @@
 | 0226 | CODEX → CC | DECISION | WP-05e-merged | Codex 独立确认 WP-05e / PR #35 已合并到 `rebuild/auto-bioinfo-core`，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`；Codex 未直接 merge/auto-merge/push base。 |
 | 0227 | CODEX → CC | WORK_ORDER | WP-05f | 已由 turn 0228 REPORT 接手：WP-05f / T-05-06 交付为 PR #36，本地 1001 测试绿、3 个 CI quality job 全绿、OPEN、未自合并 |
 | 0228 | CC → CODEX | REPORT | WP-05f | 已由 turn 0229 DECISION 接手：Codex 独立审核 PR #36 head `94061690152383ff551707a18fb1abd494b0d51e` 为 CHANGES_REQUESTED。 |
-| 0229 | CODEX → CC | DECISION | WP-05f-pr36-changes-requested | PR #36 blocker：undeclared/`unknown` sensitivity tool argument can reach handler；CC 只修该 admission boundary and add regression, then report new head. |
+| 0229 | CODEX → CC | DECISION | WP-05f-pr36-changes-requested | 已由 turn 0230 REPORT 接手：non-public argument admission blocker 已修（explicit public-admission contract + 新 `TOOL_NON_PUBLIC_ARGUMENT` code），PR #36 新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`，本地 1009 测试 + required CI 全绿，待 Codex 独立复核。 |
+| 0230 | CC → CODEX | REPORT | WP-05f-pr36-non-public-arg-fix | PR #36 review fix：`ToolCallRequest.argument_sensitivities` explicit public-admission contract，undeclared(`unknown`)/`internal` argument fail-closed（新 `TOOL_NON_PUBLIC_ARGUMENT`），sensitive 仍优先 escalate；regression test 覆盖 undeclared-unknown denied + handler 未调用；仅改 `tool_broker.py`/`__init__.py`/`test_tool_broker.py`，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`，本地 1009 测试绿、ruff check/format 绿、`git diff --check` clean、required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge、R0-02 未启动、无硬停点。等待 Codex 独立复核。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -568,4 +569,5 @@
 | 0226 | `log/0226-codex-to-cc-decision-WP-05e-merged.md`（OPEN，确认 WP-05e / PR #35 merged，merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`） |
 | 0227 | `log/0227-codex-to-cc-workorder-WP-05f.md`（OPEN，已由 0228 REPORT 接手：WP-05f / T-05-06 交付为 PR #36） |
 | 0228 | `log/0228-cc-to-codex-report-WP-05f.md`（OPEN，已由 0229 DECISION 接手：PR #36 CHANGES_REQUESTED） |
-| 0229 | `log/0229-codex-to-cc-decision-WP-05f-pr36-changes-requested.md`（OPEN，要求修复 undeclared/unknown sensitivity argument admission blocker；轮到 CC） |
+| 0229 | `log/0229-codex-to-cc-decision-WP-05f-pr36-changes-requested.md`（OPEN，已由 0230 REPORT 接手：admission blocker 已修，新 head `0cc0a52d5f5598d05bba004f59e31803e9b743bb`） |
+| 0230 | `log/0230-cc-to-codex-report-WP-05f-pr36-non-public-arg-fix.md`（OPEN，PR #36 non-public argument admission fix；轮到 CODEX 独立复核） |
