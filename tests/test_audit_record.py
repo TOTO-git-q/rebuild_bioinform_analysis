@@ -287,6 +287,66 @@ class ProjectionWithholdsContentTest(unittest.TestCase):
         self.assertEqual(record.metadata, {"attempt_note": "synthetic"})
 
 
+class RecordFactsAreImmutableTest(unittest.TestCase):
+    """The built record's audit facts cannot be mutated in place after the deterministic
+    ``record_id`` has been computed (WP-05h / PR #38 blocker, turn 0241)."""
+
+    def test_direct_usage_mutation_is_blocked(self):
+        record = _provider().record
+        with self.assertRaises(TypeError):
+            record.usage["tokens"] = 999
+        with self.assertRaises(TypeError):
+            record.usage["injected"] = 1
+        self.assertEqual(record.usage, {"tokens": 3})
+        self.assertEqual(record.to_dict()["usage"], {"tokens": 3})
+
+    def test_direct_metadata_mutation_is_blocked(self):
+        record = _provider(metadata={"attempt_note": "synthetic"}).record
+        with self.assertRaises(TypeError):
+            record.metadata["attempt_note"] = "mutated"
+        with self.assertRaises(TypeError):
+            record.metadata["injected"] = "x"
+        self.assertEqual(record.metadata, {"attempt_note": "synthetic"})
+        self.assertEqual(record.to_dict()["metadata"], {"attempt_note": "synthetic"})
+
+    def test_nested_metadata_containers_are_frozen(self):
+        record = _provider(metadata={"trace": {"hops": [1, 2]}, "tags": ["a", "b"]}).record
+        # The nested mapping is read-only and the nested list is a frozen tuple.
+        with self.assertRaises(TypeError):
+            record.metadata["trace"]["hops"] = [9]
+        with self.assertRaises(TypeError):
+            record.metadata["trace"]["new"] = 1
+        with self.assertRaises(TypeError):
+            record.metadata["trace"]["hops"][0] = 9
+        with self.assertRaises(TypeError):
+            record.metadata["tags"][0] = "z"
+        self.assertEqual(
+            record.to_dict()["metadata"],
+            {"trace": {"hops": [1, 2]}, "tags": ["a", "b"]},
+        )
+
+    def test_mutating_projection_cannot_reach_record_facts(self):
+        record = _provider(metadata={"trace": {"hops": [1, 2]}}).record
+        original_id = record.record_id
+        projection = record.to_dict()
+        # The projection is plain, mutable JSON-like data; mutating it (even nested) must
+        # not affect the frozen record's facts or make ``record_id`` stale.
+        projection["usage"]["tokens"] = 999
+        projection["metadata"]["trace"]["hops"].append(3)
+        projection["metadata"]["trace"]["added"] = True
+        self.assertEqual(record.usage, {"tokens": 3})
+        self.assertEqual(record.to_dict()["usage"], {"tokens": 3})
+        self.assertEqual(record.to_dict()["metadata"], {"trace": {"hops": [1, 2]}})
+        self.assertEqual(record.record_id, original_id)
+
+    def test_projection_is_plain_json_serializable(self):
+        record = _provider(metadata={"trace": {"hops": [1, 2]}, "tags": ["a", "b"]}).record
+        for projection in (record.to_dict(), record.audit_projection()):
+            # Round-trips through json: frozen tuples / proxies are rendered as plain
+            # lists / objects, not as opaque types.
+            self.assertEqual(json.loads(json.dumps(projection))["metadata"], {"trace": {"hops": [1, 2]}, "tags": ["a", "b"]})
+
+
 class QueryHelperTest(unittest.TestCase):
     def _records(self):
         return [

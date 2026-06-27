@@ -56,6 +56,7 @@ from __future__ import annotations
 import math
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from auto_bioinfo.core.ids import make_stable_id
@@ -262,6 +263,38 @@ def _metadata_byte_estimate(value: Any, depth: int = 0) -> int | None:
     return None
 
 
+def _freeze(value: Any) -> Any:
+    """Recursively freeze plain JSON-like ``value`` into an immutable structure.
+
+    A mapping becomes a read-only :class:`~types.MappingProxyType` of recursively-frozen
+    values; a list / tuple becomes a ``tuple`` of recursively-frozen items; a scalar is
+    returned as-is.  Storing this on the frozen :class:`AuditRecord` means a caller cannot
+    mutate the record's facts in place through ``record.usage`` / ``record.metadata`` or
+    through any nested container.  Pure; mutates nothing.
+    """
+    if isinstance(value, Mapping):
+        return MappingProxyType({key: _freeze(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(item) for item in value)
+    return value
+
+
+def _to_plain(value: Any) -> Any:
+    """Recursively convert a frozen structure back to plain, mutable JSON-like data.
+
+    The inverse of :func:`_freeze` for projection: a mapping (including a read-only
+    :class:`~types.MappingProxyType`) becomes a plain ``dict`` and a ``tuple`` becomes a
+    plain ``list``, so :meth:`AuditRecord.to_dict` hands callers ordinary JSON-like data
+    they can use freely without ever reaching the frozen record's facts.  Pure; mutates
+    nothing.
+    """
+    if isinstance(value, Mapping):
+        return {key: _to_plain(item) for key, item in value.items()}
+    if isinstance(value, tuple):
+        return [_to_plain(item) for item in value]
+    return value
+
+
 # --- The audit record value --------------------------------------------------
 
 
@@ -286,12 +319,18 @@ class AuditRecord:
     - ``tool_name`` / ``tool_version`` / ``tool_request_ref`` / ``tool_result_ref`` —
       tool-side identifiers and bounded *references* (``None`` on a provider record);
     - ``input_version`` / ``input_fingerprint`` — input version / fingerprint metadata;
-    - ``usage`` — a bounded ``{counter: count}`` dict, or ``None``;
+    - ``usage`` — a bounded read-only ``{counter: count}`` mapping, or ``None``;
     - ``duration_ms`` / ``attempt`` — caller-supplied timing facts, or ``None``;
     - ``raw_output_artifact_id`` / ``raw_output_fingerprint`` — a bounded restricted
-      raw-output artifact *reference* (id + fingerprint only, never the payload), or ``None``.
+      raw-output artifact *reference* (id + fingerprint only, never the payload), or ``None``;
+    - ``metadata`` — a bounded, sensitive-free, read-only mapping, or ``None``.
 
-    The value is inert data; constructing it performs no I/O and writes nothing.
+    The value is inert data; constructing it performs no I/O and writes nothing.  Beyond
+    the ``frozen=True`` guard on the attribute *bindings*, the ``usage`` / ``metadata``
+    facts are stored as deeply-frozen read-only structures (see :func:`_freeze`), so a
+    caller cannot mutate the audit facts in place through ``record.usage`` /
+    ``record.metadata`` or through any nested container after the deterministic
+    ``record_id`` has been computed.
     """
 
     record_id: str
@@ -313,19 +352,20 @@ class AuditRecord:
     tool_result_ref: str | None
     input_version: str | None
     input_fingerprint: str | None
-    usage: dict[str, int] | None
+    usage: Mapping[str, int] | None
     duration_ms: int | float | None
     attempt: int | None
     raw_output_artifact_id: str | None
     raw_output_fingerprint: str | None
-    metadata: dict[str, Any] | None = field(default=None)
+    metadata: Mapping[str, Any] | None = field(default=None)
 
     def to_dict(self) -> dict[str, Any]:
         """A deterministic projection of the record (stable key order; no content).
 
         Omits prompt content, full raw output, raw input values, and tool arguments —
-        none of which are fields — and returns a defensive copy of the bounded ``usage``
-        / ``metadata`` mappings so a caller cannot mutate the frozen record through them.
+        none of which are fields — and returns the bounded ``usage`` / ``metadata`` facts
+        as fresh plain JSON-like data (a deep copy via :func:`_to_plain`), so a caller can
+        use the projection freely without ever reaching the frozen record's facts.
         """
         return {
             "record_id": self.record_id,
@@ -347,12 +387,12 @@ class AuditRecord:
             "tool_result_ref": self.tool_result_ref,
             "input_version": self.input_version,
             "input_fingerprint": self.input_fingerprint,
-            "usage": dict(self.usage) if self.usage is not None else None,
+            "usage": _to_plain(self.usage) if self.usage is not None else None,
             "duration_ms": self.duration_ms,
             "attempt": self.attempt,
             "raw_output_artifact_id": self.raw_output_artifact_id,
             "raw_output_fingerprint": self.raw_output_fingerprint,
-            "metadata": dict(self.metadata) if self.metadata is not None else None,
+            "metadata": _to_plain(self.metadata) if self.metadata is not None else None,
         }
 
     def audit_projection(self) -> dict[str, Any]:
@@ -629,12 +669,14 @@ def build_audit_record(
         tool_result_ref=tool_result_ref,
         input_version=input_version,
         input_fingerprint=input_fingerprint,
-        usage=normalized_usage,
+        # Store the bounded usage / metadata facts as deeply-frozen read-only structures
+        # so they cannot be mutated in place through the record after build.
+        usage=_freeze(normalized_usage) if normalized_usage is not None else None,
         duration_ms=duration_ms,
         attempt=attempt,
         raw_output_artifact_id=raw_output_artifact_id,
         raw_output_fingerprint=raw_output_fingerprint,
-        metadata=normalized_metadata,
+        metadata=_freeze(normalized_metadata) if normalized_metadata is not None else None,
     )
 
     return AuditRecordDecision(status=STATUS_BUILT, reason_code=None, record=record)
