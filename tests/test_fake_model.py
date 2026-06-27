@@ -37,6 +37,7 @@ from tests.fakes import (
     DEFAULT_FAKE_MODEL,
     FAKE_REASON_CODES,
     FIXTURE_ID_METADATA_KEY,
+    FakeErrorFixture,
     FakeModelError,
     FixtureFakeModel,
     default_fake_model,
@@ -172,6 +173,49 @@ class IsolationAndContractTest(unittest.TestCase):
         with self.assertRaises(FakeModelError) as ctx:
             fake_error("fake-x", code="")
         self.assertEqual(ctx.exception.code, CODE_MALFORMED_FIXTURE_REQUEST)
+
+
+class BoundedReasonCodeTest(unittest.TestCase):
+    """A configured error fixture can never carry a code outside the stable set.
+
+    The bounded reason-code contract (turn 0255) requires every raised
+    ``FakeModelError.code`` to come from :data:`FAKE_REASON_CODES`.  These tests
+    pin the two ways a non-stable code could otherwise be introduced — the
+    :func:`fake_error` builder and a direct :class:`FakeErrorFixture` registration
+    — to fail closed, and assert the resulting invariant on resolution.
+    """
+
+    def test_fake_error_builder_rejects_non_stable_code_fail_closed(self):
+        with self.assertRaises(FakeModelError) as ctx:
+            fake_error("fake-x", code="UNBOUNDED_ARBITRARY_CODE", message="x")
+        self.assertEqual(ctx.exception.code, CODE_MALFORMED_FIXTURE_REQUEST)
+
+    def test_direct_error_fixture_with_non_stable_code_cannot_be_registered(self):
+        # A caller bypassing the builder still cannot register a non-stable code:
+        # construction of the fixture object is allowed (it is inert data), but the
+        # model rejects it fail-closed at registration so respond() can never reach
+        # it and raise UNBOUNDED_ARBITRARY_CODE.
+        bad = FakeErrorFixture(fixture_id="fake-x", code="UNBOUNDED_ARBITRARY_CODE", message="x")
+        with self.assertRaises(FakeModelError) as ctx:
+            FixtureFakeModel(fixtures=(bad,))
+        self.assertEqual(ctx.exception.code, CODE_MALFORMED_FIXTURE_REQUEST)
+
+    def test_every_stable_code_is_accepted_by_the_error_builder(self):
+        for code in FAKE_REASON_CODES:
+            fixture = fake_error("fake-ok", code=code, message="x")
+            self.assertEqual(fixture.code, code)
+
+    def test_all_raised_codes_from_public_error_paths_are_stable(self):
+        # Build a model whose only error fixtures are every stable code, plus the
+        # unknown-id path, and assert each raised code stays inside the stable set.
+        model = FixtureFakeModel(fixtures=tuple(fake_error(f"err-{i}", code=code, message="x") for i, code in enumerate(FAKE_REASON_CODES)))
+        for fixture_id in model.fixture_ids:
+            with self.assertRaises(FakeModelError) as ctx:
+                model.respond(fixture_id)
+            self.assertIn(ctx.exception.code, FAKE_REASON_CODES)
+        with self.assertRaises(FakeModelError) as ctx:
+            model.respond("no-such-id")
+        self.assertIn(ctx.exception.code, FAKE_REASON_CODES)
 
 
 if __name__ == "__main__":

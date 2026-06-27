@@ -115,6 +115,23 @@ def _ensure_bounded_fixture_id(fixture_id: object) -> str:
     return fixture_id  # type: ignore[return-value]
 
 
+def _ensure_stable_reason_code(code: object) -> str:
+    """Return ``code`` if a stable reason code, else fail closed.
+
+    A configured error fixture must carry a code drawn from
+    :data:`FAKE_REASON_CODES` so that resolving it can never raise a
+    :class:`FakeModelError` outside the declared stable vocabulary.  A non-stable
+    code is *rejected* fail-closed (never silently reinterpreted) at build and
+    registration time, keeping the bounded reason-code contract total.
+    """
+    if not isinstance(code, str) or code not in FAKE_REASON_CODES:
+        raise FakeModelError(
+            CODE_MALFORMED_FIXTURE_REQUEST,
+            f"error fixture code must be one of FAKE_REASON_CODES {FAKE_REASON_CODES!r}; got {code!r}",
+        )
+    return code
+
+
 # --- Fixture value shapes ----------------------------------------------------
 
 
@@ -192,8 +209,7 @@ def fake_error(
 ) -> FakeErrorFixture:
     """Build a :class:`FakeErrorFixture` (a configured synthetic failure)."""
     fixture_id = _ensure_bounded_fixture_id(fixture_id)
-    if not isinstance(code, str) or not code:
-        raise FakeModelError(CODE_MALFORMED_FIXTURE_REQUEST, "error fixture code must be a non-blank string")
+    code = _ensure_stable_reason_code(code)
     if not isinstance(message, str):
         raise FakeModelError(CODE_MALFORMED_FIXTURE_REQUEST, "error fixture message must be a string")
     return FakeErrorFixture(fixture_id=fixture_id, code=code, message=message)
@@ -237,6 +253,11 @@ class FixtureFakeModel:
             if not isinstance(fixture, (FakeResponseFixture, FakeErrorFixture)):
                 raise FakeModelError(CODE_MALFORMED_FIXTURE_REQUEST, "each fixture must be a FakeResponseFixture or FakeErrorFixture")
             fixture_id = _ensure_bounded_fixture_id(fixture.fixture_id)
+            # Reject a directly-constructed error fixture whose code escapes the
+            # stable vocabulary, so registration can never admit a fixture that
+            # would later raise a non-stable FakeModelError.code from respond().
+            if isinstance(fixture, FakeErrorFixture):
+                _ensure_stable_reason_code(fixture.code)
             if fixture_id in self._fixtures:
                 raise FakeModelError(CODE_DUPLICATE_FIXTURE, f"fixture id {fixture_id!r} is registered more than once")
             self._fixtures[fixture_id] = fixture
