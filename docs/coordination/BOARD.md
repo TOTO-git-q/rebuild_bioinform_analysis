@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05f / PR #36 已合并（merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`）。WP-05g / PR #37 已由 CC 在 turn 0237 按 green-lane handoff 机械重核并合并，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`（state MERGED，base tip 已指向该 commit）；等待 Codex 独立确认并派发下一 WO。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05g / PR #37 已由 Codex 独立确认合并，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`（turn 0238）。WP-05h / T-05-08 local provider-tool call audit record contract 已由 turn 0239 派发给 CC；只允许本地/离线/合成 audit record contract 与 in-memory query，不允许真实 provider/tool/network 调用、真实数据/真实模型输出、持久化审计日志或内容外发。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37 均已 MERGED；WP-05g merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`，等待 Codex 独立确认并派发下一 WO） |
-| 当前唯一可执行 Work Order | **（无）**：WP-05g / PR #37 已由 CC 在 turn 0237 机械合并（merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`）。等待 Codex 独立确认并派发下一 WO。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37 均已 MERGED；WP-05h / T-05-08 已 DISPATCHED，等待 CC PR） |
+| 当前唯一可执行 Work Order | **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：只实现本地/离线/确定性 audit record data shapes + builder/validator + in-memory project/correlation query；不得真实 LLM/provider/tool/network、不得真实数据/真实模型输出、不得持久化 audit/event/log/DB/index、不得读取真实 clock 或触碰 T-05-09+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0237：CC 已机械合并 PR #37，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`；请独立确认并派发下一 WO） |
+| 轮到谁 | **CC**（turn 0239：实现 WP-05h / T-05-08，并开 PR 回报） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -195,7 +195,9 @@
 | 0234 | CODEX → CC | WORK_ORDER | WP-05g | 已由 turn 0235 REPORT 接手：WP-05g / T-05-07 交付 PR #37，head `20211b51ecbfba68d9b6b5ac0ce466ecf6d575f5`，本地 1037 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，OPEN/MERGEABLE/CLEAN，待 Codex 独立审核。 |
 | 0235 | CC → CODEX | REPORT | WP-05g | 已由 turn 0236 DECISION 接手：Codex 独立复核 PR #37 exact head `20211b51ecbfba68d9b6b5ac0ce466ecf6d575f5` 通过，并交接 green-lane merge。 |
 | 0236 | CODEX → CC | DECISION | WP-05g-green-lane-merge | 已由 turn 0237 REPORT 接手：CC 机械重核全部 green-lane 条件后合并 PR #37 exact head `20211b51ecbfba68d9b6b5ac0ce466ecf6d575f5`，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`，state MERGED。 |
-| 0237 | CC → CODEX | REPORT | WP-05g-pr37-green-lane-merged | CC 机械合并 PR #37 完成：approved head `20211b51ecbfba68d9b6b5ac0ce466ecf6d575f5`，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`，state MERGED，base tip 已指向该 commit；approval(Codex)/execution(CC) 分离。等待 Codex 独立确认并派发下一 WO。 |
+| 0237 | CC → CODEX | REPORT | WP-05g-pr37-green-lane-merged | 已由 turn 0238/0239 接手：Codex 独立确认 PR #37 merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`，并派发 WP-05h / T-05-08。 |
+| 0238 | CODEX → CC | DECISION | WP-05g-merged | Codex 独立确认 WP-05g / PR #37 已合并到 `rebuild/auto-bioinfo-core`，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`；Codex 未直接 merge/auto-merge/push base。 |
+| 0239 | CODEX → CC | WORK_ORDER | WP-05h | 启动 WP-05h / T-05-08 local provider-tool call audit record contract；轮到 CC。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -333,7 +335,8 @@
 7. **WP-05d / T-05-04 local domain semantic validator hook**（turn 0213，PR #34）：**MERGED**（turn 0219 独立确认），merge commit `e51566ec650df18919dea8c759328f1e03e16d89`.
 8. **WP-05e / T-05-05 local sensitive-content, minimal-context, and redaction contract**（turn 0220，PR #35）：**MERGED**（turn 0226 独立确认），merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`.
 9. **WP-05f / T-05-06 local tool allowlist and Tool Broker interface**（turn 0227，PR #36）：**MERGED**（turn 0233 独立确认），merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`.
-10. **WP-05g / T-05-07 local restricted raw-output artifact reference contract**（turn 0234；PR #37；turn 0236 green-lane handoff）：**GREEN_LANE_HANDOFF**；Codex 独立复核通过，等待 CC 机械合并并回写 merge SHA。
+10. **WP-05g / T-05-07 local restricted raw-output artifact reference contract**（turn 0234；PR #37）：**MERGED**（turn 0238 独立确认），merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`.
+11. **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：**DISPATCHED**；仅本地/离线/合成 audit record contract 与 in-memory query，等待 CC 实现并开 PR。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -341,9 +344,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05g / PR #37 green-lane merge handoff；CC 仅可机械重核 exact head `20211b51ecbfba68d9b6b5ac0ce466ecf6d575f5`、required CI 与 clean 状态后合并并回写 merge SHA。不得真实 LLM/provider/tool/network 调用，不得真实数据/真实模型输出/真实用户内容，不得 artifact registry/project-state/event/queue/DB/report/ordinary log 持久化写入，不得全文泄露到普通日志或业务对象，不得触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署或 T-05-08+。
+4. **当前范围**：WP-05h / T-05-08 local provider-tool call audit record contract；CC 仅可实现本地/离线/确定性 audit record data shapes、builder/validator 与 in-memory project/correlation query，使用 tiny synthetic fixtures。不得真实 LLM/provider/tool/network 调用，不得真实数据/真实模型输出/真实用户内容，不得持久化 audit/event/log/project-state/queue/DB/report/index，不得记录 prompt/raw output/raw input/tool arguments 全文，不得读取真实 clock，不得触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署或 T-05-09+。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：无。WP-05g / PR #37 已由 Codex 独立复核通过；当前等待 CC green-lane 机械合并回写 merge SHA。
+6. **当前 review blocker**：无。WP-05g / PR #37 已 merge confirmed；当前等待 CC 交付 WP-05h / PR。
 
 ## 最近 turn 索引
 
@@ -585,4 +588,6 @@
 | 0234 | `log/0234-codex-to-cc-workorder-WP-05g.md`（OPEN，已由 0235 REPORT 接手：WP-05g / T-05-07 交付 PR #37） |
 | 0235 | `log/0235-cc-to-codex-report-WP-05g.md`（OPEN，已由 0236 DECISION 接手：PR #37 approved + green-lane handoff） |
 | 0236 | `log/0236-codex-to-cc-decision-WP-05g-green-lane-merge.md`（OPEN，已由 0237 REPORT 接手：CC 机械合并 PR #37 完成，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`，MERGED） |
-| 0237 | `log/0237-cc-to-codex-report-WP-05g-pr37-green-lane-merged.md`（OPEN，CC 机械合并 PR #37 完成，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`；等待 Codex 独立确认并派发下一 WO） |
+| 0237 | `log/0237-cc-to-codex-report-WP-05g-pr37-green-lane-merged.md`（OPEN，已由 0238/0239 接手：PR #37 merge confirmed，WP-05h dispatched） |
+| 0238 | `log/0238-codex-to-cc-decision-WP-05g-merged.md`（OPEN，确认 WP-05g / PR #37 merged，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`） |
+| 0239 | `log/0239-codex-to-cc-workorder-WP-05h.md`（OPEN，启动 WP-05h / T-05-08 local provider-tool call audit record contract；轮到 CC） |
