@@ -57,6 +57,23 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .cancel_command import (
+    STATUS_CANCELLED as CANCEL_STATUS_CANCELLED,
+)
+from .cancel_command import (
+    STATUS_INVALID as CANCEL_STATUS_INVALID,
+)
+from .cancel_command import (
+    STATUS_NOT_CANCELLABLE as CANCEL_STATUS_NOT_CANCELLABLE,
+)
+from .cancel_command import (
+    STATUS_VERSION_CONFLICT as CANCEL_STATUS_VERSION_CONFLICT,
+)
+from .cancel_command import (
+    CancelCommand,
+    CancelDecision,
+    evaluate_cancel_request,
+)
 from .command_api import (
     EXPECTED_VERSION_HEADER,
     IDEMPOTENCY_KEY_HEADER,
@@ -69,6 +86,8 @@ from .command_api import (
     CommandRequest,
     evaluate_command_request,
 )
+from .operation_resource import STATUS_RUNNING as OPERATION_STATUS_RUNNING
+from .operation_resource import OperationRecord
 
 # --- The program name (display only; no entry point is registered) ----------
 PROGRAM = "bioctl"
@@ -142,6 +161,17 @@ _COMMAND_STATUS_TO_CLI: dict[str, str] = {
     STATUS_INVALID: CLI_STATUS_USAGE_ERROR,
 }
 
+# How an underlying cancel-command decision maps onto a CLI exit-code category: an
+# allowed cancellation is a success; a refused state (terminal/unsupported) or a
+# stale version is a domain rejection (the caller may retry with fresh facts);
+# anything the contract deems malformed is a usage error.
+_CANCEL_STATUS_TO_CLI: dict[str, str] = {
+    CANCEL_STATUS_CANCELLED: CLI_STATUS_OK,
+    CANCEL_STATUS_NOT_CANCELLABLE: CLI_STATUS_REJECTED,
+    CANCEL_STATUS_VERSION_CONFLICT: CLI_STATUS_REJECTED,
+    CANCEL_STATUS_INVALID: CLI_STATUS_USAGE_ERROR,
+}
+
 
 # --- The bounded command/option vocabulary ----------------------------------
 
@@ -182,6 +212,15 @@ OPT_EXPECTED_VERSION = "--expected-version"
 OPT_CURRENT_VERSION = "--current-version"
 OPT_SET = "--set"
 
+# Additional option names for the `command cancel` subcommand.  The target
+# operation's current state is described explicitly (no defaults that fabricate
+# identity), so a missing fact fails closed rather than being guessed.
+OPT_OPERATION_ID = "--operation-id"
+OPT_OPERATION_STATUS = "--operation-status"
+OPT_OPERATION_COMMAND_TYPE = "--operation-command-type"
+OPT_OPERATION_KEY = "--operation-key"
+OPT_REASON = "--reason"
+
 # The smallest useful slice (T-04-09): a single `command admit` path that maps an
 # explicit argv onto the WP-04g command-API admission decision.  The table is
 # deliberately small and explicit so an unknown command/subcommand/option fails
@@ -197,6 +236,19 @@ COMMANDS: dict[str, dict[str, SubcommandSpec]] = {
                 OptionSpec(OPT_EXPECTED_VERSION),
                 OptionSpec(OPT_CURRENT_VERSION),
                 OptionSpec(OPT_SET, repeatable=True),
+            ),
+        ),
+        "cancel": SubcommandSpec(
+            summary="Evaluate whether a tracked operation may be cancelled, given its explicit current state (no real worker is touched).",
+            options=(
+                OptionSpec(OPT_OPERATION_ID, required=True),
+                OptionSpec(OPT_KEY, required=True),
+                OptionSpec(OPT_OPERATION_COMMAND_TYPE, required=True),
+                OptionSpec(OPT_OPERATION_KEY, required=True),
+                OptionSpec(OPT_OPERATION_STATUS),
+                OptionSpec(OPT_EXPECTED_VERSION),
+                OptionSpec(OPT_CURRENT_VERSION),
+                OptionSpec(OPT_REASON),
             ),
         ),
     },
@@ -383,6 +435,19 @@ def _parse_current_version(raw: str, path_binding: dict[str, Any]) -> int | CliR
     return int(token)
 
 
+def _parse_int_option(raw: str, opt_name: str, path_binding: dict[str, Any]) -> int | CliResult:
+    """Parse an integer-valued option into a base-10 integer, fail-closed.
+
+    Only an ASCII digit string is accepted; anything else is a malformed option.
+    Positivity is left to the underlying contract, which maps a non-positive value
+    to its own bounded reason code.
+    """
+    token = raw.strip()
+    if not token or not token.isascii() or not token.isdigit():
+        return _usage(CODE_MALFORMED_OPTION, f"{opt_name} {raw!r} must be a non-negative integer", binding=path_binding)
+    return int(token)
+
+
 # --- Per-subcommand mappers (parsed argv -> existing contract decision) ------
 
 
@@ -458,9 +523,87 @@ def _project_command_decision(
     )
 
 
+def _map_command_cancel(parsed: ParsedInvocation, path_binding: dict[str, Any]) -> CliResult:
+    """Map a parsed ``command cancel`` invocation onto the WP-04j cancel decision.
+
+    Builds a :class:`~auto_bioinfo.control_plane.cancel_command.CancelCommand` and a
+    :class:`~auto_bioinfo.control_plane.operation_resource.OperationRecord` from the
+    explicit parsed options — the target operation's current state is described in
+    full (its status, originating command type, and idempotency key), with no
+    default that fabricates identity — and evaluates the cancellation via
+    :func:`~auto_bioinfo.control_plane.cancel_command.evaluate_cancel_request`.  The
+    bounded decision is projected onto a CLI exit-code category; the contract's own
+    reason code is mapped through unchanged.  No command is executed and **no real
+    worker/process/job is touched** — the operation record is reconstructed purely
+    from argv and the result is a value.
+    """
+    operation_status = parsed.singles.get(OPT_OPERATION_STATUS, OPERATION_STATUS_RUNNING)
+
+    expected_version: int | None = None
+    if OPT_EXPECTED_VERSION in parsed.singles:
+        ev = _parse_int_option(parsed.singles[OPT_EXPECTED_VERSION], OPT_EXPECTED_VERSION, path_binding)
+        if isinstance(ev, CliResult):
+            return ev
+        expected_version = ev
+
+    current_version: int | None = None
+    if OPT_CURRENT_VERSION in parsed.singles:
+        cv = _parse_int_option(parsed.singles[OPT_CURRENT_VERSION], OPT_CURRENT_VERSION, path_binding)
+        if isinstance(cv, CliResult):
+            return cv
+        current_version = cv
+
+    request = CancelCommand(
+        operation_id=parsed.singles[OPT_OPERATION_ID],
+        idempotency_key=parsed.singles[OPT_KEY],
+        expected_version=expected_version,
+        reason=parsed.singles.get(OPT_REASON, ""),
+    )
+    operation = OperationRecord(
+        operation_id=parsed.singles[OPT_OPERATION_ID],
+        command_type=parsed.singles[OPT_OPERATION_COMMAND_TYPE],
+        status=operation_status,
+        idempotency_key=parsed.singles[OPT_OPERATION_KEY],
+    )
+    decision = evaluate_cancel_request(request, operation=operation, current_version=current_version)
+    return _project_cancel_decision(decision, parsed, path_binding)
+
+
+def _project_cancel_decision(decision: CancelDecision, parsed: ParsedInvocation, path_binding: dict[str, Any]) -> CliResult:
+    """Project a cancel-command decision onto a deterministic :class:`CliResult`."""
+    status = _CANCEL_STATUS_TO_CLI[decision.status]
+    binding = dict(path_binding)
+    binding.update(
+        {
+            "operation_id": parsed.singles.get(OPT_OPERATION_ID, ""),
+            "idempotency_key": parsed.singles.get(OPT_KEY, ""),
+            "operation_status": parsed.singles.get(OPT_OPERATION_STATUS, ""),
+            "expected_version": parsed.singles.get(OPT_EXPECTED_VERSION, ""),
+            "current_version": parsed.singles.get(OPT_CURRENT_VERSION, ""),
+            "decision": decision.to_dict(),
+        }
+    )
+    if status == CLI_STATUS_OK:
+        return CliResult(
+            status=status,
+            exit_code=EXIT_CODES[status],
+            reason_code=decision.reason_code,
+            stdout=f"{decision.status}: {decision.reason_code} — {decision.message}",
+            binding=binding,
+        )
+    return CliResult(
+        status=status,
+        exit_code=EXIT_CODES[status],
+        reason_code=decision.reason_code,
+        stderr=f"{PROGRAM}: {decision.status}: {decision.reason_code} — {decision.message}",
+        binding=binding,
+    )
+
+
 # A mapper per (command, subcommand) so dispatch stays explicit and bounded.
 _MAPPERS = {
     ("command", "admit"): _map_command_admit,
+    ("command", "cancel"): _map_command_cancel,
 }
 
 

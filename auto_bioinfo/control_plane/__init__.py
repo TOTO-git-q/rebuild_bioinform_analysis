@@ -24,7 +24,11 @@ operation as a deterministic, bounded lifecycle value — with no actual
 asynchronous execution.  WP-04i adds the pure, local CLI command contract
 foundation (:func:`run_cli`) that parses an explicit ``argv`` list deterministically
 and maps it onto the existing command-API decision — with no real console, process
-exit, subprocess, or entry-point side effect.
+exit, subprocess, or entry-point side effect.  WP-04j adds the pure, local
+cancel-command contract (:func:`evaluate_cancel_request`) that decides — without
+touching any real worker/process/job — whether a tracked operation may move into
+the bounded ``cancelled`` terminal state, projecting a cancelled operation value
+only when the supplied operation state makes that transition valid.
 """
 
 from __future__ import annotations
@@ -39,6 +43,12 @@ from .approval_lifecycle import (
     expire,
     is_due,
     reject,
+)
+from .cancel_command import (
+    CANCEL_COMMAND_TYPE,
+    CancelCommand,
+    CancelDecision,
+    evaluate_cancel_request,
 )
 from .cli_contract import (
     CLI_REASON_CODES,
@@ -118,6 +128,10 @@ __all__ = [
     "expire",
     "is_due",
     "reject",
+    "CANCEL_COMMAND_TYPE",
+    "CancelCommand",
+    "CancelDecision",
+    "evaluate_cancel_request",
     "GATE_NAMES",
     "OUTCOMES",
     "REASON_CODES",
