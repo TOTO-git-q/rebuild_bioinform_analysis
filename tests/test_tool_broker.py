@@ -27,6 +27,10 @@ from __future__ import annotations
 import unittest
 from dataclasses import FrozenInstanceError
 
+from auto_bioinfo.agent_gateway.context_builder import (
+    SENSITIVITY_INTERNAL,
+    SENSITIVITY_PUBLIC,
+)
 from auto_bioinfo.agent_gateway.tool_broker import (
     ALLOWLIST_CODES,
     CODE_ARGUMENTS_TOO_LARGE,
@@ -41,6 +45,7 @@ from auto_bioinfo.agent_gateway.tool_broker import (
     CODE_MALFORMED_RESULT,
     CODE_MALFORMED_TOOL_ID,
     CODE_MALFORMED_TOOL_VERSIONS,
+    CODE_NON_PUBLIC_ARGUMENT,
     CODE_NONSERIALIZABLE_ARGUMENTS,
     CODE_RESULT_TOO_LARGE,
     CODE_SENSITIVE_ARGUMENT,
@@ -64,6 +69,16 @@ from auto_bioinfo.agent_gateway.tool_broker import (
     ToolSpec,
 )
 from auto_bioinfo.observability.redaction import REDACTED
+
+
+def _public(*names: str) -> dict[str, str]:
+    """Declare each named argument explicitly ``public`` (the admission contract).
+
+    The broker admits an argument to a handler *only* when the caller proves it public via
+    :attr:`ToolCallRequest.argument_sensitivities`; an undeclared argument resolves to
+    ``unknown`` and fails closed.  Tests use this helper to build the explicit declaration.
+    """
+    return {name: SENSITIVITY_PUBLIC for name in names}
 
 
 class _RecordingHandler:
@@ -154,7 +169,7 @@ class AllowedExecutionTest(unittest.TestCase):
 
     def test_allowed_tool_returns_bounded_inert_result(self) -> None:
         broker, handler = _broker()
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "hi", "n": 3}))
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "hi", "n": 3}, argument_sensitivities=_public("q", "n")))
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.status, STATUS_ALLOWED)
         self.assertIsNone(decision.reason_code)
@@ -165,7 +180,9 @@ class AllowedExecutionTest(unittest.TestCase):
 
     def test_caller_and_project_context_are_echoed(self) -> None:
         broker, _ = _broker(allowed_callers=("planner",))
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}, caller_id="planner", project_ref="proj-1"))
+        decision = broker.mediate(
+            ToolCallRequest("summarize", "1.0", {"q": "x"}, caller_id="planner", project_ref="proj-1", argument_sensitivities=_public("q"))
+        )
         self.assertTrue(decision.allowed)
         self.assertEqual(decision.caller_id, "planner")
         self.assertEqual(decision.project_ref, "proj-1")
@@ -178,7 +195,7 @@ class AllowedExecutionTest(unittest.TestCase):
 
     def test_decision_to_dict_is_deterministic_projection(self) -> None:
         broker, _ = _broker()
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}))
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}, argument_sensitivities=_public("q")))
         self.assertEqual(
             decision.to_dict(),
             {
@@ -280,18 +297,25 @@ class MalformedRequestTest(unittest.TestCase):
     def test_oversized_arguments_are_denied(self) -> None:
         broker, _ = _broker()
         args = {"blob": "x" * 70_000}
-        self.assertEqual(broker.mediate(ToolCallRequest("summarize", "1.0", args)).reason_code, CODE_ARGUMENTS_TOO_LARGE)
+        self.assertEqual(
+            broker.mediate(ToolCallRequest("summarize", "1.0", args, argument_sensitivities=_public("blob"))).reason_code, CODE_ARGUMENTS_TOO_LARGE
+        )
 
     def test_non_serializable_arguments_are_denied(self) -> None:
         broker, handler = _broker()
         for value in ({1, 2, 3}, b"bytes", object()):
             with self.subTest(value=type(value)):
-                self.assertEqual(broker.mediate(ToolCallRequest("summarize", "1.0", {"v": value})).reason_code, CODE_NONSERIALIZABLE_ARGUMENTS)
+                self.assertEqual(
+                    broker.mediate(ToolCallRequest("summarize", "1.0", {"v": value}, argument_sensitivities=_public("v"))).reason_code,
+                    CODE_NONSERIALIZABLE_ARGUMENTS,
+                )
         self.assertEqual(handler.calls, [])
 
     def test_non_finite_number_argument_is_denied(self) -> None:
         broker, _ = _broker()
-        self.assertEqual(broker.mediate(ToolCallRequest("summarize", "1.0", {"v": float("inf")})).reason_code, CODE_MALFORMED_ARGUMENTS)
+        self.assertEqual(
+            broker.mediate(ToolCallRequest("summarize", "1.0", {"v": float("inf")}, argument_sensitivities=_public("v"))).reason_code, CODE_MALFORMED_ARGUMENTS
+        )
 
     def test_over_deep_argument_fails_closed(self) -> None:
         broker, handler = _broker()
@@ -300,7 +324,7 @@ class MalformedRequestTest(unittest.TestCase):
         for _ in range(MAX_PAYLOAD_DEPTH + 2):
             cursor["next"] = {}
             cursor = cursor["next"]
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"v": nested}))
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"v": nested}, argument_sensitivities=_public("v")))
         # An over-deep structure cannot be scanned within the bound; it fails closed.
         # The WP-05e sensitivity classifier shares the depth bound and treats an
         # unscannable structure as ``sensitive`` (blocked before normalization), so the
@@ -337,7 +361,7 @@ class SensitiveArgumentTest(unittest.TestCase):
 
     def test_inline_secret_in_admitted_argument_is_redacted_before_handler(self) -> None:
         broker, handler = _broker()
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "see Bearer abcdef for access"}))
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "see Bearer abcdef for access"}, argument_sensitivities=_public("note")))
         self.assertTrue(decision.allowed)
         seen = handler.calls[0]["note"]
         self.assertIn(REDACTED, seen)
@@ -345,8 +369,81 @@ class SensitiveArgumentTest(unittest.TestCase):
 
     def test_redacted_result_carries_no_raw_secret(self) -> None:
         broker, _ = _broker()
-        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "Bearer abcdef"}))
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "Bearer abcdef"}, argument_sensitivities=_public("note")))
+        self.assertTrue(decision.allowed)
         self.assertNotIn("abcdef", repr(decision.result))
+
+
+# --- Explicit public admission (undeclared / non-public args fail closed) ----
+
+
+class PublicArgumentAdmissionTest(unittest.TestCase):
+    """An argument reaches a handler only when explicitly declared public; else denied."""
+
+    def test_undeclared_ordinary_argument_classified_unknown_is_denied(self) -> None:
+        # Regression (turn 0229): an ordinary, undeclared project note classifies as
+        # ``unknown`` in the WP-05e contract and must NOT reach the handler.
+        from auto_bioinfo.agent_gateway.context_builder import (
+            SENSITIVITY_UNKNOWN,
+            classify_field_sensitivity,
+        )
+
+        self.assertEqual(classify_field_sensitivity("note", "ordinary project note"), SENSITIVITY_UNKNOWN)
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "ordinary project note"}))
+        self.assertEqual(decision.status, STATUS_DENIED)
+        self.assertEqual(decision.reason_code, CODE_NON_PUBLIC_ARGUMENT)
+        self.assertIsNone(decision.result)
+        self.assertEqual(handler.calls, [], "an undeclared (unknown) argument must never reach a handler")
+
+    def test_explicitly_public_argument_is_admitted(self) -> None:
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"note": "ordinary project note"}, argument_sensitivities=_public("note")))
+        self.assertTrue(decision.allowed)
+        self.assertEqual(handler.calls, [{"note": "ordinary project note"}])
+
+    def test_partially_declared_arguments_fail_closed(self) -> None:
+        # Declaring only some arguments public is not enough: the undeclared one is unknown.
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x", "note": "n"}, argument_sensitivities=_public("q")))
+        self.assertEqual(decision.reason_code, CODE_NON_PUBLIC_ARGUMENT)
+        self.assertEqual(handler.calls, [])
+
+    def test_internal_declared_argument_is_denied(self) -> None:
+        # ``internal`` is non-public; it must not reach a handler either.
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}, argument_sensitivities={"q": SENSITIVITY_INTERNAL}))
+        self.assertEqual(decision.reason_code, CODE_NON_PUBLIC_ARGUMENT)
+        self.assertEqual(handler.calls, [])
+
+    def test_unrecognized_declaration_resolves_unknown_and_is_denied(self) -> None:
+        broker, handler = _broker()
+        for bad in ("PUBLIC", "open", "", 1, None):
+            with self.subTest(bad=bad):
+                decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}, argument_sensitivities={"q": bad}))
+                self.assertEqual(decision.reason_code, CODE_NON_PUBLIC_ARGUMENT)
+        self.assertEqual(handler.calls, [])
+
+    def test_public_declaration_cannot_override_sensitive_escalation(self) -> None:
+        # A credential-like name/value still escalates to ``sensitive`` despite a public
+        # declaration; defense-in-depth: a misdeclared secret never reaches a handler.
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"api_token": "abc123"}, argument_sensitivities=_public("api_token")))
+        self.assertEqual(decision.reason_code, CODE_SENSITIVE_ARGUMENT)
+        self.assertEqual(handler.calls, [])
+
+    def test_malformed_declarations_mapping_fails_closed(self) -> None:
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0", {"q": "x"}, argument_sensitivities=["q"]))
+        self.assertEqual(decision.reason_code, CODE_MALFORMED_ARGUMENTS)
+        self.assertEqual(handler.calls, [])
+
+    def test_empty_arguments_need_no_declaration(self) -> None:
+        # The admission gate only constrains supplied arguments; an empty call is allowed.
+        broker, handler = _broker()
+        decision = broker.mediate(ToolCallRequest("summarize", "1.0"))
+        self.assertTrue(decision.allowed)
+        self.assertEqual(handler.calls, [{}])
 
 
 # --- Handler / result faults -------------------------------------------------
@@ -417,7 +514,7 @@ class NoFallbackAndInertnessTest(unittest.TestCase):
     def test_mediation_does_not_mutate_request_arguments_or_registry(self) -> None:
         broker, _ = _broker()
         args = {"q": "x", "note": "Bearer abcdef"}
-        request = ToolCallRequest("summarize", "1.0", args)
+        request = ToolCallRequest("summarize", "1.0", args, argument_sensitivities=_public("q", "note"))
         before = dict(args)
         broker.mediate(request)
         self.assertEqual(args, before, "the caller's argument mapping must be untouched")
@@ -426,7 +523,7 @@ class NoFallbackAndInertnessTest(unittest.TestCase):
 
     def test_mediation_is_deterministic(self) -> None:
         broker, _ = _broker()
-        request = ToolCallRequest("summarize", "1.0", {"q": "x", "n": 1})
+        request = ToolCallRequest("summarize", "1.0", {"q": "x", "n": 1}, argument_sensitivities=_public("q", "n"))
         first = broker.mediate(request).to_dict()
         second = broker.mediate(request).to_dict()
         self.assertEqual(first, second)

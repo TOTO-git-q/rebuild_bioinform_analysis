@@ -38,12 +38,16 @@ Design constraints (mirroring the WP-05a / WP-05b / WP-05c / WP-05d / WP-05e sty
   or a malformed / oversized handler result all fail closed.  An unauthorized request
   can **never** fall back to a default or no-op allowed handler — there is no catch-all
   handler, and the handler is reached only after every allowlist check has passed.
-- **No raw sensitive leak.**  An argument classified ``sensitive`` by the WP-05e
-  contract (:func:`~auto_bioinfo.agent_gateway.context_builder.classify_field_sensitivity`)
-  is blocked before any handler sees it; the admitted arguments are additionally
-  redacted (:func:`~auto_bioinfo.observability.redaction.redact`) of inline secrets, and
-  the returned result is redacted too — no raw credential-like value reaches a handler
-  or a public projection.
+- **Explicit public admission, no raw sensitive leak.**  An argument reaches a handler
+  only when the caller *explicitly declares it public* and the WP-05e classifier
+  (:func:`~auto_bioinfo.agent_gateway.context_builder.classify_field_sensitivity`) agrees.
+  An undeclared / unrecognized declaration resolves to ``unknown`` and is denied
+  fail-closed, an ``internal`` argument is denied, and a ``sensitive`` argument (a
+  credential-like name / value, which escalates regardless of declaration) is blocked
+  before any handler sees it.  The admitted public arguments are additionally redacted
+  (:func:`~auto_bioinfo.observability.redaction.redact`) of inline secrets, and the
+  returned result is redacted too — no raw non-public or credential-like value reaches a
+  handler or a public projection.
 - **Data only.**  The broker returns *data* to the caller: an inert
   :class:`ToolMediationDecision`.  It writes no project state, business object, event,
   artifact, queue/outbox record, ordinary domain table, report, or full-content log,
@@ -69,7 +73,11 @@ from typing import Any
 
 from auto_bioinfo.observability.redaction import redact
 
-from .context_builder import SENSITIVITY_SENSITIVE, classify_field_sensitivity
+from .context_builder import (
+    SENSITIVITY_PUBLIC,
+    SENSITIVITY_SENSITIVE,
+    classify_field_sensitivity,
+)
 
 # --- Bounds (so an unbounded input cannot exhaust a downstream store) ---------
 # Every limit below is a fail-closed guard: an input exceeding it is *malformed*,
@@ -106,6 +114,7 @@ CODE_TOO_MANY_ARGUMENTS = "TOOL_TOO_MANY_ARGUMENTS"
 CODE_ARGUMENTS_TOO_LARGE = "TOOL_ARGUMENTS_TOO_LARGE"
 CODE_NONSERIALIZABLE_ARGUMENTS = "TOOL_NONSERIALIZABLE_ARGUMENTS"
 CODE_SENSITIVE_ARGUMENT = "TOOL_SENSITIVE_ARGUMENT"
+CODE_NON_PUBLIC_ARGUMENT = "TOOL_NON_PUBLIC_ARGUMENT"
 # allowlist failures (the identity is rejected against the registry):
 CODE_UNKNOWN_TOOL = "TOOL_UNKNOWN"
 CODE_TOOL_DISABLED = "TOOL_DISABLED"
@@ -124,6 +133,7 @@ REQUEST_CODES = (
     CODE_ARGUMENTS_TOO_LARGE,
     CODE_NONSERIALIZABLE_ARGUMENTS,
     CODE_SENSITIVE_ARGUMENT,
+    CODE_NON_PUBLIC_ARGUMENT,
 )
 
 ALLOWLIST_CODES = (
@@ -357,6 +367,14 @@ class ToolCallRequest:
     - ``version`` — the exact version requested (required; an absent / mismatched
       version is denied);
     - ``arguments`` — the bounded argument mapping (``name -> value``);
+    - ``argument_sensitivities`` — the **explicit, bounded per-argument sensitivity
+      declaration** (``name -> declared tier``) that proves an argument is admissible.
+      An argument is admitted to a handler **only** when it is explicitly declared
+      :data:`~auto_bioinfo.agent_gateway.context_builder.SENSITIVITY_PUBLIC` *and* the
+      WP-05e classifier does not escalate it; an undeclared argument resolves to
+      :data:`~auto_bioinfo.agent_gateway.context_builder.SENSITIVITY_UNKNOWN` and is
+      denied fail-closed (:data:`CODE_NON_PUBLIC_ARGUMENT`).  A credential-like name /
+      value still escalates to ``sensitive`` regardless of declaration;
     - ``caller_id`` — the optional caller identity (required only for a caller-gated
       tool);
     - ``project_ref`` — an optional project / policy context reference echoed back on
@@ -372,6 +390,7 @@ class ToolCallRequest:
     arguments: Mapping[str, Any] = field(default_factory=dict)
     caller_id: Any = None
     project_ref: Any = None
+    argument_sensitivities: Mapping[str, Any] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -427,11 +446,11 @@ class ToolBroker:
 
     The broker holds a :class:`ToolRegistry` and exposes a single :meth:`mediate`
     method.  An authorized call (known, enabled, version- and caller-matched, with
-    bounded, serializable, non-sensitive arguments) runs the registered handler and
-    returns an ``allowed`` decision carrying a bounded, redacted result; everything else
-    returns a fail-closed ``denied`` decision carrying only a bounded reason code.  The
-    handler is reached **only** after every allowlist and argument check has passed, so
-    an unauthorized request can never fall back to an allowed handler.
+    bounded, serializable arguments each explicitly declared public) runs the registered
+    handler and returns an ``allowed`` decision carrying a bounded, redacted result;
+    everything else returns a fail-closed ``denied`` decision carrying only a bounded
+    reason code.  The handler is reached **only** after every allowlist and argument check
+    has passed, so an unauthorized request can never fall back to an allowed handler.
     """
 
     def __init__(self, registry: ToolRegistry | None = None) -> None:
@@ -447,7 +466,7 @@ class ToolBroker:
 
         Resolves the request fail-closed in order: request shape, identity, allowlist
         membership, enabled state, exact version, caller policy, then bounded /
-        serializable / non-sensitive arguments.  Only when every check passes does it
+        serializable / explicitly-public arguments.  Only when every check passes does it
         run the registered handler (catching any exception) and validate / redact the
         result.  Writes nothing and mutates neither the request nor the registry.
         """
@@ -483,8 +502,8 @@ class ToolBroker:
         if not spec.admits_caller(caller_id):
             return _denied(CODE_CALLER_NOT_ALLOWED, **echo)
 
-        # --- arguments: bounded, serializable, non-sensitive ------------------
-        sanitized, arg_error = _sanitize_arguments(request.arguments)
+        # --- arguments: bounded, serializable, explicitly public --------------
+        sanitized, arg_error = _sanitize_arguments(request.arguments, request.argument_sensitivities)
         if arg_error is not None:
             return _denied(arg_error, **echo)
 
@@ -509,20 +528,32 @@ class ToolBroker:
         )
 
 
-def _sanitize_arguments(arguments: Any) -> tuple[dict[str, Any] | None, str | None]:
-    """Return ``(sanitized, None)`` for bounded, non-sensitive arguments, else ``(None, code)``.
+def _sanitize_arguments(arguments: Any, declarations: Any) -> tuple[dict[str, Any] | None, str | None]:
+    """Return ``(sanitized, None)`` for bounded, explicitly-public arguments, else ``(None, code)``.
 
-    Rejects a non-mapping (:data:`CODE_MALFORMED_ARGUMENTS`), too many arguments
-    (:data:`CODE_TOO_MANY_ARGUMENTS`), a malformed argument name
-    (:data:`CODE_MALFORMED_ARGUMENTS`), any argument the WP-05e contract classifies as
-    ``sensitive`` (:data:`CODE_SENSITIVE_ARGUMENT` — blocked *before* normalization so no
-    raw sensitive value is ever touched further), a non-serializable / over-deep / non-
-    finite value (:data:`CODE_NONSERIALIZABLE_ARGUMENTS` / :data:`CODE_MALFORMED_ARGUMENTS`),
-    and an oversized payload (:data:`CODE_ARGUMENTS_TOO_LARGE`).  On success the admitted
-    arguments are normalized to a plain dict and **redacted** of inline secrets so the
-    handler never sees a raw credential-like value.
+    Fails closed unless every argument is **proven admissible** before any handler runs.
+    Rejects a non-mapping ``arguments`` / ``declarations`` (:data:`CODE_MALFORMED_ARGUMENTS`),
+    too many arguments (:data:`CODE_TOO_MANY_ARGUMENTS`), a malformed argument name
+    (:data:`CODE_MALFORMED_ARGUMENTS`), and then classifies each argument with the WP-05e
+    contract using the caller's **explicit per-argument declaration** (``declarations``):
+
+    - an argument escalated to ``sensitive`` by a credential-like name / value is blocked
+      (:data:`CODE_SENSITIVE_ARGUMENT`) regardless of any softer declaration;
+    - an argument that is not explicitly ``public`` — i.e. ``unknown`` (undeclared /
+      unrecognized) or ``internal`` — is denied (:data:`CODE_NON_PUBLIC_ARGUMENT`);
+    - only an argument explicitly declared ``public`` that the classifier does not escalate
+      reaches a handler.
+
+    Both checks run *before* normalization so no raw non-public / sensitive value is ever
+    touched further.  A non-serializable / over-deep / non-finite value
+    (:data:`CODE_NONSERIALIZABLE_ARGUMENTS` / :data:`CODE_MALFORMED_ARGUMENTS`) and an
+    oversized payload (:data:`CODE_ARGUMENTS_TOO_LARGE`) also fail closed.  On success the
+    admitted arguments are normalized to a plain dict and **redacted** of inline secrets so
+    the handler never sees a raw credential-like value.
     """
     if not isinstance(arguments, Mapping):
+        return None, CODE_MALFORMED_ARGUMENTS
+    if not isinstance(declarations, Mapping):
         return None, CODE_MALFORMED_ARGUMENTS
     if len(arguments) > MAX_TOOL_ARGUMENTS:
         return None, CODE_TOO_MANY_ARGUMENTS
@@ -530,9 +561,15 @@ def _sanitize_arguments(arguments: Any) -> tuple[dict[str, Any] | None, str | No
     for name, value in arguments.items():
         if not _is_bounded_token(name, MAX_ARG_NAME_LENGTH):
             return None, CODE_MALFORMED_ARGUMENTS
-        # Block raw sensitive content before any further handling (fail closed).
-        if classify_field_sensitivity(name, value) == SENSITIVITY_SENSITIVE:
+        # Classify with the caller's explicit per-argument declaration (fail closed).
+        # An undeclared / unrecognized declaration resolves to ``unknown`` in the WP-05e
+        # contract; a credential-like name/value escalates to ``sensitive`` regardless.
+        sensitivity = classify_field_sensitivity(name, value, declarations.get(name))
+        if sensitivity == SENSITIVITY_SENSITIVE:
             return None, CODE_SENSITIVE_ARGUMENT
+        if sensitivity != SENSITIVITY_PUBLIC:
+            # Only an explicitly-public argument may ever reach a handler.
+            return None, CODE_NON_PUBLIC_ARGUMENT
 
     try:
         plain = _to_plain(dict(arguments))
@@ -587,6 +624,7 @@ __all__ = [
     "CODE_ARGUMENTS_TOO_LARGE",
     "CODE_NONSERIALIZABLE_ARGUMENTS",
     "CODE_SENSITIVE_ARGUMENT",
+    "CODE_NON_PUBLIC_ARGUMENT",
     "CODE_UNKNOWN_TOOL",
     "CODE_TOOL_DISABLED",
     "CODE_VERSION_MISMATCH",
