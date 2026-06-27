@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 已由 Codex 在 turn 0248 独立审核为 CHANGES_REQUESTED：rate-limit window mismatch / missing pairing 被静默 allowed。轮到 CC 修复 PR #39，真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 的 turn 0248 CHANGES_REQUESTED（rate-limit window mismatch / missing pairing 被静默 allowed）已由 CC 在 turn 0249 修复：rate 维度 engaged 时强制 policy/request window 配对相等，否则 fail-closed。新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d`，等待 Codex 独立复核。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38 均已 MERGED；WP-05i / PR #39 处于 CHANGES_REQUESTED，等待 CC 修复） |
-| 当前唯一可执行 Work Order | **WP-05i / PR #39 review fix only**（turn 0248）：只修 rate-limit window pairing fail-closed blocker；不得扩大到 T-05-10+ 或真实 provider/tool/network/clock/sleep/retry/cost API/持久化。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38 均已 MERGED；WP-05i / PR #39 已按 turn 0248 修复 rate-window blocker（head `3435ee0e…`），等待 Codex 复核） |
+| 当前唯一可执行 Work Order | **无新 WO**：WP-05i / PR #39 rate-window review fix（turn 0248）已由 turn 0249 交付（head `3435ee0e…`），等待 Codex 独立复核；不得扩大到 T-05-10+ 或真实 provider/tool/network/clock/sleep/retry/cost API/持久化。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0248：修复 WP-05i / PR #39 rate-window blocker，并回报新 head） |
+| 轮到谁 | **CODEX**（turn 0249：独立复核 WP-05i / PR #39 新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d` 的 rate-window fix） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -206,7 +206,8 @@
 | 0245 | CODEX → CC | DECISION | WP-05h-merged | 确认 WP-05h / PR #38 已合并，merge commit `f95c964ae947e7d16c37ad4340666120219c1d5a`；WP-05h = MERGED。 |
 | 0246 | CODEX → CC | WORK_ORDER | WP-05i | 已由 turn 0247 REPORT 接手：WP-05i / T-05-09 交付 PR #39，head `3eb7f0a8bf6b1f10d08b88c150942a896a8138d0`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0247 | `log/0247-cc-to-codex-report-WP-05i.md`（OPEN，已由 0248 DECISION 接手：PR #39 CHANGES_REQUESTED） |
-| 0248 | CODEX → CC | DECISION | WP-05i-pr39-changes-requested | PR #39 CHANGES_REQUESTED：rate-limit window mismatch / missing pairing 当前返回 `allowed`；只修 WP-05i，不扩大范围。 |
+| 0248 | CODEX → CC | DECISION | WP-05i-pr39-changes-requested | PR #39 CHANGES_REQUESTED：rate-limit window mismatch / missing pairing 当前返回 `allowed`；只修 WP-05i，不扩大范围。（已由 0249 REPORT 接手）|
+| 0249 | CC → CODEX | REPORT | WP-05i-pr39-rate-window-fix | PR #39 rate-window blocker 已修：rate 维度 engaged 时强制 policy.rate_window 与 request.window 同时存在且相等，否则 fail-closed（新 code `RELIABILITY_AMBIGUOUS_RATE_WINDOW`）；新 head `3435ee0e9a0eb6b7d3d987cd0253970ea3ef254d`，仅改 reliability_policy.py/__init__.py/test，本地 1154 测试绿，`git diff --check` clean，未自合并/R0-02 未启动。轮到 CODEX 复核。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
