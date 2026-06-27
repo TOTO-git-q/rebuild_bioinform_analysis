@@ -21,9 +21,16 @@ deterministic, offline registry that resolves a prompt only by stable identity
 (prompt id + exact version), binds it to a canonical template hash and a target
 schema reference, and never silently falls back to unregistered content.
 
-Later T-05 slices (structured-output admission, semantic validator hook, egress
-policy, tool broker, audit/usage/budget machinery) are out of scope for this
-foundation.
+WP-05c / T-05-03 adds the local structured-output admission contract: strict,
+fail-closed parsing of an inert provider response into structured data, a bounded
+local JSON-schema-subset validator plus an offline :class:`SchemaRegistry`, and
+:func:`admit_structured_output`, which binds a response to the prompt's exact
+registered target schema (no silent fallback), runs a bounded local repair retry
+over an explicit candidate sequence, and returns an inert :class:`AdmissionDecision`
+— never writing project state, events, artifacts, or domain tables.
+
+Later T-05 slices (semantic validator hook, egress policy, tool broker,
+audit/usage/budget machinery) are out of scope for this foundation.
 """
 
 from __future__ import annotations
@@ -100,6 +107,49 @@ from .prompt_registry import (
     validate_prompt,
 )
 from .prompt_registry import REASON_CODES as PROMPT_REASON_CODES
+from .structured_output import (
+    ADMISSION_CODES,
+    CODE_DUPLICATE_SCHEMA,
+    CODE_EMPTY_PAYLOAD,
+    CODE_MALFORMED_JSON,
+    CODE_MALFORMED_MAX_ATTEMPTS,
+    CODE_MALFORMED_SCHEMA,
+    CODE_MALFORMED_SCHEMA_ID,
+    CODE_MULTIPLE_PAYLOADS,
+    CODE_NO_CANDIDATES,
+    CODE_NON_FINITE_NUMBER,
+    CODE_PAYLOAD_TOO_LARGE,
+    CODE_REPAIR_EXHAUSTED,
+    CODE_SCHEMA_DRIFT,
+    CODE_SCHEMA_MISMATCH,
+    CODE_SCHEMA_VIOLATION,
+    CODE_UNKNOWN_SCHEMA,
+    CODE_UNSUPPORTED_SHAPE,
+    DEFAULT_MAX_ATTEMPTS,
+    MAX_OUTPUT_TEXT_LENGTH,
+    MAX_REPAIR_ATTEMPTS,
+    MAX_SCHEMA_ID_LENGTH,
+    MAX_VALIDATION_DEPTH,
+    PARSE_CODES,
+    REPAIRABLE_CODES,
+    SCHEMA_CODES,
+    SCHEMA_TYPES,
+    STATUS_ACCEPTED,
+    STATUS_REJECTED,
+    STATUSES,
+    SUPPORTED_SCHEMA_KEYWORDS,
+    AdmissionAttempt,
+    AdmissionDecision,
+    SchemaRegistry,
+    StructuredOutputError,
+    admit_structured_output,
+    is_repairable,
+    parse_structured_output,
+    validate_instance,
+    validate_schema_definition,
+)
+from .structured_output import CODE_MALFORMED_RESPONSE as CODE_ADMIT_MALFORMED_RESPONSE
+from .structured_output import REASON_CODES as STRUCTURED_OUTPUT_REASON_CODES
 
 __all__ = [
     "CODE_CONTENT_TOO_LONG",
@@ -170,4 +220,45 @@ __all__ = [
     "RegisteredPrompt",
     "ensure_valid_prompt",
     "validate_prompt",
+    "ADMISSION_CODES",
+    "CODE_DUPLICATE_SCHEMA",
+    "CODE_EMPTY_PAYLOAD",
+    "CODE_MALFORMED_JSON",
+    "CODE_MALFORMED_MAX_ATTEMPTS",
+    "CODE_ADMIT_MALFORMED_RESPONSE",
+    "CODE_MALFORMED_SCHEMA",
+    "CODE_MALFORMED_SCHEMA_ID",
+    "CODE_MULTIPLE_PAYLOADS",
+    "CODE_NO_CANDIDATES",
+    "CODE_NON_FINITE_NUMBER",
+    "CODE_PAYLOAD_TOO_LARGE",
+    "CODE_REPAIR_EXHAUSTED",
+    "CODE_SCHEMA_DRIFT",
+    "CODE_SCHEMA_MISMATCH",
+    "CODE_SCHEMA_VIOLATION",
+    "CODE_UNKNOWN_SCHEMA",
+    "CODE_UNSUPPORTED_SHAPE",
+    "DEFAULT_MAX_ATTEMPTS",
+    "MAX_OUTPUT_TEXT_LENGTH",
+    "MAX_REPAIR_ATTEMPTS",
+    "MAX_SCHEMA_ID_LENGTH",
+    "MAX_VALIDATION_DEPTH",
+    "PARSE_CODES",
+    "REPAIRABLE_CODES",
+    "SCHEMA_CODES",
+    "SCHEMA_TYPES",
+    "STATUS_ACCEPTED",
+    "STATUS_REJECTED",
+    "STATUSES",
+    "SUPPORTED_SCHEMA_KEYWORDS",
+    "STRUCTURED_OUTPUT_REASON_CODES",
+    "AdmissionAttempt",
+    "AdmissionDecision",
+    "SchemaRegistry",
+    "StructuredOutputError",
+    "admit_structured_output",
+    "is_repairable",
+    "parse_structured_output",
+    "validate_instance",
+    "validate_schema_definition",
 ]
