@@ -131,7 +131,15 @@ class AllowedTest(unittest.TestCase):
     def test_policy_shaped_mapping_is_accepted(self):
         decision = evaluate_reliability(
             {"max_requests": 5, "rate_window": "w-1m"},
-            _request(request_count=2, window="w-1m", elapsed_ms=None, estimated_cost_units=None, consumed_cost_units=None, circuit_state=None, recent_failure_count=None),
+            _request(
+                request_count=2,
+                window="w-1m",
+                elapsed_ms=None,
+                estimated_cost_units=None,
+                consumed_cost_units=None,
+                circuit_state=None,
+                recent_failure_count=None,
+            ),
         )
         self.assertEqual(decision.status, STATUS_ALLOWED)
         self.assertEqual(decision.engaged_dimensions, (DIMENSION_RATE,))
@@ -215,9 +223,7 @@ class RateWindowPairingTest(unittest.TestCase):
         self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
 
     def test_rate_engaged_without_any_window_fails_closed(self):
-        decision = evaluate_reliability(
-            self._rate_only_policy(rate_window=None), self._rate_only_request(window=None)
-        )
+        decision = evaluate_reliability(self._rate_only_policy(rate_window=None), self._rate_only_request(window=None))
         self.assertEqual(decision.status, STATUS_REJECTED)
         self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
 
