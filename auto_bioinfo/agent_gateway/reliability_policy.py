@@ -37,8 +37,9 @@ Design constraints (mirroring the WP-05a..h style):
   malformed optional reference, a negative / non-finite / oversized limit or fact,
   an unknown cost unit or ambiguous unit pairing, an unknown circuit state, an
   inconsistent circuit, a fact supplied without the limit needed to judge it (or a
-  limit with no fact), an empty policy, and any authority flag claiming to authorize
-  real execution or bypass gates all fail closed and yield **no allow**.
+  limit with no fact), an engaged rate-limit dimension whose policy / request windows
+  are unpaired or mismatched, an empty policy, and any authority flag claiming to
+  authorize real execution or bypass gates all fail closed and yield **no allow**.
 - **Over-budget escalates, never auto-allows.**  An over-budget condition yields a
   bounded ``need_human_review`` decision (:data:`CODE_BUDGET_EXCEEDED`), never an
   automatic allow.  Timeout / rate-limit / open-circuit conditions are **denied**;
@@ -133,6 +134,7 @@ CODE_MALFORMED_FACT = "RELIABILITY_MALFORMED_FACT"
 CODE_UNKNOWN_UNIT = "RELIABILITY_UNKNOWN_UNIT"
 CODE_UNKNOWN_STATE = "RELIABILITY_UNKNOWN_STATE"
 CODE_MISSING_LIMIT = "RELIABILITY_MISSING_LIMIT"
+CODE_AMBIGUOUS_RATE_WINDOW = "RELIABILITY_AMBIGUOUS_RATE_WINDOW"
 CODE_INCONSISTENT_CIRCUIT = "RELIABILITY_INCONSISTENT_CIRCUIT"
 
 CODE_TIMEOUT_EXCEEDED = "RELIABILITY_TIMEOUT_EXCEEDED"
@@ -157,6 +159,7 @@ LIMIT_FACT_CODES = (
     CODE_UNKNOWN_UNIT,
     CODE_UNKNOWN_STATE,
     CODE_MISSING_LIMIT,
+    CODE_AMBIGUOUS_RATE_WINDOW,
     CODE_INCONSISTENT_CIRCUIT,
 )
 
@@ -460,8 +463,9 @@ def evaluate_reliability(policy: Any, request: Any) -> ReliabilityDecision:
     Resolution is fail-closed, in order: policy / request shape, trace binding, call
     identity, optional references, authority flags, numeric limit / fact validity,
     cost-unit agreement, circuit vocabulary, engaged-dimension pairing (a fact without
-    its limit, a limit without its fact, or an empty policy fails closed), circuit
-    consistency, and then the bounded dimension judgements.  An over-budget condition
+    its limit, a limit without its fact, an unpaired / mismatched rate-limit window, or
+    an empty policy fails closed), circuit consistency, and then the bounded dimension
+    judgements.  An over-budget condition
     yields ``need_human_review``; a timeout / rate-limit / open-circuit breach yields
     ``denied``; only a request within every engaged limit is ``allowed``.
 
@@ -563,6 +567,13 @@ def evaluate_reliability(policy: Any, request: Any) -> ReliabilityDecision:
     if rate_referenced:
         if p.max_requests is None or r.request_count is None:
             return reject(CODE_MISSING_LIMIT)
+        # A request count is only meaningful relative to the bounded window it was
+        # counted in: when the rate dimension is engaged, the policy window and the
+        # request window must both be present and identical.  A missing window on
+        # either side, or two different windows, is ambiguous and fails closed —
+        # never a silent allow against an unpaired or mismatched window.
+        if p.rate_window is None or r.window is None or p.rate_window != r.window:
+            return reject(CODE_AMBIGUOUS_RATE_WINDOW)
         engaged.append(DIMENSION_RATE)
     if budget_referenced:
         if p.max_cost_units is None or (r.estimated_cost_units is None and r.consumed_cost_units is None):
@@ -669,6 +680,7 @@ __all__ = [
     "CODE_UNKNOWN_UNIT",
     "CODE_UNKNOWN_STATE",
     "CODE_MISSING_LIMIT",
+    "CODE_AMBIGUOUS_RATE_WINDOW",
     "CODE_INCONSISTENT_CIRCUIT",
     "CODE_TIMEOUT_EXCEEDED",
     "CODE_RATE_LIMIT_EXCEEDED",

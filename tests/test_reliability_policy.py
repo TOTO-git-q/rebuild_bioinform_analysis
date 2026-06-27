@@ -35,6 +35,7 @@ from auto_bioinfo.agent_gateway.reliability_policy import (
     CIRCUIT_CLOSED,
     CIRCUIT_HALF_OPEN,
     CIRCUIT_OPEN,
+    CODE_AMBIGUOUS_RATE_WINDOW,
     CODE_BUDGET_EXCEEDED,
     CODE_CIRCUIT_OPEN,
     CODE_FORBIDDEN_AUTHORITY,
@@ -129,8 +130,8 @@ class AllowedTest(unittest.TestCase):
 
     def test_policy_shaped_mapping_is_accepted(self):
         decision = evaluate_reliability(
-            {"max_requests": 5},
-            _request(request_count=2, elapsed_ms=None, estimated_cost_units=None, consumed_cost_units=None, circuit_state=None, recent_failure_count=None),
+            {"max_requests": 5, "rate_window": "w-1m"},
+            _request(request_count=2, window="w-1m", elapsed_ms=None, estimated_cost_units=None, consumed_cost_units=None, circuit_state=None, recent_failure_count=None),
         )
         self.assertEqual(decision.status, STATUS_ALLOWED)
         self.assertEqual(decision.engaged_dimensions, (DIMENSION_RATE,))
@@ -175,6 +176,60 @@ class RateLimitTest(unittest.TestCase):
     def test_request_count_equal_to_limit_is_allowed(self):
         decision = evaluate_reliability(_policy(max_requests=5), _request(request_count=5))
         self.assertEqual(decision.status, STATUS_ALLOWED)
+
+
+class RateWindowPairingTest(unittest.TestCase):
+    """An engaged rate-limit decision must be made against an unambiguous window.
+
+    A request count is only meaningful relative to the bounded window it was counted
+    in, so a ``w-1m`` policy must never be satisfied by a ``w-1h`` count, by a count
+    with no declared window, or by a policy that declares no window at all.  Every
+    such ambiguity fails closed; only a matching window pair under ``max_requests``
+    is allowed.
+    """
+
+    def _rate_only_policy(self, **overrides):
+        kwargs = {"max_requests": 5, "rate_window": "w-1m"}
+        kwargs.update(overrides)
+        return ReliabilityPolicy(**kwargs)
+
+    def _rate_only_request(self, **overrides):
+        kwargs = {"project_id": "p", "correlation_id": "c", "call_id": "k", "request_count": 2, "window": "w-1m"}
+        kwargs.update(overrides)
+        return ReliabilityRequest(**kwargs)
+
+    def test_mismatched_windows_fail_closed(self):
+        decision = evaluate_reliability(self._rate_only_policy(), self._rate_only_request(window="w-1h"))
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
+        self.assertFalse(decision.allowed)
+
+    def test_policy_window_with_missing_request_window_fails_closed(self):
+        decision = evaluate_reliability(self._rate_only_policy(), self._rate_only_request(window=None))
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
+
+    def test_request_window_with_missing_policy_window_fails_closed(self):
+        decision = evaluate_reliability(self._rate_only_policy(rate_window=None), self._rate_only_request())
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
+
+    def test_rate_engaged_without_any_window_fails_closed(self):
+        decision = evaluate_reliability(
+            self._rate_only_policy(rate_window=None), self._rate_only_request(window=None)
+        )
+        self.assertEqual(decision.status, STATUS_REJECTED)
+        self.assertEqual(decision.reason_code, CODE_AMBIGUOUS_RATE_WINDOW)
+
+    def test_matching_windows_remain_allowed_under_limit(self):
+        decision = evaluate_reliability(self._rate_only_policy(), self._rate_only_request())
+        self.assertEqual(decision.status, STATUS_ALLOWED)
+        self.assertEqual(decision.engaged_dimensions, (DIMENSION_RATE,))
+
+    def test_matching_windows_still_deny_over_limit(self):
+        decision = evaluate_reliability(self._rate_only_policy(), self._rate_only_request(request_count=6))
+        self.assertEqual(decision.status, STATUS_DENIED)
+        self.assertEqual(decision.reason_code, CODE_RATE_LIMIT_EXCEEDED)
 
 
 class BudgetTest(unittest.TestCase):
