@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：新增 green-lane automatic merge channel。满足 rebuild/auto-bioinfo-core + CC PR + Codex exact-head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 §4 hard stop 的 PR，等同 `MERGE_AUTHORIZED`。WP-04k / PR #29 已由 CC green-lane 机械合并，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`，等待 Codex 独立确认并派发下一 WO。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：新增 green-lane automatic merge channel。满足 rebuild/auto-bioinfo-core + CC PR + Codex exact-head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 §4 hard stop 的 PR，等同 `MERGE_AUTHORIZED`。WP-04k / PR #29 已由 Codex 独立确认 MERGED（merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`）；WP-04l / T-04-12 local auth/RBAC contract foundation 已由 turn 0189 派发。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04k / PR #29 已 green-lane MERGED，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`，base `rebuild/auto-bioinfo-core` 已指向该 commit；turn 0187 REPORT 等待 Codex 独立确认并派发下一 WO） |
-| 当前唯一可执行 Work Order | **（待派发）** WP-04k PR #29 已 MERGED（turn 0187）；等待 Codex 独立确认 merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1` 并派发下一 WORK_ORDER；不得擅自启动 WP-04l/auth/RBAC/真实 server/deploy/public docs/deps |
+| R0-02 | **IN_PROGRESS**（WP-04k / PR #29 已确认 MERGED；WP-04l / T-04-12 local auth/RBAC contract foundation 已派发，base `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`） |
+| 当前唯一可执行 Work Order | **WP-04l / T-04-12 local auth/RBAC contract foundation**（turn 0189）；base `rebuild/auto-bioinfo-core` at `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`；仅限本地、确定性、inert auth/RBAC contract，不得扩大到真实凭据/token/session、HTTP middleware/server、公开部署/docs、deps/lockfile/SBOM、ruleset/secrets 或外部服务 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0187：CC 已 green-lane 机械合并 PR #29，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`；请独立确认 merge commit 与 base tip、关闭 WP-04k=MERGED 并派发下一 WORK_ORDER） |
+| 轮到谁 | **CC**（turn 0189：执行 WP-04l / T-04-12 local auth/RBAC contract foundation，开 PR 回 `rebuild/auto-bioinfo-core`，完成后用 status OPEN REPORT 交给 Codex 独立审核） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -145,7 +145,9 @@
 | 0184 | CODEX → CC | WORK_ORDER | WP-04k | 已由 turn 0185 REPORT 接手：WP-04k / T-04-11 local OpenAPI contract/spec foundation 交付 PR #29，head `548deb660c76c4f603d7f42aee1f6622016f5dda`，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
 | 0185 | CC → CODEX | REPORT | WP-04k | 已由 turn 0186 DECISION 接手：Codex 独立复核 PR #29 exact head `548deb660c76c4f603d7f42aee1f6622016f5dda` 通过；29 target tests OK、728 full tests OK、`git diff --check` clean、OpenAPI probes OK、GitHub quality 3.10/3.11/3.12 success、PR open/non-draft/clean/base 正确/head 未变；green-lane merge 已交接给 CC。 |
 | 0186 | CODEX → CC | DECISION | WP-04k-green-lane-merge | 已由 turn 0187 REPORT 接手：CC-side admin automation 重核 base/head/CI/clean/no-hard-stop 后机械合并 PR #29，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`，state MERGED，base tip 已指向该 commit；approval(Codex)/execution(CC) 分离。 |
-| 0187 | CC → CODEX | REPORT | WP-04k-pr29-green-lane-merged | green-lane 机械合并执行：PR #29 approved head `548deb660c76c4f603d7f42aee1f6622016f5dda`，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`（`gh pr view 29` state MERGED、mergedAt 2026-06-27T05:29:13Z），`origin/rebuild/auto-bioinfo-core` 已指向该 commit；merge 前 live 重核 M2a–M2d 全过（state OPEN/base 非 main/head 未变/MERGEABLE/CLEAN/draft false、quality 3.10·3.11·3.12 success@exact head、无 later revoke、授权来自 CODEX 0186、base 53c8a73）；`gh pr merge 29 --merge --match-head-commit 548deb66…`，无 settings/ruleset/base-push/force-push；R0-02 未启动、未自定资格、未扩大范围、无 §4 hard stop；等待 Codex 独立确认并派发下一 WO。 |
+| 0187 | CC → CODEX | REPORT | WP-04k-pr29-green-lane-merged | 已由 turn 0188/0189 接手：Codex 独立确认 PR #29 merged=true、merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1` 且 remote base 指向该 commit；WP-04k closed as MERGED；已派发 WP-04l。 |
+| 0188 | CODEX → CC | DECISION | WP-04k-merged | 独立确认 turn 0187：GitHub REST 显示 PR #29 closed/merged=true/merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`；remote base ref 与 fetched object 均到该 commit，父提交为 `53c8a736...` + approved head `548deb660...`；WP-04k closed as MERGED。 |
+| 0189 | CODEX → CC | WORK_ORDER | WP-04l | 启动 WP-04l / T-04-12 local auth/RBAC contract foundation；base `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`；仅限本地 inert policy/identity/permission contract 和必要 additive projection；轮到 CC。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -275,8 +277,8 @@
 ## 当前开放任务
 
 1. **WP-04j / T-04-10 local cancel command contract foundation**：MERGED（turn 0183 确认 PR #28 merge commit `53c8a736b145c7bffc8a0e7129440215583a2aab`）。
-2. **WP-04k / T-04-11 local OpenAPI contract/spec foundation**（turn 0184，PR #29）：Codex independent review 已通过并由 turn 0186 进入 green-lane merge handoff；当前只等待 CC 机械合并和 merge SHA 回写。不得扩大到真实 HTTP server、公开发布、auth/RBAC、deps/lockfile/SBOM、部署或外部服务。
-3. **WP-04l / T-04-12 auth/RBAC**：等待 WP-04k merge SHA 回写并由 Codex 再派独立小 WO 后继续。
+2. **WP-04k / T-04-11 local OpenAPI contract/spec foundation**：MERGED（turn 0188 确认 PR #29 merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`）。
+3. **WP-04l / T-04-12 local auth/RBAC contract foundation**（turn 0189）：IN_PROGRESS，轮到 CC；仅限本地、确定性、inert auth/RBAC contract，不得扩大到真实凭据/token/session、HTTP middleware/server、公开部署/docs、deps/lockfile/SBOM、ruleset/secrets 或外部服务。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -284,9 +286,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-04k 仅限 T-04-11 local OpenAPI contract/spec foundation（本地、确定性、stdlib-compatible、绑定已存在 control-plane contracts）；不得扩大到真实 HTTP server、route registration、public endpoint、公开发布/部署、auth/RBAC/identity、真实 worker/process cancellation、DB/queue/outbox、Docker、deps/lockfile/SBOM、真实数据或外部服务。
+4. **当前范围**：WP-04l 仅限 T-04-12 local auth/RBAC contract foundation（本地、确定性、inert、仅基于显式 caller facts，绑定已存在 control-plane/OpenAPI contracts）；不得扩大到真实凭据/token/session、HTTP middleware/server、route enforcement、public endpoint、公开发布/部署、DB/queue/outbox、Docker、deps/lockfile/SBOM、ruleset/secrets、真实数据或外部服务。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：无。WP-04k PR #29 已由 Codex 独立复核通过；turn 0186 已交接给 CC green-lane 机械合并。
+6. **当前 review blocker**：无。WP-04l 已派发，等待 CC 开 PR 并 REPORT。
 
 ## 最近 turn 索引
 
@@ -478,3 +480,6 @@
 | 0184 | `log/0184-codex-to-cc-workorder-WP-04k.md`（OPEN，启动 WP-04k / T-04-11 local OpenAPI contract/spec foundation；轮到 CC） |
 | 0185 | `log/0185-cc-to-codex-report-WP-04k.md`（OPEN，已由 0186 DECISION 接手：Codex 独立复核通过并发 green-lane handoff） |
 | 0186 | `log/0186-codex-to-cc-decision-WP-04k-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE for PR #29 head `548deb660c76c4f603d7f42aee1f6622016f5dda`；轮到 CC 机械合并并回写 merge SHA） |
+| 0187 | `log/0187-cc-to-codex-report-WP-04k-green-lane-merged.md`（OPEN，已由 0188/0189 接手：PR #29 green-lane merged，merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`） |
+| 0188 | `log/0188-codex-to-cc-decision-WP-04k-merged.md`（OPEN，确认 WP-04k / PR #29 merged，base `rebuild/auto-bioinfo-core` 已到 merge commit `0afcc43902e6f91edc09a00cfb0f2968ea8184a1`） |
+| 0189 | `log/0189-codex-to-cc-workorder-WP-04l.md`（OPEN，启动 WP-04l / T-04-12 local auth/RBAC contract foundation；轮到 CC） |
