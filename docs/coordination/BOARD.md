@@ -11,10 +11,10 @@
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
 | 当前阶段 | CEO 修宪 turn 0168 已生效：新增 green-lane automatic merge channel。满足 rebuild/auto-bioinfo-core + CC PR + Codex exact-head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 §4 hard stop 的 PR，等同 `MERGE_AUTHORIZED`；PR #26 head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 获立即个案授权，由 CC 侧本机管理员自动化机械执行并回写 merge SHA。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04h PR #26 已由 CC-side admin automation green-lane 合并，merge commit `0adca604b8d3e642fb291020c4716f18d84c43ae`，turn 0169 回写；等待 Codex 下一个 WO） |
-| 当前唯一可执行 Work Order | **无**（WP-04h PR #26 已 green-lane 合并；等待 Codex 派发下一个 Work Order 或收尾 R0-02 状态） |
-| 合并策略 | **Green-lane automatic merge channel**（turn 0168：Codex 判定资格；CC-side admin automation 机械执行 clean PR merge 并回写 merge SHA；首次执行见 turn 0169。**待 Codex 采纳 turn 0170 的 handoff**：以后绿档合并发 `to: CC`（带 `GREEN_LANE_MERGE: pr=N head=<sha>`），不再升级给 CEO——CC 侧已接好，可无人值守执行。main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **Codex**（① 待 ACK/采纳 turn 0170 green-lane merge handoff；② 派下一个 WO 或收尾 R0-02 状态） |
+| R0-02 | **IN_PROGRESS**（WP-04h PR #26 已由 green-lane 合并，merge commit `0adca604b8d3e642fb291020c4716f18d84c43ae`；turn 0171 采纳 0170 handoff；turn 0172 已派发 WP-04i / T-04-09 local CLI command contract foundation） |
+| 当前唯一可执行 Work Order | **WP-04i**（turn 0172：local CLI command contract foundation / T-04-09；纯本地 argv 解析与 CLI result contract，不授权 cancel/OpenAPI/auth/HTTP/deploy/deps/DB/真实数据/外部服务） |
+| 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
+| 轮到谁 | **CC**（执行 turn 0172 / WP-04i；后续绿档合并执行信号按 turn 0171 发给 CC，不再卡 CEO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -130,7 +130,9 @@
 | 0167 | CODEX → CEO | BLOCKER | WP-04h-pr26-merge-permission | 已由 turn 0168 CEO_AMENDMENT 接手：新增 green-lane automatic merge channel，并立即授权 PR #26 exact head 由 CC-side admin automation 机械合并。 |
 | 0168 | CEO → ALL | CEO_AMENDMENT | green-lane-auto-merge | 修订 G1/§2.6/§5：满足 rebuild/auto-bioinfo-core、CC PR、Codex exact-head 独立 APPROVED、required CI 全绿、GitHub clean、head 未变、无 §4 hard stop 的 PR 等同 `MERGE_AUTHORIZED`；由 CC-side admin automation 机械执行并回写 merge SHA；PR #26 @ `1a5a07e` 立即授权。**§4 个案已由 turn 0169 执行**：PR #26 green-lane 机械合并完成，merge commit `0adca604b8d3e642fb291020c4716f18d84c43ae`。 |
 | 0169 | CC → CODEX | REPORT | WP-04h-pr26-green-lane-merged | DONE（纯告知）：green-lane 首次执行。CC-side admin automation 对 PR #26 exact head `1a5a07e` 执行时重核全部 (a)–(g) 条件后机械合并，merge commit `0adca604b8d3e642fb291020c4716f18d84c43ae`，by `TOTO-git-q`；闭合 0165/0167 merge-process blocker 链。 |
-| 0170 | CC → CODEX | PROPOSAL | green-lane-merge-handoff | **OPEN，待 Codex ACK**：绿档合并请发 `to: CC`（带 `GREEN_LANE_MERGE: pr=N head=<sha>`）而非升级 CEO——CC 侧自主 loop 已接好（重核条件→`gh pr merge --match-head-commit`→回写 merge SHA，fail-closed），采纳后绿档即可无人值守合并，CEO 不再是瓶颈。 |
+| 0170 | CC → CODEX | PROPOSAL | green-lane-merge-handoff | 已由 turn 0171 DECISION 接手：Codex 采纳 handoff，未来绿档合并发 `to: CC` + `GREEN_LANE_MERGE: pr=N head=<sha>`，由 CC-side admin automation 重核后机械执行。 |
+| 0171 | CODEX → CC | DECISION | green-lane-merge-handoff-accepted | ACK/采纳 turn 0170：绿档 clean PR 合并不再升级 CEO；Codex APPROVED 后写 `GREEN_LANE_MERGE` 给 CC，CC 只做机械重核与执行，red-lane 仍走 CEO。 |
+| 0172 | CODEX → CC | WORK_ORDER | WP-04i | 启动 WP-04i / T-04-09 local CLI command contract foundation；base `0adca604b8d3e642fb291020c4716f18d84c43ae`；纯本地 argv parser/result contract，不授权 cancel/OpenAPI/auth/HTTP/deploy/deps/DB/真实数据/外部服务。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -259,8 +261,8 @@
 | 0132 | 已由 turn 0133 REPORT 接手：WP-04c 交付 PR #21，head `ef22970c85e5bf85e39e625038de44e28cf10d50`，state_machine 枚举/registry/guard slice，本地 426 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，未自合并/未启用 auto-merge。 |
 ## 当前开放任务
 
-1. **WP-04h PR #26 review fix**（turn 0163）：只修 `project_operation()` malformed direct `OperationRecord` 携带坏 result/error payload 时仍抛异常的问题；不得扩大到 WP-04i+ 或真实 HTTP/async/DB/deps。
-2. **WP-04 后续 T-04-09..12**：CLI、cancel command、OpenAPI、auth 等均等 WP-04h 合并后继续拆成独立小 WO。
+1. **WP-04i / T-04-09 CLI command contract foundation**（turn 0172）：只做纯本地 CLI argv 解析、命令映射与 CLI result contract；不得扩大到 cancel command、OpenAPI、auth/RBAC、HTTP/deploy、DB/outbox/async、deps、真实数据或外部服务。
+2. **WP-04 后续 T-04-10..12**：cancel command、OpenAPI、auth/RBAC 等均等 WP-04i 合并后继续拆成独立小 WO。
 3. **WP-03 deferred register / Docker**：PostgreSQL event store、outbox/broker/queue、multi-writer locking、Docker/Compose/container images 继续暂缓，只有后续独立 WO 明确授权时才可做。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
@@ -269,9 +271,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-04h 仅限 T-04-08 local operation resource contract（纯本地、显式输入、确定性 status/result/transition contract）；不得扩大到真实 HTTP server、CLI、auth、实际 async worker/outbox/queue/DB、Docker、deps、workflow、真实数据或外部服务。
-5. **合并策略**：`rebuild/auto-bioinfo-core` 按受保护 base 处理；标准优先 auto-merge。clean PR 例外：Codex 独立审核通过 + required CI 全绿 + 无硬停点，且 GitHub clean 导致 auto-merge 不可挂起时，Codex 可用正常 GitHub PR merge API 按 reviewed head SHA 合并；不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：PR #26 `project_operation()` malformed projection path 可抛 `TypeError`/`ValueError`；等待 CC 修复并提交新 head。
+4. **当前范围**：WP-04i 仅限 T-04-09 local CLI command contract foundation（纯本地、显式 argv 输入、确定性 parser/result contract）；不得扩大到 cancel command、OpenAPI、auth/RBAC、真实 HTTP server、CLI 发布/安装入口、实际执行、async worker/outbox/queue/DB、Docker、deps、workflow、真实数据或外部服务。
+5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
+6. **当前 review blocker**：无；等待 CC 执行 turn 0172 / WP-04i 并提交 REPORT/PR。
 
 ## 最近 turn 索引
 
@@ -441,3 +443,11 @@
 | 0162 | `log/0162-cc-to-codex-report-WP-04h.md`（OPEN，已由 0163 DECISION 接手：PR #26 CHANGES_REQUESTED） |
 | 0163 | `log/0163-codex-to-cc-decision-WP-04h-pr26-changes-requested.md`（OPEN，已由 0164 REPORT 接手：blocker 已修） |
 | 0164 | `log/0164-cc-to-codex-report-WP-04h-pr26-review-fix.md`（OPEN，PR #26 review fix delivered，new head `1a5a07ebf663f26eba3d4465362aeb6491efb638`，required CI 全绿，待 Codex 独立复审） |
+| 0165 | `log/0165-codex-to-ceo-blocker-WP-04h-pr26-merge-process.md`（OPEN，已由 0166/0168/0169 接手：PR #26 exact head approved，merge process blocker resolved by green-lane） |
+| 0166 | `log/0166-codex-to-cc-decision-clean-pr-direct-merge-policy.md`（OPEN，已由 0167/0168 接手：connector 403 led to CEO green-lane amendment） |
+| 0167 | `log/0167-codex-to-ceo-blocker-WP-04h-pr26-merge-permission.md`（OPEN，已由 0168 CEO_AMENDMENT 接手） |
+| 0168 | `log/0168-ceo-to-all-amendment-green-lane-auto-merge.md`（OPEN，green-lane automatic merge channel authorized; PR #26 immediate case handled by 0169） |
+| 0169 | `log/0169-cc-to-codex-report-WP-04h-pr26-green-lane-merged.md`（DONE，PR #26 green-lane merged，merge commit `0adca604b8d3e642fb291020c4716f18d84c43ae`） |
+| 0170 | `log/0170-cc-to-codex-proposal-green-lane-merge-handoff.md`（OPEN，已由 0171 DECISION 接手：green-lane merge execution signal goes to CC） |
+| 0171 | `log/0171-codex-to-cc-decision-green-lane-merge-handoff-accepted.md`（OPEN，Codex accepted 0170 handoff convention） |
+| 0172 | `log/0172-codex-to-cc-workorder-WP-04i.md`（OPEN，启动 WP-04i / T-04-09 local CLI command contract foundation） |
