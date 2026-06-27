@@ -9,8 +9,10 @@ call):
   ``needs_clarification`` and never auto-split,
 - a clearly non-bioinformatics request,
 - an external LLM/provider request and a network/content-egress request,
-- a real human-derived-data hard-stop-shaped request (and that an approved
-  data-lock fact lifts that one hard stop),
+- a real human-derived-data hard-stop-shaped request (and that only the exact
+  boolean ``True`` data-lock fact lifts that one hard stop, while a non-boolean
+  truthy ``data_lock_approved`` value such as ``"false"``/``"yes"``/``1``/an
+  object fails closed as malformed and never becomes ``supported``),
 - a destructive request and a credential/ruleset request,
 - malformed input (non-string, blank, oversized, non-printable, malformed caller
   facts),
@@ -163,6 +165,49 @@ class HardStopRequestTest(_AssertDecisionMixin):
     def test_public_deploy_request(self) -> None:
         decision = classify_support_scope(PUBLIC_DEPLOY_REQUEST)
         self.assert_decision(decision, CLASS_OUT_OF_SCOPE, CODE_PUBLIC_DEPLOY_OR_PUBLISH)
+
+
+class DataLockApprovedExactBooleanTest(_AssertDecisionMixin):
+    """``data_lock_approved`` must be an *exact* boolean; only ``True`` lifts the
+    real-human-data hard stop, and no non-boolean truthy value can ever produce a
+    ``supported`` decision for a real-human-data request (fail-closed boundary)."""
+
+    # Non-boolean values that generic truthiness would have mis-read.  None must
+    # never lift the hard stop and none may yield ``supported``.
+    _NON_BOOLEAN_VALUES = ("false", "true", "no", "yes", "0", "1", 0, 1, 2, -1, 1.0, [], {}, object())
+
+    def test_non_boolean_data_lock_is_malformed_for_real_human_data(self) -> None:
+        # The exact strings/ints/objects called out in the review: none becomes
+        # ``supported``; each fails closed as a malformed request.
+        for value in self._NON_BOOLEAN_VALUES:
+            with self.subTest(value=value):
+                decision = classify_support_scope(REAL_HUMAN_DATA_REQUEST, caller_facts={"data_lock_approved": value})
+                self.assert_decision(decision, CLASS_MALFORMED_REQUEST, CODE_MALFORMED_CALLER_FACTS)
+                self.assertFalse(decision.supported)
+                self.assertNotEqual(decision.reason_code, CODE_SUPPORTED)
+                # The exact-boolean audit binding never records an approval here.
+                self.assertFalse(decision.binding["data_lock_approved"])
+
+    def test_non_boolean_data_lock_is_malformed_for_ordinary_request(self) -> None:
+        # The exact-boolean rule holds regardless of the request text: a malformed
+        # caller fact fails closed even for an otherwise-supported request.
+        for value in ("false", "yes", 1, object()):
+            with self.subTest(value=value):
+                decision = classify_support_scope(SUPPORTED_REQUEST, caller_facts={"data_lock_approved": value})
+                self.assert_decision(decision, CLASS_MALFORMED_REQUEST, CODE_MALFORMED_CALLER_FACTS)
+                self.assertFalse(decision.supported)
+
+    def test_data_lock_false_keeps_real_human_data_hard_stopped(self) -> None:
+        # Exact ``False`` is valid but does not lift the hard stop.
+        decision = classify_support_scope(REAL_HUMAN_DATA_REQUEST, caller_facts={"data_lock_approved": False})
+        self.assert_decision(decision, CLASS_OUT_OF_SCOPE, CODE_REAL_HUMAN_DATA_BEFORE_LOCK)
+        self.assertFalse(decision.binding["data_lock_approved"])
+
+    def test_only_exact_true_lifts_real_human_data_hard_stop(self) -> None:
+        # The single value that may lift this specific hard stop.
+        decision = classify_support_scope(REAL_HUMAN_DATA_REQUEST, caller_facts={"data_lock_approved": True})
+        self.assertNotEqual(decision.reason_code, CODE_REAL_HUMAN_DATA_BEFORE_LOCK)
+        self.assertTrue(decision.binding["data_lock_approved"])
 
 
 class ForbiddenAuthorityFactTest(_AssertDecisionMixin):

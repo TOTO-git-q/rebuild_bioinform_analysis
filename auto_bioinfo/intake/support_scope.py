@@ -92,9 +92,12 @@ FORBIDDEN_AUTHORITY_FACTS = frozenset(
     }
 )
 # The one recognised, *non-authority* context fact: whether an approved
-# dataset/data-lock workflow already exists for this request.  Only when this is
-# truthy may a real-human-derived-data request pass the intake hard stop (later
-# stages still govern the actual lock); absent/false fails that hard stop closed.
+# dataset/data-lock workflow already exists for this request.  It must be an exact
+# boolean — only the literal ``True`` may let a real-human-derived-data request
+# pass the intake hard stop (later stages still govern the actual lock); absent or
+# the literal ``False`` fails that hard stop closed, and any non-boolean value
+# (e.g. the string ``"false"``/``"yes"`` or the integer ``1``) is a malformed
+# request, never an approval.
 DATA_LOCK_APPROVED_FACT = "data_lock_approved"
 
 # --- Bounded classification vocabulary ---------------------------------------
@@ -472,6 +475,17 @@ def _validate_caller_facts(caller_facts: Any) -> tuple[Mapping[str, Any], tuple[
     for key in caller_facts:
         if not isinstance(key, str):
             return ({}, (CODE_MALFORMED_CALLER_FACTS, "caller_facts keys must be strings"))
+    # The only recognised context fact, ``data_lock_approved``, gates the
+    # real-human-data hard stop, so it must be an *exact* boolean.  Generic
+    # truthiness would let a malformed caller value such as the string ``"false"``,
+    # ``"no"``, or the integer ``1`` lift that hard stop — none of which is evidence
+    # that an approved dataset/data-lock workflow exists.  When the fact is present
+    # with any non-boolean value, fail closed as a malformed request.
+    if DATA_LOCK_APPROVED_FACT in caller_facts and not isinstance(caller_facts[DATA_LOCK_APPROVED_FACT], bool):
+        return (
+            {},
+            (CODE_MALFORMED_CALLER_FACTS, f"caller fact {DATA_LOCK_APPROVED_FACT!r} must be the exact boolean True or False"),
+        )
     for flag in FORBIDDEN_AUTHORITY_FACTS:
         if caller_facts.get(flag):
             return (
@@ -502,8 +516,11 @@ def classify_support_scope(request: Any, *, caller_facts: Mapping[str, Any] | No
        ruleset/branch-protection change, a paid service, or public deployment/
        publishing → ``out_of_scope``.
     5. **Real human data** — text needing real human-derived data while no
-       approved dataset/data-lock workflow exists (``data_lock_approved`` not
-       truthy) → ``out_of_scope``.
+       approved dataset/data-lock workflow exists (``data_lock_approved`` is not
+       the exact boolean ``True``) → ``out_of_scope``.  ``data_lock_approved`` is
+       validated as an exact boolean in step 2, so a non-boolean truthy value such
+       as ``"false"`` or ``1`` is already ``malformed_request`` and can never lift
+       this hard stop.
     6. **Non-bioinformatics** — no bioinformatics-domain signal at all →
        ``unsupported_non_bioinformatics``.
     7. **Clarification** — two or more distinct analysis topics (multi-topic) or a
@@ -517,7 +534,9 @@ def classify_support_scope(request: Any, *, caller_facts: Mapping[str, Any] | No
             "input_kind": input_kind,
             "text_length": len(text) if isinstance(text, str) else None,
             "caller_fact_keys": sorted(str(k) for k in caller_facts) if isinstance(caller_facts, Mapping) else [],
-            "data_lock_approved": bool(caller_facts.get(DATA_LOCK_APPROVED_FACT)) if isinstance(caller_facts, Mapping) else False,
+            # Exact-boolean: the audit binding records an approved data-lock *only*
+            # for the exact boolean ``True``, never for an arbitrary truthy value.
+            "data_lock_approved": caller_facts.get(DATA_LOCK_APPROVED_FACT) is True if isinstance(caller_facts, Mapping) else False,
             "detected_topics": topics if topics is not None else [],
             "matched_markers": {
                 "bioinformatics": _matches(lowered, _BIOINFORMATICS_MARKERS),
@@ -582,7 +601,7 @@ def classify_support_scope(request: Any, *, caller_facts: Mapping[str, Any] | No
         return _decide(CODE_PUBLIC_DEPLOY_OR_PUBLISH, "request asks for public deployment/publishing, which intake stops", lowered=lowered, topics=topics)
 
     # 5. Real human-derived data before an approved data-lock workflow.
-    if _matches(lowered, _REAL_HUMAN_DATA_MARKERS) and not caller_facts.get(DATA_LOCK_APPROVED_FACT):
+    if _matches(lowered, _REAL_HUMAN_DATA_MARKERS) and caller_facts.get(DATA_LOCK_APPROVED_FACT) is not True:
         return _decide(
             CODE_REAL_HUMAN_DATA_BEFORE_LOCK,
             "request requires real human-derived data before an approved dataset/data-lock workflow exists; intake stops",
