@@ -320,16 +320,23 @@ def _binding(
 
 
 def _validate_operation_id(operation_id: Any) -> tuple[str, str] | None:
-    """Return ``(code, message)`` if the target operation id is unusable, else ``None``."""
-    if not isinstance(operation_id, str) or not operation_id.strip():
+    """Return ``(code, message)`` if the target operation id is unusable, else ``None``.
+
+    The id is validated **exactly as supplied** — it is never stripped or otherwise
+    normalised.  A value padded with leading/trailing whitespace (e.g. ``" op-123 "``)
+    is therefore rejected as malformed rather than silently retargeted at a *different*
+    operation (``"op-123"``): the visible-ASCII-token rule already forbids spaces and
+    control characters, so the fingerprint/binding and the operation-id comparison stay
+    bound to the precise token the caller handed in (fail closed for malformed ids).
+    """
+    if not isinstance(operation_id, str) or not operation_id:
         return (CODE_MALFORMED_OPERATION_ID, "operation_id must be a non-blank string")
-    token = operation_id.strip()
-    if len(token) > MAX_OPERATION_ID_LENGTH:
+    if len(operation_id) > MAX_OPERATION_ID_LENGTH:
         return (
             CODE_MALFORMED_OPERATION_ID,
-            f"operation_id length {len(token)} exceeds the maximum of {MAX_OPERATION_ID_LENGTH}",
+            f"operation_id length {len(operation_id)} exceeds the maximum of {MAX_OPERATION_ID_LENGTH}",
         )
-    if not _is_visible_ascii_token(token):
+    if not _is_visible_ascii_token(operation_id):
         return (
             CODE_MALFORMED_OPERATION_ID,
             "operation_id must be a single-line token of visible ASCII (no spaces or control characters)",
@@ -446,7 +453,10 @@ def evaluate_cancel_request(
     """
     # 1. Request-shape validation (operation id, identity, version, reason, authority).
     op_id_error = _validate_operation_id(request.operation_id)
-    op_id = request.operation_id.strip() if op_id_error is None else request.operation_id
+    # A valid operation id is a visible-ASCII token with no surrounding whitespace, so
+    # the cancel target is the id exactly as supplied — it is never stripped into a
+    # different value before the operation-record id comparison below.
+    op_id = request.operation_id
 
     fingerprint = ""
     try:

@@ -145,6 +145,19 @@ class CancelCommandContractTest(unittest.TestCase):
         decision = evaluate_cancel_request(_request(operation_id="op 1"), operation=_operation(operation_id="op 1"))
         self.assertEqual(decision.reason_code, CODE_MALFORMED_OPERATION_ID)
 
+    def test_padded_operation_id_fails_closed_does_not_retarget_canonical_operation(self):
+        # A padded operation id (" op-123 ") must NOT be silently stripped into the
+        # canonical id ("op-123") and cancel that operation; it fails closed instead,
+        # and never projects a cancelled record nor binds the canonical operation.
+        for padded in (" op-123", "op-123 ", " op-123 ", "\top-123", "op-123\n"):
+            with self.subTest(operation_id=padded):
+                decision = evaluate_cancel_request(_request(operation_id=padded), operation=_operation(operation_id="op-123"))
+                self.assertEqual(decision.status, STATUS_INVALID)
+                self.assertEqual(decision.reason_code, CODE_MALFORMED_OPERATION_ID)
+                self.assertIsNone(decision.operation)
+                # The binding records the exact (padded) token considered, not a normalised one.
+                self.assertEqual(decision.binding["operation_id"], padded)
+
     def test_missing_idempotency_key_fails_closed(self):
         decision = evaluate_cancel_request(_request(idempotency_key=""), operation=_operation())
         self.assertEqual(decision.status, STATUS_INVALID)
@@ -330,6 +343,30 @@ class CancelCommandCliTest(unittest.TestCase):
         result = run_cli(self._argv("--current-version", "abc"))
         self.assertEqual(result.status, CLI_STATUS_USAGE_ERROR)
         self.assertEqual(result.reason_code, CODE_MALFORMED_OPTION)
+
+    def test_cli_cancel_padded_operation_id_is_usage_error(self):
+        # The same padded-id target passed through the CLI must fail closed (usage
+        # error) rather than be stripped into the canonical operation and cancelled.
+        for padded in (" op-123", "op-123 ", " op-123 "):
+            with self.subTest(operation_id=padded):
+                argv = [
+                    "command",
+                    "cancel",
+                    "--operation-id",
+                    padded,
+                    "--key",
+                    "cancel-key",
+                    "--operation-command-type",
+                    "create_project",
+                    "--operation-key",
+                    "orig-key",
+                    "--operation-status",
+                    OP_RUNNING,
+                ]
+                result = run_cli(argv)
+                self.assertEqual(result.status, CLI_STATUS_USAGE_ERROR)
+                self.assertEqual(result.reason_code, CODE_MALFORMED_OPERATION_ID)
+                self.assertIsNone(result.binding["decision"]["operation"])
 
     def test_cli_cancel_does_not_mutate_argv(self):
         argv = self._argv("--operation-status", OP_RUNNING)
