@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05g / PR #37 已由 Codex 独立确认合并，merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`（turn 0238）。WP-05h / PR #38 turn 0241 CHANGES_REQUESTED 已由 turn 0242 REPORT 接手修复：`AuditRecord` 的 `usage` / `metadata`（含嵌套容器）现以 `_freeze`（`MappingProxyType` + tuple）深度只读存储，post-build 原地改写一律 `TypeError`；`to_dict()` / `audit_projection()` 经 `_to_plain` 仍返回纯可变 JSON-like。新 head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，本地 1091 测试绿、ruff lint/format 绿、`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立复核。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05h / PR #38 已由 Codex 独立复核通过并在 turn 0243 发出 green-lane merge handoff：`GREEN_LANE_MERGE: pr=38 head=9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`。Codex 未直接 merge/auto-merge/push base；轮到 CC 机械重核并合并。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37 均已 MERGED；WP-05h / T-05-08 PR #38 OPEN，新 head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，required CI 全绿，turn 0242 已修复 audit record nested mutability blocker，待 Codex 独立复核） |
-| 当前唯一可执行 Work Order | **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：turn 0241 CHANGES_REQUESTED 已由 turn 0242 REPORT 接手——`AuditRecord` 的 `usage` / `metadata`（含嵌套容器）已改为深度只读（`MappingProxyType`/tuple），post-build 原地改写一律 `TypeError`，`to_dict()`/`audit_projection()` 仍返回纯 JSON-like；不得扩大到真实 provider/tool/network、持久化审计或 T-05-09+。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37 均已 MERGED；WP-05h / PR #38 exact head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609` 已由 turn 0243 green-lane handoff 给 CC 机械合并） |
+| 当前唯一可执行 Work Order | **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：PR #38 已由 turn 0243 green-lane handoff 给 CC；CC 仅可机械重核 exact head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`、required CI、GitHub clean 与 hard-stop 条件后合并并回写 merge SHA。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0242：独立复核 WP-05h / PR #38 immutability 修复 @ head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`） |
+| 轮到谁 | **CC**（turn 0243：机械重核并 green-lane merge PR #38 exact head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，然后回写 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -200,7 +200,8 @@
 | 0239 | CODEX → CC | WORK_ORDER | WP-05h | 已由 turn 0240/0241 接手：WP-05h / PR #38 初审 CHANGES_REQUESTED，需修复 audit record nested mutability blocker。 |
 | 0240 | CC → CODEX | REPORT | WP-05h | 已由 turn 0241 DECISION 接手：PR #38 初审 CHANGES_REQUESTED，需修复 audit record nested mutability blocker。 |
 | 0241 | CODEX → CC | DECISION | WP-05h-pr38-changes-requested | 已由 turn 0242 REPORT 接手：blocker 已修——`AuditRecord` 的 `usage` / `metadata`（含嵌套）改为深度只读，post-build 原地改写 `TypeError`，`to_dict()`/`audit_projection()` 仍返回纯 JSON-like；PR #38 新 head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，required CI 全绿。 |
-| 0242 | CC → CODEX | REPORT | WP-05h-pr38-immutability-fix | WP-05h / PR #38 immutability 修复交付：`_freeze`（`MappingProxyType`+tuple）深度冻结 `usage`/`metadata`（含嵌套容器），`record.usage[...]=x` / `record.metadata[...]=x` / 嵌套写均 `TypeError`；`_to_plain` 让 `to_dict()`/`audit_projection()` 返回纯可变 JSON-like。仅改 `audit_record.py`+`test_audit_record.py`；新增 `RecordFactsAreImmutableTest`(5)；新 head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，本地 1091 测试绿（focused 54）、ruff lint/format 绿、`git diff --check` clean，required CI quality 3.10/3.11/3.12 全绿，PR #38 OPEN/CLEAN/MERGEABLE；未自合并/未启用 auto-merge，R0-02 未启动，无 hard-stop。待 Codex 独立复核。 |
+| 0242 | CC → CODEX | REPORT | WP-05h-pr38-immutability-fix | 已由 turn 0243 DECISION 接手：Codex 独立复核通过并发 green-lane handoff。 |
+| 0243 | CODEX → CC | DECISION | WP-05h-green-lane-merge | GREEN_LANE_MERGE for PR #38 head 9791e5cee96c4fac7110e6c9e9d6d5a989ca1609；focused 54/full 1091 tests OK、diff check clean、required CI 全绿、GitHub clean、无 hard-stop；轮到 CC 机械合并并回写 merge SHA。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -339,7 +340,7 @@
 8. **WP-05e / T-05-05 local sensitive-content, minimal-context, and redaction contract**（turn 0220，PR #35）：**MERGED**（turn 0226 独立确认），merge commit `b230110e8f9361d5704e4f503701fcf82f3ab426`.
 9. **WP-05f / T-05-06 local tool allowlist and Tool Broker interface**（turn 0227，PR #36）：**MERGED**（turn 0233 独立确认），merge commit `0cc849e755b7dbea1d8a1fda4b7d11c445b25442`.
 10. **WP-05g / T-05-07 local restricted raw-output artifact reference contract**（turn 0234；PR #37）：**MERGED**（turn 0238 独立确认），merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`.
-11. **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：**CHANGES_REQUESTED**；PR #38 初审发现 audit record nested mutability blocker，等待 CC 修复。
+11. **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239）：**GREEN_LANE_HANDOFF**；PR #38 exact head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609` 已由 turn 0243 交给 CC 机械合并。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -347,9 +348,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05h / T-05-08 local provider-tool call audit record contract；CC 仅修复 PR #38 中 `AuditRecord` nested mutability blocker，保持本地/离线/确定性 audit record data shapes、builder/validator 与 in-memory project/correlation query。不得真实 LLM/provider/tool/network 调用，不得真实数据/真实模型输出/真实用户内容，不得持久化 audit/event/log/project-state/queue/DB/report/index，不得记录 prompt/raw output/raw input/tool arguments 全文，不得读取真实 clock，不得触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署或 T-05-09+。
+4. **当前范围**：WP-05h / T-05-08 local provider-tool call audit record contract；CC 仅可按 turn 0243 对 PR #38 exact head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609` 执行 green-lane 机械重核与合并。不得真实 LLM/provider/tool/network 调用，不得真实数据/真实模型输出/真实用户内容，不得持久化 audit/event/log/project-state/queue/DB/report/index，不得记录 prompt/raw output/raw input/tool arguments 全文，不得读取真实 clock，不得触碰凭据/env/provider SDK/deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署或 T-05-09+。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：WP-05h / PR #38：`AuditRecord.usage` / `metadata` 暴露 mutable dict，允许在 `record_id` 计算后改写 audit facts；等待 CC 修复。
+6. **当前 review blocker**：无。WP-05h / PR #38 已由 turn 0243 独立复核通过并交给 CC green-lane 机械合并。
 
 ## 最近 turn 索引
 
@@ -596,4 +597,5 @@
 | 0239 | `log/0239-codex-to-cc-workorder-WP-05h.md`（已由 turn 0240/0241 接手；PR #38 CHANGES_REQUESTED） |
 | 0240 | `log/0240-cc-to-codex-report-WP-05h.md`（OPEN，已由 0241 DECISION 接手：PR #38 CHANGES_REQUESTED） |
 | 0241 | `log/0241-codex-to-cc-decision-WP-05h-pr38-changes-requested.md`（已由 0242 REPORT 接手：blocker 已修，PR #38 新 head `9791e5c`） |
-| 0242 | `log/0242-cc-to-codex-report-WP-05h-pr38-immutability-fix.md`（OPEN，PR #38 immutability 修复，新 head `9791e5cee96c4fac7110e6c9e9d6d5a989ca1609`，required CI 全绿，待 Codex 独立复核） |
+| 0242 | log/0242-cc-to-codex-report-WP-05h-pr38-immutability-fix.md（OPEN，已由 0243 DECISION 接手：PR #38 green-lane handoff） |
+| 0243 | log/0243-codex-to-cc-decision-WP-05h-green-lane-merge.md（OPEN，GREEN_LANE_MERGE for PR #38 head 9791e5cee96c4fac7110e6c9e9d6d5a989ca1609；轮到 CC 机械合并） |
