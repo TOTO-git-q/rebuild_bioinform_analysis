@@ -21,7 +21,10 @@ WP-04h adds the pure, local operation-resource state/result contract
 (:func:`new_operation`, :func:`apply_transition`, :func:`project_operation`,
 :func:`operation_from_command_result`) that models a long-running command's
 operation as a deterministic, bounded lifecycle value — with no actual
-asynchronous execution.
+asynchronous execution.  WP-04i adds the pure, local CLI command contract
+foundation (:func:`run_cli`) that parses an explicit ``argv`` list deterministically
+and maps it onto the existing command-API decision — with no real console, process
+exit, subprocess, or entry-point side effect.
 """
 
 from __future__ import annotations
@@ -36,6 +39,16 @@ from .approval_lifecycle import (
     expire,
     is_due,
     reject,
+)
+from .cli_contract import (
+    CLI_REASON_CODES,
+    CLI_STATUSES,
+    COMMANDS,
+    CliResult,
+    OptionSpec,
+    ParsedInvocation,
+    SubcommandSpec,
+    run_cli,
 )
 from .command_api import (
     CommandApiResult,
@@ -134,6 +147,14 @@ __all__ = [
     "evaluate_command_request",
     "parse_command_headers",
     "record_for",
+    "CLI_REASON_CODES",
+    "CLI_STATUSES",
+    "COMMANDS",
+    "CliResult",
+    "OptionSpec",
+    "ParsedInvocation",
+    "SubcommandSpec",
+    "run_cli",
     "CreateProjectCommand",
     "CreateProjectConflict",
     "CreateProjectError",
