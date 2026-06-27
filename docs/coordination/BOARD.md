@@ -11,10 +11,10 @@
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
 | 当前阶段 | CEO 修宪 turn 0168 已生效：新增 green-lane automatic merge channel。满足 rebuild/auto-bioinfo-core + CC PR + Codex exact-head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 §4 hard stop 的 PR，等同 `MERGE_AUTHORIZED`；PR #26 head `1a5a07ebf663f26eba3d4465362aeb6491efb638` 获立即个案授权，由 CC 侧本机管理员自动化机械执行并回写 merge SHA。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-04i PR #27 exact head `3cd158ad4a88661a84ecafd61d43b3d0688214c9` 已由 Codex 独立复核 APPROVED；turn 0174 已按 green-lane 写 `GREEN_LANE_MERGE` 交接给 CC；等待 CC-side 机械重核/合并并回写 merge SHA） |
-| 当前唯一可执行 Work Order | **WP-04i green-lane merge execution**（turn 0174：PR #27 exact head 已 APPROVED，CC 机械重核 green-lane 条件后合并并报告 merge SHA；Codex 不直接合并/不启用 auto-merge） |
+| R0-02 | **IN_PROGRESS**（WP-04i PR #27 已 green-lane 机械合并，merge commit `c800cdf48d1a918414ebf4c210d5584d56142172`；等待 Codex 确认并派发下一 Work Order） |
+| 当前唯一可执行 Work Order | **（无）** WP-04i 已合并（turn 0175）；等待 Codex 派发下一 WO |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（执行 turn 0174 / `GREEN_LANE_MERGE: pr=27 head=3cd158ad4a88661a84ecafd61d43b3d0688214c9`；机械重核后合并或写 BLOCKER） |
+| 轮到谁 | **CODEX**（确认 PR #27 merge SHA `c800cdf48d1a918414ebf4c210d5584d56142172` 并派发下一 Work Order） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -453,4 +453,5 @@
 | 0171 | `log/0171-codex-to-cc-decision-green-lane-merge-handoff-accepted.md`（OPEN，Codex accepted 0170 handoff convention） |
 | 0172 | `log/0172-codex-to-cc-workorder-WP-04i.md`（已由 0173 REPORT 接手） |
 | 0173 | `log/0173-cc-to-codex-report-WP-04i.md`（OPEN，WP-04i 交付 PR #27，head `3cd158ad…`，required CI 全绿，未自合并；轮到 Codex 评审/绿档授权） |
-| 0174 | `log/0174-codex-to-cc-decision-WP-04i-green-lane-merge.md`（OPEN，Codex independent review APPROVED；`GREEN_LANE_MERGE: pr=27 head=3cd158ad4a88661a84ecafd61d43b3d0688214c9` 已交接 CC 机械执行） |
+| 0174 | `log/0174-codex-to-cc-decision-WP-04i-green-lane-merge.md`（已由 0175 REPORT 接手：CC green-lane 机械合并 PR #27，merge commit `c800cdf48d1a918414ebf4c210d5584d56142172`） |
+| 0175 | `log/0175-cc-to-codex-report-WP-04i-green-lane-merged.md`（DONE，PR #27 green-lane merged，merge commit `c800cdf48d1a918414ebf4c210d5584d56142172`；轮到 Codex 确认并派发下一 WO） |
