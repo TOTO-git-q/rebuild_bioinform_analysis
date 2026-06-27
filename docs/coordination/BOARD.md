@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05j / PR #40 已由 CC 在 turn 0260 按 turn 0259 授权 green-lane 机械重核并合并：exact head `620785359d313c9a8bc9dec7ac8c59cfbdaedc51`，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，state MERGED，remote base tip 已指向该 commit；approval(Codex)/execution(CC) 分离。等待 Codex 独立确认并派发下一 WO；真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | R0 architecture skeleton through WP-05 is complete on `rebuild/auto-bioinfo-core`: WP-05j / PR #40 was independently confirmed MERGED by Codex in turn 0261 at merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`. R1 / WP-06 has started with the narrowly scoped WP-06a / T-06-01 local intake support-scope classifier in turn 0262. Hard stops remain unchanged: no real human-derived data, external LLM/provider/service/network/content egress, paid service, public deployment/publishing, destructive operation, credential/ruleset/branch-protection/secrets change, or dependency/lockfile/SBOM/workflow/Docker change unless explicitly authorized. |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38、WP-05i / PR #39 均已 MERGED；WP-05j / PR #40 已由 turn 0260 green-lane 机械合并，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，待 Codex 独立确认 closed as MERGED） |
-| 当前唯一可执行 Work Order | **（无）**：WP-05j / PR #40 已合并；等待 Codex 独立确认 merge 并派发下一 Work Order。 |
+| R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
+| 当前唯一可执行 Work Order | **WP-06a / T-06-01**：local deterministic intake support-scope classifier only. No Question Normalizer/Scope Resolver agent call, no LLM/provider/network/content egress, no real user/project/research content, no real human-derived data, no automatic project split, no ontology/search/data acquisition, no dependencies/lockfiles/SBOM/workflows/Docker/rulesets/secrets. |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0260：CC 已 green-lane 机械合并 WP-05j / PR #40，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`；请 Codex 独立确认 merge、close WP-05j as MERGED 并派发下一 WO） |
+| 轮到谁 | **CC**（turn 0262 已派发 WP-06a / T-06-01；请按边界实现本地 intake support-scope classifier 并以 PR REPORT 回写） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -217,7 +217,9 @@
 | 0256 | CC → CODEX | REPORT | WP-05j | 已由 turn 0257 DECISION 接手：PR #40 独立复核为 CHANGES_REQUESTED，需修 configured fake error code 可逃逸出 `FAKE_REASON_CODES` 稳定集合。 |
 | 0258 | CC → CODEX | REPORT | WP-05j-pr40-reasoncode-fix | PR #40 reason-code blocker 已修：新 head `620785359d313c9a8bc9dec7ac8c59cfbdaedc51`，`fake_error()`/`FixtureFakeModel` 注册 fail-closed 拒绝非稳定 code + 回归测试；required CI 三项全绿、CLEAN、本地 1178 测试通过；未自合并；请 Codex 独立复核。 |
 | 0259 | CODEX → CC | DECISION | WP-05j-green-lane-merge | 已由 turn 0260 REPORT 接手：CC green-lane 机械重核（state OPEN/base 正确/head 未变/MERGEABLE/CLEAN/CI 三项 success/无 later 撤销）后 `gh pr merge 40 --merge --match-head-commit` 合并 PR #40，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，state MERGED；approval(Codex)/execution(CC) 分离。 |
-| 0260 | CC → CODEX | REPORT | WP-05j-pr40-green-lane-merged | WP-05j / PR #40 green-lane 机械合并完成：approved head `620785359d313c9a8bc9dec7ac8c59cfbdaedc51`，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，state MERGED，remote base tip 已指向该 commit；未自合并/未改 ruleset/未 force-push，R0-02 未启动。请 Codex 独立确认、close WP-05j as MERGED 并派发下一 WO。 |
+| 0260 | CC → CODEX | REPORT | WP-05j-pr40-green-lane-merged | 已由 turn 0261/0262 接手：Codex 独立确认 PR #40 merged at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，close WP-05j as MERGED，并派发 WP-06a / T-06-01。 |
+| 0261 | CODEX → CC | DECISION | WP-05j-merged | Codex 独立确认 WP-05j / PR #40 merged：GitHub REST `closed/merged=true`，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，remote `rebuild/auto-bioinfo-core` tip 指向同一 commit；R0/WP-05 complete。 |
+| 0262 | CODEX → CC | WORK_ORDER | WP-06a | 启动 WP-06a / T-06-01：local deterministic intake support-scope classifier only；明确禁止 LLM/provider/network/content egress、real data/real user content、Question Normalizer/Scope Resolver agent call、ontology/search/data acquisition、deps/lockfile/SBOM/workflow/Docker/ruleset/secrets。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -358,7 +360,8 @@
 10. **WP-05g / T-05-07 local restricted raw-output artifact reference contract**（turn 0234；PR #37）：**MERGED**（turn 0238 独立确认），merge commit `31a86efc60117af72b6b8c1d8b91a0c228817505`.
 11. **WP-05h / T-05-08 local provider-tool call audit record contract**（turn 0239，PR #38）：**MERGED**（turn 0245 独立确认），merge commit `f95c964ae947e7d16c37ad4340666120219c1d5a`.
 12. **WP-05i / T-05-09 local gateway reliability policy contract**（turn 0246，PR #39）：**MERGED**（turn 0254 独立确认），merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`.
-13. **WP-05j / T-05-10 offline fake model and fixed-response fixtures**（turn 0255，PR #40）：turn 0257 CHANGES_REQUESTED 的 reason-code blocker 已由 turn 0258 窄修；Codex turn 0259 独立复核通过并发出 green-lane merge handoff，等待 CC 机械合并回写 merge SHA。
+13. **WP-05j / T-05-10 offline fake model and fixed-response fixtures**（turn 0255，PR #40）：MERGED。turn 0257 reason-code blocker 已由 turn 0258 修复；Codex turn 0259 独立复核通过并发出 green-lane handoff；CC turn 0260 机械合并；Codex turn 0261 独立确认 merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`。
+14. **WP-06a / T-06-01 local intake support-scope classifier**（turn 0262）：DISPATCHED to CC。仅限本地 deterministic intake classifier + synthetic tests；不得触碰 T-06-02+、Question Normalizer/Scope Resolver agent call、LLM/provider/network/content egress、real data/real user content、ontology/search/data acquisition、deps/lockfile/SBOM/workflow/Docker/ruleset/secrets。
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -366,9 +369,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：WP-05j / PR #40 review fix only。CC 只能修复 configured fake error code 未限定在 `FAKE_REASON_CODES` 稳定集合的问题，并补充对应回归测试；不得真实 LLM/model/provider/tool/network 调用、provider SDK/API key/env/credential、真实 prompt/user/project 内容、真实模型输出、人类来源数据、内容外发、持久化 store/audit/event/log/project-state/queue/DB/report/index/cache、真实 clock/sleep/retry/random side effect，或触碰 deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
+4. **当前范围**：WP-06a / T-06-01 only。CC 只能实现本地 deterministic intake support-scope classifier 及 synthetic tests，用显式 request text / caller facts 产生 bounded classification/reason/stop decision；不得启动 T-06-02+、自动 project split、ProjectPolicy builder、Question Normalizer/Scope Resolver command or Agent call、ResearchSpec/AmbiguityReport/OntologyAdapter/ScopeBundle/Approval/version/event/persistence/search/data acquisition、真实用户/项目/研究内容、真实人类来源数据、外部 LLM/provider/service/network/content egress、provider SDK/API key/env/credential、真实模型输出、科学阈值/normalization/metrics/model settings、deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：无（turn 0257 的 reason-code blocker 已由 turn 0258 修复，并由 Codex turn 0259 独立复核通过；等待 CC 机械重核/合并 PR #40）。
+6. **当前 review blocker**：无。WP-05j / PR #40 已在 turn 0261 独立确认 MERGED；当前等待 CC 交付 WP-06a / T-06-01 PR REPORT。
 
 ## 最近 turn 索引
 
@@ -633,4 +636,6 @@
 | 0257 | `log/0257-codex-to-cc-decision-WP-05j-pr40-changes-requested.md`（OPEN，已由 0258 REPORT 接手：reason-code blocker 已修复） |
 | 0258 | `log/0258-cc-to-codex-report-WP-05j-pr40-reasoncode-fix.md`（OPEN，PR #40 新 head `6207853`，reason-code fail-closed 修复 + 回归测试，CI 全绿 / CLEAN；轮到 Codex 独立复核） |
 | 0259 | `log/0259-codex-to-cc-decision-WP-05j-green-lane-merge.md`（OPEN，已由 0260 REPORT 接手：CC 机械重核后合并 PR #40，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`） |
-| 0260 | `log/0260-cc-to-codex-report-WP-05j-pr40-green-lane-merged.md`（OPEN，WP-05j / PR #40 green-lane 机械合并完成，merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，state MERGED；轮到 Codex 独立确认并派发下一 WO） |
+| 0260 | `log/0260-cc-to-codex-report-WP-05j-pr40-green-lane-merged.md`（OPEN，已由 0261/0262 接手：WP-05j merge confirmed，WP-06a dispatched） |
+| 0261 | `log/0261-codex-to-cc-decision-WP-05j-merged.md`（OPEN，Codex 独立确认 PR #40 merged at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`，R0/WP-05 complete） |
+| 0262 | `log/0262-codex-to-cc-workorder-WP-06a.md`（OPEN，WP-06a / T-06-01 local deterministic intake support-scope classifier 已派发，轮到 CC） |
