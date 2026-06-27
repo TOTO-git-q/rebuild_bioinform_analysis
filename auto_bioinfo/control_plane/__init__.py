@@ -33,7 +33,15 @@ the pure, local OpenAPI contract/spec foundation (:func:`build_openapi_spec`,
 :func:`spec_to_json`, :func:`validate_openapi_spec`) that projects the existing
 command/operation/cancel/CLI shapes as a deterministic OpenAPI 3.x document — a
 contract description only, with no running HTTP server, deployment, persistence,
-or authorization implied.
+or authorization implied.  WP-04l adds the pure, local auth/RBAC contract
+foundation (:func:`authorize`, plus :class:`Principal`, :class:`Role`,
+:class:`Permission`, :class:`AuthorizationPolicy`, :class:`ResourceRef`,
+:class:`AccessRequest`, :class:`AuthDecision`) that decides — from explicit
+caller-supplied facts only — whether an actor's assigned roles authorise a bounded
+action over a bounded resource scope, failing closed by default.  It binds
+permissions to the already-merged control-plane surfaces (:data:`ACTIONS`) and
+reads no real identity, token, secret, session, environment, file, network, or
+clock — an *allow* decision is an inert policy value, never a real grant of access.
 """
 
 from __future__ import annotations
@@ -48,6 +56,20 @@ from .approval_lifecycle import (
     expire,
     is_due,
     reject,
+)
+from .auth_rbac import (
+    ACTIONS,
+    EFFECTS,
+    RESOURCE_TYPES,
+    AccessRequest,
+    AuthDecision,
+    AuthorizationPolicy,
+    Permission,
+    Principal,
+    ResourceRef,
+    Role,
+    actions_for_resource_type,
+    authorize,
 )
 from .cancel_command import (
     CANCEL_COMMAND_TYPE,
@@ -132,6 +154,18 @@ from .queries import (
 )
 
 __all__ = [
+    "ACTIONS",
+    "EFFECTS",
+    "RESOURCE_TYPES",
+    "AccessRequest",
+    "AuthDecision",
+    "AuthorizationPolicy",
+    "Permission",
+    "Principal",
+    "ResourceRef",
+    "Role",
+    "actions_for_resource_type",
+    "authorize",
     "ApprovalLifecycleError",
     "ApprovalLifecycleRecord",
     "approve",
