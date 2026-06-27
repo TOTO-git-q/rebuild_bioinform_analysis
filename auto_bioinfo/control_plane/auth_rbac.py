@@ -206,6 +206,7 @@ CODE_NO_MATCHING_GRANT = "RBAC_NO_GRANT"
 # version_conflict:
 CODE_STALE_VERSION = "RBAC_STALE_VERSION"
 # invalid (fail closed):
+CODE_MALFORMED_REQUEST = "RBAC_MALFORMED_REQUEST"
 CODE_MALFORMED_ACTOR = "RBAC_MALFORMED_ACTOR"
 CODE_MALFORMED_ROLE = "RBAC_MALFORMED_ROLE"
 CODE_UNKNOWN_ROLE = "RBAC_UNKNOWN_ROLE"
@@ -229,6 +230,7 @@ REASON_CODES = (
     CODE_DENY_EXPLICIT,
     CODE_NO_MATCHING_GRANT,
     CODE_STALE_VERSION,
+    CODE_MALFORMED_REQUEST,
     CODE_MALFORMED_ACTOR,
     CODE_MALFORMED_ROLE,
     CODE_UNKNOWN_ROLE,
@@ -255,6 +257,7 @@ _CODE_STATUS = {
     CODE_DENY_EXPLICIT: STATUS_DENY,
     CODE_NO_MATCHING_GRANT: STATUS_DENY,
     CODE_STALE_VERSION: STATUS_VERSION_CONFLICT,
+    CODE_MALFORMED_REQUEST: STATUS_INVALID,
     CODE_MALFORMED_ACTOR: STATUS_INVALID,
     CODE_MALFORMED_ROLE: STATUS_INVALID,
     CODE_UNKNOWN_ROLE: STATUS_INVALID,
@@ -614,6 +617,31 @@ def authorize(
        effect → ``invalid`` (a duplicate contradictory grant fails closed).  A
        single effect → ``allow`` / ``deny`` / ``needs_approval`` accordingly.
     """
+    # 0. The top-level request object itself must be a well-formed AccessRequest
+    #    before any of its facts (action/principal/resource) can be read; a
+    #    malformed or ambiguous caller-supplied request fails closed to a bounded
+    #    invalid decision rather than raising an unhandled attribute error.
+    if not isinstance(request, AccessRequest):
+        return AuthDecision(
+            status=STATUS_INVALID,
+            reason_code=CODE_MALFORMED_REQUEST,
+            message="request must be an AccessRequest carrying action, principal, and resource facts",
+            binding={
+                "actor_id": None,
+                "assigned_roles": [],
+                "action": None,
+                "resource_type": None,
+                "project": None,
+                "openapi_operation": None,
+                "contract": None,
+                "matched_effects": [],
+                "expected_policy_version": None,
+                "current_version": current_version,
+                "policy_version": policy.version if isinstance(policy, AuthorizationPolicy) else None,
+                "authority_keys": [],
+            },
+        )
+
     action = request.action
     principal = request.principal
 
@@ -751,6 +779,7 @@ __all__ = [
     "CODE_DENY_EXPLICIT",
     "CODE_NO_MATCHING_GRANT",
     "CODE_STALE_VERSION",
+    "CODE_MALFORMED_REQUEST",
     "CODE_MALFORMED_ACTOR",
     "CODE_MALFORMED_ROLE",
     "CODE_UNKNOWN_ROLE",

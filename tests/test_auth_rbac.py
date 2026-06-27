@@ -31,6 +31,7 @@ from auto_bioinfo.control_plane.auth_rbac import (
     CODE_MALFORMED_ACTOR,
     CODE_MALFORMED_AUTHORITY,
     CODE_MALFORMED_POLICY,
+    CODE_MALFORMED_REQUEST,
     CODE_MALFORMED_RESOURCE,
     CODE_MALFORMED_ROLE,
     CODE_MISSING_EXPECTED_VERSION,
@@ -209,6 +210,21 @@ class AuthRbacMalformedRequestTest(unittest.TestCase):
         request = AccessRequest(principal=Principal("alice", ("viewer",)), action="project.get", resource="proj")
         decision = authorize(request, policy=self.policy)
         self.assertEqual(decision.reason_code, CODE_MALFORMED_RESOURCE)
+
+    def test_malformed_top_level_request_object_is_bounded_invalid(self):
+        # A non-AccessRequest top-level request must fail closed to a bounded,
+        # non-allowing decision rather than raising while reading request facts.
+        decision = authorize(object(), policy=self.policy)
+        self.assertEqual(decision.reason_code, CODE_MALFORMED_REQUEST)
+        self.assertEqual(decision.status, STATUS_INVALID)
+        self.assertIsNone(decision.binding["action"])
+        self.assertIsNone(decision.binding["actor_id"])
+        self.assertEqual(decision.binding["matched_effects"], [])
+
+    def test_none_request_is_bounded_invalid(self):
+        decision = authorize(None, policy=self.policy)
+        self.assertEqual(decision.reason_code, CODE_MALFORMED_REQUEST)
+        self.assertEqual(decision.status, STATUS_INVALID)
 
 
 class AuthRbacPolicyValidationTest(unittest.TestCase):
