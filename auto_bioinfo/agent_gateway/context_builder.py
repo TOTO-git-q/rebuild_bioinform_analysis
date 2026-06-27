@@ -67,7 +67,7 @@ from typing import Any
 
 from auto_bioinfo.core.ids import make_stable_id
 from auto_bioinfo.core.schemas import ProjectPolicy
-from auto_bioinfo.observability.redaction import is_sensitive_key, redact
+from auto_bioinfo.observability.redaction import REDACTED, is_sensitive_key, redact
 
 # --- Bounds (so an unbounded input cannot exhaust a downstream store) ---------
 # Every limit below is a fail-closed guard: an input exceeding it is *malformed*,
@@ -262,6 +262,33 @@ def _admit(sensitivity: str, max_egress: str) -> str | None:
     if sensitivity == SENSITIVITY_INTERNAL and max_egress != SENSITIVITY_INTERNAL:
         return CODE_POLICY_DISALLOWED
     return None
+
+
+# --- Admitted-value normalization (so redaction can fully walk the value) ----
+
+
+def _to_redactable(value: Any, depth: int = 0) -> Any:
+    """Return ``value`` with every nested generic ``Mapping`` normalized to a plain ``dict``.
+
+    The shared redactor (:func:`~auto_bioinfo.observability.redaction.redact`) only
+    recurses into concrete ``dict`` / ``list`` / ``tuple``; a generic
+    :class:`~collections.abc.Mapping` subclass (e.g. :class:`types.MappingProxyType`)
+    would otherwise reach ``included_context`` / ``to_dict()`` *unredacted* and could
+    leak an inline secret (an admitted, policy-allowed value still must be redacted).
+    Converting every nested mapping to ``dict`` (and walking lists / tuples) lets the
+    redactor mask the whole structure.  An over-deep structure fails closed to
+    :data:`REDACTED` so no raw content can ever leak past the scan bound.  Pure;
+    performs no I/O and mutates nothing (it returns fresh containers).
+    """
+    if depth > MAX_VALUE_SCAN_DEPTH:
+        # Unscannable within the bound: fail closed rather than emit raw content.
+        return REDACTED
+    if isinstance(value, Mapping):
+        return {key: _to_redactable(item, depth + 1) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        items = [_to_redactable(item, depth + 1) for item in value]
+        return tuple(items) if isinstance(value, tuple) else items
+    return value
 
 
 # --- Request collection ------------------------------------------------------
@@ -464,8 +491,9 @@ def build_model_context(
             # Withheld: only the name + classification + reason survive — never the value.
             outcomes.append(ContextFieldOutcome(name=name, sensitivity=sensitivity, included=False, reason_code=deny_code))
             continue
-        # Admitted: redact inline secrets defensively before the value enters context.
-        included_context[name] = redact(value)
+        # Admitted: normalize generic mappings then redact inline secrets defensively
+        # so no raw value (string, dict, or generic ``Mapping`` subclass) leaks.
+        included_context[name] = redact(_to_redactable(value))
         outcomes.append(ContextFieldOutcome(name=name, sensitivity=sensitivity, included=True, reason_code=None))
 
     return ContextBuildDecision(

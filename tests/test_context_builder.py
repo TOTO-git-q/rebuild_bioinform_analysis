@@ -22,6 +22,7 @@ no network, provider SDK, credential access, or content egress.
 
 import unittest
 from dataclasses import FrozenInstanceError
+from types import MappingProxyType
 
 from auto_bioinfo.agent_gateway.context_builder import (
     CODE_MALFORMED_FIELDS,
@@ -222,6 +223,25 @@ class RedactionNoLeakTest(unittest.TestCase):
         admitted = decision.included_context["summary"]
         self.assertNotIn("abc123", admitted)
         self.assertIn(REDACTED, admitted)
+
+    def test_inline_secret_in_a_generic_mapping_value_is_redacted(self):
+        # Regression (turn 0222): a generic ``Mapping`` subclass admitted value must not
+        # bypass redaction.  ``MappingProxyType`` is a Mapping but not a ``dict``; the
+        # shared redactor only recurses into concrete dicts, so without normalization the
+        # raw inline token would leak through ``included_context`` / ``to_dict`` / repr.
+        raw = "token=abc123"
+        value = MappingProxyType({"summary": raw, "nested": [MappingProxyType({"k": raw})]})
+        decision = build_model_context(
+            policy=_public_policy(),
+            fields={"payload": value},
+            requested_fields=["payload"],
+            declared_sensitivities={"payload": SENSITIVITY_PUBLIC},
+        )
+        self.assertTrue(decision.usable)
+        self.assertNotIn(raw, repr(decision.to_dict()))
+        self.assertNotIn(raw, str(decision.included_context))
+        self.assertNotIn("abc123", repr(decision.included_context["payload"]))
+        self.assertIn(REDACTED, repr(decision.included_context["payload"]))
 
     def test_build_is_deterministic(self):
         kwargs = dict(
