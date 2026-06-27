@@ -16,9 +16,14 @@ network LLM provider reached through an audited tool broker) would implement the
 same :class:`LLMProvider` protocol without the gateway changing — mirroring the
 reserved ports in :mod:`auto_bioinfo.ports`.
 
-Later T-05 slices (prompt registry, structured-output admission, semantic
-validator hook, egress policy, tool broker, audit/usage/budget machinery) are out
-of scope for this foundation.
+WP-05b / T-05-02 adds the local :class:`PromptRegistry` contract foundation: a
+deterministic, offline registry that resolves a prompt only by stable identity
+(prompt id + exact version), binds it to a canonical template hash and a target
+schema reference, and never silently falls back to unregistered content.
+
+Later T-05 slices (structured-output admission, semantic validator hook, egress
+policy, tool broker, audit/usage/budget machinery) are out of scope for this
+foundation.
 """
 
 from __future__ import annotations
@@ -71,6 +76,30 @@ from .llm_provider import (
     validate_response,
     validate_usage,
 )
+from .prompt_registry import (
+    CODE_DUPLICATE_REGISTRATION,
+    CODE_EMPTY_TEMPLATE,
+    CODE_HASH_MISMATCH,
+    CODE_MALFORMED_PROMPT_ID,
+    CODE_MALFORMED_RECORD,
+    CODE_MALFORMED_TARGET_SCHEMA,
+    CODE_MALFORMED_VERSION,
+    CODE_TEMPLATE_TOO_LONG,
+    CODE_UNKNOWN_PROMPT,
+    CODE_UNKNOWN_VERSION,
+    MAX_PROMPT_ID_LENGTH,
+    MAX_TARGET_SCHEMA_ID_LENGTH,
+    MAX_TEMPLATE_LENGTH,
+    MAX_VERSION_LENGTH,
+    RECORD_CODES,
+    REGISTRY_CODES,
+    PromptRegistry,
+    PromptRegistryError,
+    RegisteredPrompt,
+    ensure_valid_prompt,
+    validate_prompt,
+)
+from .prompt_registry import REASON_CODES as PROMPT_REASON_CODES
 
 __all__ = [
     "CODE_CONTENT_TOO_LONG",
@@ -119,4 +148,26 @@ __all__ = [
     "validate_request",
     "validate_response",
     "validate_usage",
+    "CODE_DUPLICATE_REGISTRATION",
+    "CODE_EMPTY_TEMPLATE",
+    "CODE_HASH_MISMATCH",
+    "CODE_MALFORMED_PROMPT_ID",
+    "CODE_MALFORMED_RECORD",
+    "CODE_MALFORMED_TARGET_SCHEMA",
+    "CODE_MALFORMED_VERSION",
+    "CODE_TEMPLATE_TOO_LONG",
+    "CODE_UNKNOWN_PROMPT",
+    "CODE_UNKNOWN_VERSION",
+    "MAX_PROMPT_ID_LENGTH",
+    "MAX_TARGET_SCHEMA_ID_LENGTH",
+    "MAX_TEMPLATE_LENGTH",
+    "MAX_VERSION_LENGTH",
+    "RECORD_CODES",
+    "REGISTRY_CODES",
+    "PROMPT_REASON_CODES",
+    "PromptRegistry",
+    "PromptRegistryError",
+    "RegisteredPrompt",
+    "ensure_valid_prompt",
+    "validate_prompt",
 ]
