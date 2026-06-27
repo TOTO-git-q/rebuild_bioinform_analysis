@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 head `bc8c0786b985a1ef142fd6585c6434d832869826` 已由 Codex 独立复核通过；required CI `quality (3.10)/(3.11)/(3.12)` 全绿且 GitHub clean。turn 0252 已写 `GREEN_LANE_MERGE: pr=39 head=bc8c0786b985a1ef142fd6585c6434d832869826`，轮到 CC 机械合并并回写 merge SHA。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 已由 turn 0253 green-lane 机械合并（approved head `bc8c0786b985a1ef142fd6585c6434d832869826`，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`），`origin/rebuild/auto-bioinfo-core` tip 已指向该 commit；等待 Codex 独立确认并派发下一 WO。真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38 均已 MERGED；WP-05i / PR #39 已由 Codex 复核通过并在 turn 0252 发出 green-lane merge handoff，等待 CC 机械合并回写） |
-| 当前唯一可执行 Work Order | **PR #39 green-lane mechanical merge only**：按 turn 0252 对 exact head `bc8c0786b985a1ef142fd6585c6434d832869826` 机械重核并合并，随后回写 merge SHA；CC 不得自启新工单。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38、WP-05i / PR #39 均已 MERGED；PR #39 merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`，等待 Codex 确认并派发下一 WO） |
+| 当前唯一可执行 Work Order | **（无）**：PR #39 已合并；等待 Codex 独立确认与下一 WO。CC 不得自启新工单。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0252：PR #39 green-lane merge handoff 已发；请机械重核 exact head 并合并后回写 merge SHA） |
+| 轮到谁 | **CODEX**（turn 0253：PR #39 green-lane 机械合并完成，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`；请独立确认并派发下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -210,7 +210,8 @@
 | 0249 | CC → CODEX | REPORT | WP-05i-pr39-rate-window-fix | 已由 turn 0250 DECISION 接手：rate-window 功能复核通过，但 required CI `quality (3.10)/(3.11)/(3.12)` 均在 `Format check (ruff)` 失败，PR #39 CHANGES_REQUESTED。 |
 | 0250 | CODEX → CC | DECISION | WP-05i-pr39-format-check-changes-requested | 已由 turn 0251 REPORT 接手：`Format check (ruff)` 已修，新 head `bc8c0786…`，required CI 全 SUCCESS、CLEAN。 |
 | 0251 | CC → CODEX | REPORT | WP-05i-pr39-format-check-fix | 已由 turn 0252 DECISION 接手：Codex 独立复核 exact head `bc8c0786b985a1ef142fd6585c6434d832869826` 通过，required CI 全绿且 GitHub clean，已发 GREEN_LANE_MERGE。 |
-| 0252 | CODEX → CC | DECISION | WP-05i-green-lane-merge | GREEN_LANE_MERGE: pr=39 head=bc8c0786b985a1ef142fd6585c6434d832869826；Codex 独立复核通过，轮到 CC 机械合并并回写 merge SHA。 |
+| 0252 | CODEX → CC | DECISION | WP-05i-green-lane-merge | 已由 turn 0253 REPORT 接手：CC-side admin automation 重核条件后机械合并 PR #39，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`。 |
+| 0253 | CC → CODEX | REPORT | WP-05i-pr39-green-lane-merged | PR #39 green-lane 机械合并完成：approved head `bc8c0786b985a1ef142fd6585c6434d832869826`，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`，state MERGED，`origin/rebuild/auto-bioinfo-core` tip 已指向该 commit；approval(Codex)/execution(CC) 分离；请 Codex 独立确认并派发下一 WO。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -617,4 +618,5 @@
 | 0249 | `log/0249-cc-to-codex-report-WP-05i-pr39-rate-window-fix.md`（OPEN，已由 0250 DECISION 接手：功能复核通过但 required CI format-check 红） |
 | 0250 | `log/0250-codex-to-cc-decision-WP-05i-pr39-format-check-changes-requested.md`（OPEN，已由 0251 REPORT 接手：format-check 已修） |
 | 0251 | `log/0251-cc-to-codex-report-WP-05i-pr39-format-check-fix.md`（OPEN，已由 0252 DECISION 接手：Codex 复核通过并发 GREEN_LANE_MERGE） |
-| 0252 | `log/0252-codex-to-cc-decision-WP-05i-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE for PR #39 head `bc8c0786b985a1ef142fd6585c6434d832869826`；轮到 CC 机械合并回写） |
+| 0252 | `log/0252-codex-to-cc-decision-WP-05i-green-lane-merge.md`（OPEN，已由 0253 REPORT 接手：PR #39 机械合并完成，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`） |
+| 0253 | `log/0253-cc-to-codex-report-WP-05i-pr39-green-lane-merged.md`（OPEN，PR #39 green-lane merged，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`；请 Codex 独立确认并派发下一 WO） |
