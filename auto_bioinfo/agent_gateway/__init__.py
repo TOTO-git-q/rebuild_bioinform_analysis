@@ -53,8 +53,17 @@ sees them, runs only the registered deterministic in-process handler for an auth
 call, and returns an inert :class:`ToolMediationDecision` carrying a bounded redacted
 result — with no real tool / shell / subprocess / network / provider call and no egress.
 
-Later T-05 slices (raw-output artifact storage, audit/usage/budget machinery) are out of
-scope for this foundation.
+WP-05g / T-05-07 adds the local restricted raw-output artifact reference contract: a
+:class:`RestrictedRawOutputArtifact` that holds an already-returned model response's full
+raw output privately and a :func:`build_raw_output_artifact` builder that, from inert
+synthetic response data (with an optional :class:`AdmissionDecision` binding), produces a
+restricted artifact reference plus business-object-safe and bounded audit projections —
+keeping the full raw output reachable **only** through an explicit restricted accessor and
+withholding it from every ``to_dict`` / business / audit / repr projection, with no real
+provider/tool/network call, no durable storage, and no content egress.
+
+Later T-05 slices (durable raw-output artifact storage, audit/usage/budget machinery) are
+out of scope for this foundation.
 """
 
 from __future__ import annotations
@@ -162,6 +171,45 @@ from .prompt_registry import (
     validate_prompt,
 )
 from .prompt_registry import REASON_CODES as PROMPT_REASON_CODES
+from .raw_output_artifact import (
+    ACCESS_TIER_AUDIT_ONLY,
+    ACCESS_TIER_RESTRICTED_STORE,
+    ACCESS_TIERS,
+    BINDING_CODES,
+    CODE_EMPTY_RAW_OUTPUT,
+    CODE_MALFORMED_BINDING,
+    CODE_MALFORMED_RAW_OUTPUT,
+    CODE_MALFORMED_RESTRICTION,
+    CODE_MISSING_BINDING,
+    CODE_MISSING_PARSED_REF,
+    CODE_NONSERIALIZABLE_RAW_OUTPUT,
+    CODE_RAW_OUTPUT_LEAK,
+    CODE_RAW_OUTPUT_TOO_LARGE,
+    MAX_LABEL_LENGTH,
+    MAX_RAW_OUTPUT_BYTES,
+    MAX_REFERENCE_LENGTH,
+    RAW_OUTPUT_CODES,
+    REDACTION_NOT_REDACTED,
+    REDACTION_REDACTED,
+    REDACTION_STATUSES,
+    RESTRICTION_HIGHLY_RESTRICTED,
+    RESTRICTION_LABELS,
+    RESTRICTION_RESTRICTED,
+    RETENTION_EPHEMERAL,
+    RETENTION_EXTENDED,
+    RETENTION_HINTS,
+    RETENTION_SHORT,
+    RETENTION_STANDARD,
+    RawOutputArtifactDecision,
+    RestrictedRawOutputArtifact,
+    build_raw_output_artifact,
+)
+from .raw_output_artifact import CODE_MALFORMED_RESPONSE as CODE_RAWART_MALFORMED_RESPONSE
+from .raw_output_artifact import MAX_PAYLOAD_DEPTH as MAX_RAWART_PAYLOAD_DEPTH
+from .raw_output_artifact import REASON_CODES as RAW_OUTPUT_ARTIFACT_REASON_CODES
+from .raw_output_artifact import STATUS_BUILT as RAWART_STATUS_BUILT
+from .raw_output_artifact import STATUS_REJECTED as RAWART_STATUS_REJECTED
+from .raw_output_artifact import STATUSES as RAW_OUTPUT_ARTIFACT_STATUSES
 from .structured_output import (
     ADMISSION_CODES,
     CODE_DUPLICATE_SCHEMA,
@@ -465,4 +513,41 @@ __all__ = [
     "ToolCallRequest",
     "ToolMediationDecision",
     "ToolBroker",
+    "MAX_REFERENCE_LENGTH",
+    "MAX_LABEL_LENGTH",
+    "MAX_RAWART_PAYLOAD_DEPTH",
+    "MAX_RAW_OUTPUT_BYTES",
+    "RAWART_STATUS_BUILT",
+    "RAWART_STATUS_REJECTED",
+    "RAW_OUTPUT_ARTIFACT_STATUSES",
+    "RESTRICTION_RESTRICTED",
+    "RESTRICTION_HIGHLY_RESTRICTED",
+    "RESTRICTION_LABELS",
+    "ACCESS_TIER_RESTRICTED_STORE",
+    "ACCESS_TIER_AUDIT_ONLY",
+    "ACCESS_TIERS",
+    "RETENTION_EPHEMERAL",
+    "RETENTION_SHORT",
+    "RETENTION_STANDARD",
+    "RETENTION_EXTENDED",
+    "RETENTION_HINTS",
+    "REDACTION_REDACTED",
+    "REDACTION_NOT_REDACTED",
+    "REDACTION_STATUSES",
+    "CODE_RAWART_MALFORMED_RESPONSE",
+    "CODE_MISSING_BINDING",
+    "CODE_MALFORMED_BINDING",
+    "CODE_MISSING_PARSED_REF",
+    "CODE_MALFORMED_RESTRICTION",
+    "CODE_EMPTY_RAW_OUTPUT",
+    "CODE_RAW_OUTPUT_TOO_LARGE",
+    "CODE_NONSERIALIZABLE_RAW_OUTPUT",
+    "CODE_MALFORMED_RAW_OUTPUT",
+    "CODE_RAW_OUTPUT_LEAK",
+    "BINDING_CODES",
+    "RAW_OUTPUT_CODES",
+    "RAW_OUTPUT_ARTIFACT_REASON_CODES",
+    "RestrictedRawOutputArtifact",
+    "RawOutputArtifactDecision",
+    "build_raw_output_artifact",
 ]
