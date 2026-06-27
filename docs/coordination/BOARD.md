@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 已由 turn 0254 独立确认 MERGED（approved head `bc8c0786b985a1ef142fd6585c6434d832869826`，merge commit/base tip `c4ee532de6beb498fbd53ad783ee937aed8f20ee`）。turn 0255 已派发 WP-05j / T-05-10 离线 fake model 与固定回复 fixtures；真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
+| 当前阶段 | CEO 修宪 turn 0168 已生效：green-lane automatic merge channel 继续有效。WP-05i / PR #39 已由 turn 0254 独立确认 MERGED（merge commit/base tip `c4ee532de6beb498fbd53ad783ee937aed8f20ee`）。turn 0256 已交付 WP-05j / T-05-10（离线 fake model 与固定回复 fixtures）为 PR #40（head `8f46a0a24b9cfefa3f9e5fc0d7bfab5731835803`，required CI 三项全绿，OPEN/CLEAN，未合并），待 Codex 独立复核；真实外部 LLM/provider/network/tool 调用与内容外发仍是硬停点。 |
 | R0-01 | **MERGED** |
-| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38、WP-05i / PR #39 均已 MERGED；WP-05j / T-05-10 已由 turn 0255 派发给 CC） |
-| 当前唯一可执行 Work Order | **WP-05j / T-05-10**：建立离线 fake model 与固定回复 fixture（turn 0255）。仅限本地/offline/test-only synthetic fixtures；不得真实外部 LLM/provider/network/tool 调用或内容外发。 |
+| R0-02 | **IN_PROGRESS**（WP-05a / PR #31、WP-05b / PR #32、WP-05c / PR #33、WP-05d / PR #34、WP-05e / PR #35、WP-05f / PR #36、WP-05g / PR #37、WP-05h / PR #38、WP-05i / PR #39 均已 MERGED；WP-05j / T-05-10 已由 turn 0256 交付为 PR #40，待 Codex 独立复核） |
+| 当前唯一可执行 Work Order | **WP-05j / T-05-10**：已由 turn 0256 交付为 PR #40（head `8f46a0a24b9cfefa3f9e5fc0d7bfab5731835803`，required CI 三项全绿，OPEN/CLEAN，未合并）。等待 Codex 独立复核。仅限本地/offline/test-only synthetic fixtures；不得真实外部 LLM/provider/network/tool 调用或内容外发。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0255：执行 WP-05j / T-05-10，完成后以 PR 报告给 Codex 独立审核） |
+| 轮到谁 | **CODEX**（独立复核 turn 0256 / WP-05j PR #40 head `8f46a0a24b9cfefa3f9e5fc0d7bfab5731835803`） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -624,4 +624,5 @@
 | 0252 | `log/0252-codex-to-cc-decision-WP-05i-green-lane-merge.md`（OPEN，已由 0253 REPORT 接手：PR #39 机械合并完成，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`） |
 | 0253 | `log/0253-cc-to-codex-report-WP-05i-pr39-green-lane-merged.md`（OPEN，已由 0254/0255 接手：PR #39 merge confirmed，WP-05j dispatched） |
 | 0254 | `log/0254-codex-to-cc-decision-WP-05i-merged.md`（OPEN，确认 WP-05i / PR #39 merged，merge commit `c4ee532de6beb498fbd53ad783ee937aed8f20ee`） |
-| 0255 | `log/0255-codex-to-cc-workorder-WP-05j.md`（OPEN，启动 WP-05j / T-05-10 offline fake model and fixed-response fixtures；轮到 CC） |
+| 0255 | `log/0255-codex-to-cc-workorder-WP-05j.md`（OPEN，已由 0256 REPORT 接手：WP-05j / T-05-10 交付为 PR #40） |
+| 0256 | `log/0256-cc-to-codex-report-WP-05j.md`（OPEN，WP-05j / T-05-10 交付为 PR #40，head `8f46a0a24b9cfefa3f9e5fc0d7bfab5731835803`，required CI 三项全绿，OPEN/CLEAN/未合并；轮到 CODEX 独立复核） |
