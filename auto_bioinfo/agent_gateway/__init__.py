@@ -35,12 +35,52 @@ deterministic semantic validator runs after schema admission and before an accep
 object is returned, resolved only by explicit id (no silent fall-back to no-op
 validation) and failing closed on an unknown / raising / malformed validator.
 
-Later T-05 slices (egress policy, tool broker, audit/usage/budget machinery) are out
-of scope for this foundation.
+WP-05e / T-05-05 adds the local sensitive-content / minimum-context / redaction
+contract: a deterministic :func:`classify_field_sensitivity` and a
+:func:`build_model_context` that, given a project :class:`ProjectPolicy` (or a policy-
+shaped mapping) and an explicit set of candidate fields, classify each requested field
+by sensitivity, admit only the policy-allowed tiers, **block every ``sensitive`` field
+and withhold every ``unknown`` field**, redact inline secrets from admitted values, and
+return an inert :class:`ContextBuildDecision` whose public projection never leaks a raw
+sensitive value — all before any model/provider call exists, with no content egress.
+
+Later T-05 slices (tool broker, audit/usage/budget machinery) are out of scope for this
+foundation.
 """
 
 from __future__ import annotations
 
+from .context_builder import (
+    BUILD_CODES,
+    CODE_MALFORMED_FIELDS,
+    CODE_MALFORMED_POLICY,
+    CODE_MALFORMED_REQUEST,
+    CODE_MISSING_POLICY,
+    CODE_POLICY_DISALLOWED,
+    CODE_SENSITIVE_BLOCKED,
+    CODE_TOO_MANY_FIELDS,
+    CODE_UNKNOWN_FIELD,
+    CODE_UNKNOWN_SENSITIVITY,
+    DECLARABLE_SENSITIVITIES,
+    FIELD_CODES,
+    MAX_CONTEXT_FIELDS,
+    MAX_FIELD_NAME_LENGTH,
+    MAX_VALUE_SCAN_DEPTH,
+    POLICY_EGRESS_TIERS,
+    SENSITIVITIES,
+    SENSITIVITY_INTERNAL,
+    SENSITIVITY_PUBLIC,
+    SENSITIVITY_SENSITIVE,
+    SENSITIVITY_UNKNOWN,
+    STATUS_BLOCKED,
+    STATUS_BUILT,
+    ContextBuildDecision,
+    ContextFieldOutcome,
+    build_model_context,
+    classify_field_sensitivity,
+)
+from .context_builder import REASON_CODES as CONTEXT_BUILDER_REASON_CODES
+from .context_builder import STATUSES as CONTEXT_BUILD_STATUSES
 from .llm_provider import (
     CODE_CONTENT_TOO_LONG,
     CODE_EMPTY_MESSAGES,
@@ -295,4 +335,33 @@ __all__ = [
     "parse_structured_output",
     "validate_instance",
     "validate_schema_definition",
+    "BUILD_CODES",
+    "CODE_MALFORMED_FIELDS",
+    "CODE_MALFORMED_POLICY",
+    "CODE_MALFORMED_REQUEST",
+    "CODE_MISSING_POLICY",
+    "CODE_POLICY_DISALLOWED",
+    "CODE_SENSITIVE_BLOCKED",
+    "CODE_TOO_MANY_FIELDS",
+    "CODE_UNKNOWN_FIELD",
+    "CODE_UNKNOWN_SENSITIVITY",
+    "CONTEXT_BUILDER_REASON_CODES",
+    "CONTEXT_BUILD_STATUSES",
+    "DECLARABLE_SENSITIVITIES",
+    "FIELD_CODES",
+    "MAX_CONTEXT_FIELDS",
+    "MAX_FIELD_NAME_LENGTH",
+    "MAX_VALUE_SCAN_DEPTH",
+    "POLICY_EGRESS_TIERS",
+    "SENSITIVITIES",
+    "SENSITIVITY_INTERNAL",
+    "SENSITIVITY_PUBLIC",
+    "SENSITIVITY_SENSITIVE",
+    "SENSITIVITY_UNKNOWN",
+    "STATUS_BLOCKED",
+    "STATUS_BUILT",
+    "ContextBuildDecision",
+    "ContextFieldOutcome",
+    "build_model_context",
+    "classify_field_sensitivity",
 ]
