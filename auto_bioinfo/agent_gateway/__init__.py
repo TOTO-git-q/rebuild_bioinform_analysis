@@ -62,12 +62,78 @@ keeping the full raw output reachable **only** through an explicit restricted ac
 withholding it from every ``to_dict`` / business / audit / repr projection, with no real
 provider/tool/network call, no durable storage, and no content egress.
 
-Later T-05 slices (durable raw-output artifact storage, audit/usage/budget machinery) are
-out of scope for this foundation.
+WP-05h / T-05-08 adds the local provider/tool-call audit record contract: an
+:class:`AuditRecord` of bounded, non-content facts about an *already-completed* synthetic
+provider or tool call (project/correlation/call trace binding, call kind + deterministic
+outcome/reason, provider/model/prompt identifiers or tool name/version + request/result
+references, input version/fingerprint, usage counters, caller-supplied timing facts, and
+an optional restricted raw-output artifact *reference* — id + fingerprint only), a pure
+:func:`build_audit_record` builder that validates the inert inputs fail-closed and returns
+an inert :class:`AuditRecordDecision`, and a pure :func:`query_audit_records` in-memory
+filter by ``project_id`` / ``correlation_id`` — keeping prompt content, full raw output,
+raw input values, and tool arguments out of every record, with no real provider/tool/network
+call, no durable audit-log/event/index storage, and no content egress.
+
+Later T-05 slices (durable raw-output artifact storage, usage/budget/rate-limit machinery)
+are out of scope for this foundation.
 """
 
 from __future__ import annotations
 
+from .audit_record import BINDING_CODES as AUDIT_BINDING_CODES
+from .audit_record import (
+    CALL_KIND_PROVIDER,
+    CALL_KIND_TOOL,
+    CALL_KINDS,
+    CODE_INCONSISTENT_KIND_FIELDS,
+    CODE_INCONSISTENT_STATUS,
+    CODE_INVALID_TIMING,
+    CODE_INVALID_USAGE,
+    CODE_MALFORMED_ARTIFACT_REF,
+    CODE_MALFORMED_CALL_IDENTITY,
+    CODE_MALFORMED_CALL_KIND,
+    CODE_MALFORMED_INPUT_METADATA,
+    CODE_MALFORMED_OUTCOME,
+    CODE_MALFORMED_PROMPT_IDENTIFIER,
+    CODE_MALFORMED_PROVIDER_IDENTIFIER,
+    CODE_MALFORMED_SOURCE,
+    CODE_MALFORMED_TOOL_IDENTIFIER,
+    CODE_METADATA_TOO_LARGE,
+    CODE_MISSING_CALL_IDENTITY,
+    CODE_MISSING_TIMING,
+    CODE_MISSING_USAGE,
+    CODE_SENSITIVE_METADATA,
+    IDENTITY_CODES,
+    MAX_ATTEMPT,
+    MAX_DURATION_MS,
+    MAX_FINGERPRINT_LENGTH,
+    MAX_ID_LENGTH,
+    MAX_METADATA_BYTES,
+    MAX_METADATA_DEPTH,
+    MAX_METADATA_ENTRIES,
+    MAX_USAGE_COUNTERS,
+    MAX_USAGE_VALUE,
+    METADATA_CODES,
+    OUTCOME_COMPLETED,
+    OUTCOME_DENIED,
+    OUTCOME_FAILED,
+    OUTCOMES,
+    OUTCOMES_REQUIRING_REASON,
+    USAGE_TIMING_CODES,
+    AuditRecord,
+    AuditRecordDecision,
+    build_audit_record,
+    query_audit_records,
+)
+from .audit_record import CODE_MALFORMED_BINDING as CODE_AUDIT_MALFORMED_BINDING
+from .audit_record import CODE_MALFORMED_METADATA as CODE_AUDIT_MALFORMED_METADATA
+from .audit_record import CODE_MISSING_BINDING as CODE_AUDIT_MISSING_BINDING
+from .audit_record import FIELD_CODES as AUDIT_FIELD_CODES
+from .audit_record import MAX_LABEL_LENGTH as AUDIT_MAX_LABEL_LENGTH
+from .audit_record import REASON_CODES as AUDIT_RECORD_REASON_CODES
+from .audit_record import STATUS_BUILT as AUDIT_STATUS_BUILT
+from .audit_record import STATUS_REJECTED as AUDIT_STATUS_REJECTED
+from .audit_record import STATUSES as AUDIT_STATUSES
 from .context_builder import (
     BUILD_CODES,
     CODE_MALFORMED_FIELDS,
@@ -550,4 +616,56 @@ __all__ = [
     "RestrictedRawOutputArtifact",
     "RawOutputArtifactDecision",
     "build_raw_output_artifact",
+    "MAX_ID_LENGTH",
+    "AUDIT_MAX_LABEL_LENGTH",
+    "MAX_FINGERPRINT_LENGTH",
+    "MAX_USAGE_COUNTERS",
+    "MAX_USAGE_VALUE",
+    "MAX_DURATION_MS",
+    "MAX_ATTEMPT",
+    "MAX_METADATA_ENTRIES",
+    "MAX_METADATA_DEPTH",
+    "MAX_METADATA_BYTES",
+    "CALL_KIND_PROVIDER",
+    "CALL_KIND_TOOL",
+    "CALL_KINDS",
+    "OUTCOME_COMPLETED",
+    "OUTCOME_FAILED",
+    "OUTCOME_DENIED",
+    "OUTCOMES",
+    "OUTCOMES_REQUIRING_REASON",
+    "AUDIT_STATUS_BUILT",
+    "AUDIT_STATUS_REJECTED",
+    "AUDIT_STATUSES",
+    "CODE_MALFORMED_CALL_KIND",
+    "CODE_MISSING_CALL_IDENTITY",
+    "CODE_MALFORMED_CALL_IDENTITY",
+    "CODE_AUDIT_MISSING_BINDING",
+    "CODE_AUDIT_MALFORMED_BINDING",
+    "CODE_MALFORMED_OUTCOME",
+    "CODE_MALFORMED_SOURCE",
+    "CODE_MALFORMED_PROVIDER_IDENTIFIER",
+    "CODE_MALFORMED_PROMPT_IDENTIFIER",
+    "CODE_MALFORMED_TOOL_IDENTIFIER",
+    "CODE_MALFORMED_INPUT_METADATA",
+    "CODE_MALFORMED_ARTIFACT_REF",
+    "CODE_INCONSISTENT_KIND_FIELDS",
+    "CODE_MISSING_USAGE",
+    "CODE_MISSING_TIMING",
+    "CODE_INVALID_USAGE",
+    "CODE_INVALID_TIMING",
+    "CODE_INCONSISTENT_STATUS",
+    "CODE_SENSITIVE_METADATA",
+    "CODE_METADATA_TOO_LARGE",
+    "CODE_AUDIT_MALFORMED_METADATA",
+    "IDENTITY_CODES",
+    "AUDIT_BINDING_CODES",
+    "AUDIT_FIELD_CODES",
+    "USAGE_TIMING_CODES",
+    "METADATA_CODES",
+    "AUDIT_RECORD_REASON_CODES",
+    "AuditRecord",
+    "AuditRecordDecision",
+    "build_audit_record",
+    "query_audit_records",
 ]
