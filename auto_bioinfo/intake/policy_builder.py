@@ -191,6 +191,11 @@ DEFAULT_AUTOMATION_LEVEL = "A0"
 # The gate an approval-needed sensitivity decision is bound to.
 GATE_DATA_SENSITIVITY = "POLICY_DATA_SENSITIVITY"
 
+# The only state an :class:`ApprovalNeeded` can ever carry.  The builder is
+# incapable of granting an approval, so this is fixed and unrepresentable as
+# anything else — see :class:`ApprovalNeeded`.
+APPROVAL_NEEDED_STATE = "requested"
+
 
 @dataclass(frozen=True)
 class ApprovalNeeded:
@@ -200,8 +205,10 @@ class ApprovalNeeded:
     It is deliberately *not* a persisted :class:`ApprovalRequest`: it carries no
     real clock timestamp and no provenance, is never written to a store, never
     emitted as an event, never sent to a human or an external service, and never
-    treated as authorization.  ``state`` is fixed at ``"requested"`` — the builder
-    cannot and does not grant it.  It is ``ApprovalRequest``-shaped (same
+    treated as authorization.  ``state`` is fixed at ``"requested"``: it is *not*
+    a constructor field, so a caller cannot build a granted-looking instance, and
+    the frozen dataclass forbids mutating it afterwards — the builder cannot and
+    does not grant it.  It is ``ApprovalRequest``-shaped (same
     subject/gate/state vocabulary) so a later, separately authorised approval
     workflow could adopt it, but on its own it is inert reviewable data.
     """
@@ -213,7 +220,7 @@ class ApprovalNeeded:
     gate: str
     reason_code: str
     message: str
-    state: str = "requested"
+    state: str = field(init=False, default=APPROVAL_NEEDED_STATE)
 
     def to_dict(self) -> dict[str, Any]:
         return {

@@ -23,6 +23,7 @@ call, no persistence, no event, no granted approval):
   the bounded status + reason-code vocabulary with deterministic serialisation.
 """
 
+import dataclasses
 import unittest
 
 from auto_bioinfo.core.schemas import AUTOMATION_LEVELS
@@ -157,6 +158,37 @@ class SensitivityFailClosedTests(unittest.TestCase):
         self.assertEqual(rebuilt.state, "requested")
         self.assertNotIn("created_at", outcome.approval_request)
         self.assertNotIn("provenance", outcome.approval_request)
+
+    def test_approval_state_cannot_be_constructed_as_granted(self):
+        # ``state`` is not a constructor field, so a caller cannot build a
+        # granted-looking ApprovalNeeded — the invariant is unrepresentable.
+        with self.assertRaises(TypeError):
+            ApprovalNeeded(
+                project_id=PROJECT_ID,
+                subject_type="ProjectPolicy",
+                subject_id=PROJECT_ID,
+                subject_version=1,
+                gate=GATE_DATA_SENSITIVITY,
+                reason_code=CODE_SENSITIVITY_MISSING,
+                message="x",
+                state="granted",
+            )
+
+    def test_approval_state_cannot_be_mutated_to_granted(self):
+        # The frozen dataclass forbids overwriting the fixed state afterwards,
+        # so ``to_dict`` can never serialize a granted approval.
+        approval = ApprovalNeeded(
+            project_id=PROJECT_ID,
+            subject_type="ProjectPolicy",
+            subject_id=PROJECT_ID,
+            subject_version=1,
+            gate=GATE_DATA_SENSITIVITY,
+            reason_code=CODE_SENSITIVITY_MISSING,
+            message="x",
+        )
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            approval.state = "granted"
+        self.assertEqual(approval.to_dict()["state"], "requested")
 
 
 class OtherMalformedFailClosedTests(unittest.TestCase):
