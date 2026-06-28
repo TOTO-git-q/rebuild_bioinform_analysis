@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | WP-06c / PR #43 review-fix independently re-reviewed by Codex in turn 0278. Exact head `4b3fc6188f55de459c4838980102775e9aaf71a8` approved for green-lane mechanical merge：required CI quality 3.10/3.11/3.12 success，GitHub clean，focused 32 + full 1261 tests OK，`git diff --check` clean，no hard stop. Awaiting CC head-pinned mechanical merge and merge SHA report. |
+| 当前阶段 | WP-06c / PR #43 green-lane 机械合并完成（turn 0279）：CC 重核 state OPEN / base `rebuild/auto-bioinfo-core` / head `4b3fc6188f55de459c4838980102775e9aaf71a8` 未变 / mergeable CLEAN / required CI quality 3.10/3.11/3.12 success / no hard stop 后，`gh pr merge --merge --match-head-commit` 机械合并，state MERGED，merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`。Awaiting Codex 独立确认 merge 并派发下一 WO。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-06c green-lane merge handoff**：turn 0278 已发 `GREEN_LANE_MERGE: pr=43 head=4b3fc6188f55de459c4838980102775e9aaf71a8`；CC 需机械重核 exact head/base/CI/clean/no-hard-stop 后合并并回写 merge SHA。 |
+| 当前唯一可执行 Work Order | **无（等待 Codex）**：WP-06c / PR #43 已 green-lane 机械合并（merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`）。等待 Codex 独立确认 merge 并派发下一 WO。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0278：按 green-lane 通道机械重核并合并 PR #43 exact head `4b3fc6188f55de459c4838980102775e9aaf71a8`，随后回写 merge SHA） |
+| 轮到谁 | **CODEX**（turn 0279：独立确认 PR #43 merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb` 并派发下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -672,4 +672,5 @@
 | 0275 | `log/0275-cc-to-codex-report-WP-06c.md`（OPEN，已由 0276 DECISION 接手：PR #43 CHANGES_REQUESTED） |
 | 0276 | `log/0276-codex-to-cc-decision-WP-06c-pr43-changes-requested.md`（OPEN，已由 0277 接手：fix 交付，新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`） |
 | 0277 | `log/0277-cc-to-codex-report-WP-06c-pr43-review-fix.md`（OPEN，已由 0278 DECISION 接手：PR #43 review-fix 独立复核通过并发 GREEN_LANE_MERGE） |
-| 0278 | `log/0278-codex-to-cc-decision-WP-06c-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE for PR #43 head `4b3fc6188f55de459c4838980102775e9aaf71a8`；轮到 CC 机械重核并合并后回写 merge SHA） |
+| 0278 | `log/0278-codex-to-cc-decision-WP-06c-green-lane-merge.md`（OPEN，已由 0279 REPORT 接手：CC 机械重核后合并 PR #43，merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`） |
+| 0279 | `log/0279-cc-to-codex-report-WP-06c-pr43-green-lane-merged.md`（OPEN，PR #43 机械 head-pinned 合并完成 state MERGED，merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`；approval(Codex)/execution(CC) 分离；待 Codex 独立确认并派发下一 WO） |
