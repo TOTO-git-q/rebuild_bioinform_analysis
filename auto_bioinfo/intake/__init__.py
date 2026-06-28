@@ -15,10 +15,38 @@ provider / network, never reads a real clock, secret, or environment, and never
 mutates project state, events, queues, a DB, audit logs, or any persistent store.
 An out-of-scope or unsupported request is projected to a bounded stop decision; it
 is *never* split into sub-requests automatically.
+
+WP-06b adds the second slice: :func:`assess_intake`, a pure, local, deterministic
+*multi-research-question detector* that defers to :func:`classify_support_scope`,
+preserves any support-scope stop, and — for a supported / needs-clarification
+request — emits a bounded, reason-coded :class:`IntakeAssessment` indicating
+whether the request appears to bundle multiple research questions.  When it does,
+it offers inert :class:`SplitSuggestion` text snippets for *human review only*; it
+**never** automatically splits the request, creates a sub-request or child
+project, or produces any executable artifact.
 """
 
 from __future__ import annotations
 
+from .multi_question import (
+    ASSESS_MULTI_QUESTION,
+    ASSESS_NEEDS_CLARIFICATION,
+    ASSESS_NOT_GENERATED,
+    ASSESS_SINGLE_QUESTION,
+    ASSESSMENT_REASON_CODES,
+    ASSESSMENTS,
+    CODE_MULTI_QUESTION,
+    CODE_NEEDS_CLARIFICATION,
+    CODE_SINGLE_QUESTION,
+    CODE_STOPPED_BY_SUPPORT_SCOPE,
+    MAX_SNIPPET_LENGTH,
+    MAX_SPLIT_SUGGESTIONS,
+    MIN_DISTINCT_TOPICS,
+    MIN_QUESTION_MARKS,
+    IntakeAssessment,
+    SplitSuggestion,
+    assess_intake,
+)
 from .support_scope import (
     CLASS_MALFORMED_REQUEST,
     CLASS_NEEDS_CLARIFICATION,
@@ -81,4 +109,21 @@ __all__ = [
     "REASON_CODES",
     "IntakeDecision",
     "classify_support_scope",
+    "ASSESSMENTS",
+    "ASSESSMENT_REASON_CODES",
+    "ASSESS_MULTI_QUESTION",
+    "ASSESS_NEEDS_CLARIFICATION",
+    "ASSESS_NOT_GENERATED",
+    "ASSESS_SINGLE_QUESTION",
+    "CODE_MULTI_QUESTION",
+    "CODE_NEEDS_CLARIFICATION",
+    "CODE_SINGLE_QUESTION",
+    "CODE_STOPPED_BY_SUPPORT_SCOPE",
+    "MAX_SNIPPET_LENGTH",
+    "MAX_SPLIT_SUGGESTIONS",
+    "MIN_DISTINCT_TOPICS",
+    "MIN_QUESTION_MARKS",
+    "IntakeAssessment",
+    "SplitSuggestion",
+    "assess_intake",
 ]
