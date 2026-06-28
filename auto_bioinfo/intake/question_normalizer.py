@@ -418,7 +418,6 @@ def normalize_question(
     project_id: str,
     request_id: str = "",
     caller_facts: Mapping[str, Any] | None = None,
-    adapter: OfflineQuestionNormalizerAdapter | None = None,
 ) -> QuestionNormalizationResult:
     """Run the local/offline Question Normalizer command, fail-closed.
 
@@ -515,7 +514,11 @@ def normalize_question(
     original_text = original_text if isinstance(original_text, str) else ""
     normalized_text = _normalize_text(original_text)
 
-    normalizer = adapter or OfflineQuestionNormalizerAdapter()
+    # The offline normalizer is hard-wired: the command always constructs the
+    # local, deterministic :class:`OfflineQuestionNormalizerAdapter` itself and
+    # never accepts a caller-supplied adapter, so the exported command contract is
+    # incapable of invoking an arbitrary (possibly provider/network-backed) object.
+    normalizer = OfflineQuestionNormalizerAdapter()
     research_spec = normalizer.draft_research_spec(project_id, normalized_text)
     original_request = _preserve_request(
         request,

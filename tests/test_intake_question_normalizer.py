@@ -269,6 +269,29 @@ class DeterminismAndIsolationTests(unittest.TestCase):
         finally:
             socket.socket = original_socket
 
+    def test_public_command_cannot_inject_a_caller_supplied_adapter(self):
+        # Regression for the offline-only command contract: the public
+        # normalize_question path must be incapable of invoking an arbitrary
+        # caller-provided object. A spy adapter whose draft_research_spec records
+        # invocation must never run, and there must be no public keyword to inject
+        # it (passing adapter=... fails closed with TypeError, not by running it).
+        invoked: list[tuple[str, str]] = []
+
+        class SpyAdapter:
+            def draft_research_spec(self, project_id: str, normalized_text: str) -> dict:
+                invoked.append((project_id, normalized_text))
+                return {"status": "tampered"}
+
+        with self.assertRaises(TypeError):
+            normalize_question(TOY_REQUEST, _usable_policy(), project_id=PROJECT_ID, adapter=SpyAdapter())
+
+        # The default path still works and is deterministic/offline, and the spy
+        # was never invoked by any code path.
+        result = normalize_question(TOY_REQUEST, _usable_policy(), project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_DRAFT_CREATED)
+        self.assertEqual(result.research_spec["status"], DRAFT_STATUS)
+        self.assertEqual(invoked, [])
+
     def test_inputs_are_not_mutated(self):
         request = OriginalRequest(project_id=PROJECT_ID, original_text=TOY_REQUEST, submitted_at="2020-01-01T00:00:00+00:00")
         request_before = copy.deepcopy(request.to_dict())
