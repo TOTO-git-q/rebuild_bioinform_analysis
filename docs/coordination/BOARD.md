@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | WP-06c / PR #43 review fix delivered in turn 0277. New head `4b3fc6188f55de459c4838980102775e9aaf71a8`：`ApprovalNeeded.state` now a frozen non-init field fixed to `requested`（`field(init=False)`），`state="granted"` 构造/突变均失败闭合；+2 regression tests，full suite 1261 green，ruff clean，`git diff --check` clean。PR OPEN, mergeable=MERGEABLE, mergeStateStatus=BLOCKED（待新 head 上 required CI + Codex 复审）。 |
+| 当前阶段 | WP-06c / PR #43 review-fix independently re-reviewed by Codex in turn 0278. Exact head `4b3fc6188f55de459c4838980102775e9aaf71a8` approved for green-lane mechanical merge：required CI quality 3.10/3.11/3.12 success，GitHub clean，focused 32 + full 1261 tests OK，`git diff --check` clean，no hard stop. Awaiting CC head-pinned mechanical merge and merge SHA report. |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无新 WO**：WP-06c / PR #43 review fix 已交付（turn 0277），等待 Codex 复审新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`。 |
+| 当前唯一可执行 Work Order | **WP-06c green-lane merge handoff**：turn 0278 已发 `GREEN_LANE_MERGE: pr=43 head=4b3fc6188f55de459c4838980102775e9aaf71a8`；CC 需机械重核 exact head/base/CI/clean/no-hard-stop 后合并并回写 merge SHA。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0277：复审 WP-06c / PR #43 新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`，绿则授权 green-lane merge） |
+| 轮到谁 | **CC**（turn 0278：按 green-lane 通道机械重核并合并 PR #43 exact head `4b3fc6188f55de459c4838980102775e9aaf71a8`，随后回写 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -234,7 +234,8 @@
 | 0274 | CODEX → CC | WORK_ORDER | WP-06c | 已由 turn 0275 REPORT 接手：WP-06c / T-06-03 交付 PR #43，base `rebuild/auto-bioinfo-core`（base SHA `88add8d5283fbded0612bc16ea1fdb33c56471d7`），head `2a2657b82955228de1d6fdc4f09064dabecc4aa0`，required CI quality 3.10/3.11/3.12 全绿，OPEN/MERGEABLE/CLEAN，待 Codex 独立审核。 |
 | 0275 | CC → CODEX | REPORT | WP-06c | 已由 turn 0276 DECISION 接手：PR #43 独立审核为 CHANGES_REQUESTED，需固定 `ApprovalNeeded.state == "requested"` invariant。 |
 | 0276 | CODEX → CC | DECISION | WP-06c-pr43-changes-requested | 已由 turn 0277 REPORT 接手：`ApprovalNeeded.state` 固定为 frozen `field(init=False, default="requested")`，构造/突变 `granted` 均失败闭合，+2 regression，full suite 1261 green，新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`。 |
-| 0277 | CC → CODEX | REPORT | WP-06c-pr43-review-fix | WP-06c / PR #43 review fix 交付：新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`（base `rebuild/auto-bioinfo-core`）。`ApprovalNeeded.state` 改为 `field(init=False, default=APPROVAL_NEEDED_STATE)`，frozen dataclass 下既不能 `state=` 构造也不能事后赋值；docstring 更新；builder 内部调用点未变仍发 `requested`。新增 2 项 regression（`test_approval_state_cannot_be_constructed_as_granted` 断言 `TypeError`、`test_approval_state_cannot_be_mutated_to_granted` 断言 `FrozenInstanceError` 且 `to_dict` 仍 `requested`），test 模块加 `import dataclasses`。full suite `Ran 1261 ... OK`（+2），focused 模块 32 OK（+2），ruff check/format 绿，`git diff --check` clean。PR #43 OPEN/MERGEABLE、mergeStateStatus=BLOCKED（待新 head CI+复审）；R0-02 未启动、未自合并、未越界。 |
+| 0277 | CC → CODEX | REPORT | WP-06c-pr43-review-fix | 已由 turn 0278 DECISION 接手：Codex 独立复核 PR #43 review-fix exact head `4b3fc6188f55de459c4838980102775e9aaf71a8` 通过并发出 green-lane merge handoff。 |
+| 0278 | CODEX → CC | DECISION | WP-06c-green-lane-merge | GREEN_LANE_MERGE issued for PR #43 exact head `4b3fc6188f55de459c4838980102775e9aaf71a8` after independent re-review: required CI quality 3.10/3.11/3.12 green, GitHub clean, focused 32 + full 1261 tests OK, `git diff --check` clean, no hard stop; Codex did not merge/auto-merge/push base; CC to reverify and perform head-pinned mechanical merge. |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -378,7 +379,7 @@
 13. **WP-05j / T-05-10 offline fake model and fixed-response fixtures**（turn 0255，PR #40）：MERGED。turn 0257 reason-code blocker 已由 turn 0258 修复；Codex turn 0259 独立复核通过并发出 green-lane handoff；CC turn 0260 机械合并；Codex turn 0261 独立确认 merge commit `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`。
 14. **WP-06a / T-06-01 local intake support-scope classifier**（turn 0262，PR #41）：MERGED。turn 0264 blocker closed by turn 0265 exact-boolean fix; Codex turn 0266 green-lane handoff; CC turn 0267 mechanical merge; Codex turn 0268 independent confirmation at merge commit `381ced97cceb95402fa5108f1cfab8583fc97db3`.
 15. **WP-06b / T-06-02 multi-question detection and split suggestions**（turn 0269，PR #42）：**MERGED**。turn 0271 Codex green-lane handoff at head `522e5bf766e6ab2b080e84d5209eef6bee324717`; CC turn 0272 live re-verified and executed head-pinned mechanical merge; Codex turn 0273 independently confirmed merge commit `88add8d5283fbded0612bc16ea1fdb33c56471d7`.
-16. **WP-06c / T-06-03 initial ProjectPolicy builder**（turn 0274，PR #43）：**CHANGES_REQUESTED**。turn 0275 delivered head `2a2657b82955228de1d6fdc4f09064dabecc4aa0`; Codex turn 0276 independent review found one narrow invariant blocker: public `ApprovalNeeded` can serialize `state="granted"`; CC to fix only that and add regression.
+16. **WP-06c / T-06-03 initial ProjectPolicy builder**（turn 0274，PR #43）：**GREEN_LANE_MERGE ISSUED**。turn 0275 delivered head `2a2657b82955228de1d6fdc4f09064dabecc4aa0`; Codex turn 0276 found one narrow `ApprovalNeeded.state` invariant blocker; CC turn 0277 fixed it at head `4b3fc6188f55de459c4838980102775e9aaf71a8`; Codex turn 0278 independently re-reviewed focused/full tests + CI/clean status and handed off green-lane merge. Awaiting CC merge SHA.
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -386,9 +387,9 @@
 1. **硬停点**：真实人类来源数据、外部 LLM/服务、付费服务、公开发布、破坏性迁移/不可逆删除、扩大机器人凭据权限，均必须停下等 CEO。
 2. **CI 权限注意**：`.github/workflows` 已获 CEO 授权用于后续独立 CI WO；若实际 push 因 workflow 权限被拒，CC 必须写 BLOCKER，不得自行扩大凭据权限。
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
-4. **当前范围**：仅 WP-06c / PR #43 review fix（turn 0276）开放：fix `ApprovalNeeded.state` invariant and focused regression. CC 不得启动 T-06-04+、Question Normalizer/Scope Resolver command or Agent call、PromptRegistry prompt execution、ResearchSpec/AmbiguityReport/OntologyAdapter/ScopeBundle/Approval grant or lifecycle、version persistence/event/search/data acquisition、真实用户/项目/研究内容、真实人类来源数据、外部 LLM/provider/service/network/content egress、provider SDK/API key/env/credential、真实模型输出、科学阈值/normalization/metrics/model settings、deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
+4. **当前范围**：仅 WP-06c / PR #43 green-lane mechanical merge handoff（turn 0278）开放：CC 只可重核 exact head/base/required CI/GitHub clean/no-hard-stop 并执行 head-pinned mechanical merge，随后回写 merge SHA。不得启动 T-06-04+、Question Normalizer/Scope Resolver command or Agent call、PromptRegistry prompt execution、ResearchSpec/AmbiguityReport/OntologyAdapter/ScopeBundle/Approval grant or lifecycle、version persistence/event/search/data acquisition、真实用户/项目/研究内容、真实人类来源数据、外部 LLM/provider/service/network/content egress、provider SDK/API key/env/credential、真实模型输出、科学阈值/normalization/metrics/model settings、deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：PR #43 `ApprovalNeeded.state` invariant：公开构造器可传 `state="granted"` 并序列化；需使其不可覆盖或严格固定为 `requested`。
+6. **当前 review blocker**：无。PR #43 `ApprovalNeeded.state` invariant 已由 turn 0277 fix 闭合并经 turn 0278 独立复核通过；当前仅等待 CC green-lane 机械合并回写 merge SHA。
 
 ## 最近 turn 索引
 
@@ -670,4 +671,5 @@
 | 0274 | `log/0274-codex-to-cc-workorder-WP-06c.md`（OPEN，已由 0275 接手：WP-06c 交付 PR #43） |
 | 0275 | `log/0275-cc-to-codex-report-WP-06c.md`（OPEN，已由 0276 DECISION 接手：PR #43 CHANGES_REQUESTED） |
 | 0276 | `log/0276-codex-to-cc-decision-WP-06c-pr43-changes-requested.md`（OPEN，已由 0277 接手：fix 交付，新 head `4b3fc6188f55de459c4838980102775e9aaf71a8`） |
-| 0277 | `log/0277-cc-to-codex-report-WP-06c-pr43-review-fix.md`（OPEN，WP-06c / PR #43 review fix 交付，待 Codex 复审新 head；轮到 CODEX） |
+| 0277 | `log/0277-cc-to-codex-report-WP-06c-pr43-review-fix.md`（OPEN，已由 0278 DECISION 接手：PR #43 review-fix 独立复核通过并发 GREEN_LANE_MERGE） |
+| 0278 | `log/0278-codex-to-cc-decision-WP-06c-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE for PR #43 head `4b3fc6188f55de459c4838980102775e9aaf71a8`；轮到 CC 机械重核并合并后回写 merge SHA） |
