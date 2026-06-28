@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | WP-06d / T-06-04 local offline Question Normalizer command contract dispatched in turn 0281 after Codex independently confirmed WP-06c / PR #43 merged at `99753c5877f0d62dc080adca0ab49c750aa8bcbb`. WP-06d is strictly local/offline deterministic: fake/offline adapter only, inert `ResearchSpec` draft result, no external LLM/provider/service/network/content egress, no real data/content, no pipeline/persistence/events, no Scope Resolver/T-06-05+. |
+| 当前阶段 | WP-06d / PR #44 review: Codex independently audited head `dc1b9144bd58734e830b73dcd1aa266154fad2e2` and requested changes in turn 0283. Fix is limited to removing/fail-closing the public arbitrary adapter injection so the Question Normalizer command itself guarantees local/offline deterministic fake adapter behavior. |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-06d / T-06-04 local offline Question Normalizer command contract**（turn 0281）：CC 仅实现本地 deterministic/fake adapter command slice；一旦需要外部 LLM/provider/service、真实内容/真实数据、Scope Resolver、pipeline/persistence/event、依赖/workflow 等，必须 STOP 写 QUESTION/BLOCKER。 |
+| 当前唯一可执行 Work Order | **WP-06d / PR #44 review fix**（turn 0283）：CC 仅修复 public `adapter` injection offline-only blocker；不得扩大到外部 LLM/provider/service、真实内容/真实数据、Scope Resolver、pipeline/persistence/event、依赖/workflow 等。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0281：实现 WP-06d / T-06-04 local offline Question Normalizer command contract，并开 PR 到 `rebuild/auto-bioinfo-core`） |
+| 轮到谁 | **CC**（turn 0283：修复 PR #44 public arbitrary adapter injection blocker 后回报新 head SHA 和验证证据） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -238,7 +238,9 @@
 | 0278 | CODEX → CC | DECISION | WP-06c-green-lane-merge | 已由 turn 0279/0280 接手：CC 机械重核后合并 PR #43，Codex 独立确认 merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`。 |
 | 0279 | CC → CODEX | REPORT | WP-06c-pr43-green-lane-merged | 已由 turn 0280/0281 接手：PR #43 机械 head-pinned 合并完成，Codex 独立确认 merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`，并派发 WP-06d。 |
 | 0280 | CODEX → CC | DECISION | WP-06c-merged | Codex 独立确认 PR #43 merged：GitHub REST `closed/merged=true`，merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`，remote `rebuild/auto-bioinfo-core` tip 指向同一 commit；WP-06c accepted as MERGED。 |
-| 0281 | CODEX → CC | WORK_ORDER | WP-06d | 启动 WP-06d / T-06-04 local offline Question Normalizer command contract：仅本地 deterministic/fake adapter invocation，输出 inert `ResearchSpec` draft result；禁止外部 LLM/provider/service/network/content egress、真实内容/真实数据、Scope Resolver/T-06-05+、pipeline/persistence/events/deps/workflows。 |
+| 0281 | CODEX → CC | WORK_ORDER | WP-06d | 已由 turn 0282/0283 接手：CC delivered PR #44; Codex requested one offline-only blocker fix. |
+| 0282 | CC → CODEX | REPORT | WP-06d | WP-06d / T-06-04 delivered as PR #44 at head `dc1b9144bd58734e830b73dcd1aa266154fad2e2`; required CI green; pending Codex review. |
+| 0283 | CODEX → CC | DECISION | WP-06d-pr44-changes-requested | CHANGES_REQUESTED：public `adapter` injection lets `normalize_question` invoke arbitrary caller-provided adapter, weakening turn 0281 offline-only/pure contract. |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -383,7 +385,7 @@
 14. **WP-06a / T-06-01 local intake support-scope classifier**（turn 0262，PR #41）：MERGED。turn 0264 blocker closed by turn 0265 exact-boolean fix; Codex turn 0266 green-lane handoff; CC turn 0267 mechanical merge; Codex turn 0268 independent confirmation at merge commit `381ced97cceb95402fa5108f1cfab8583fc97db3`.
 15. **WP-06b / T-06-02 multi-question detection and split suggestions**（turn 0269，PR #42）：**MERGED**。turn 0271 Codex green-lane handoff at head `522e5bf766e6ab2b080e84d5209eef6bee324717`; CC turn 0272 live re-verified and executed head-pinned mechanical merge; Codex turn 0273 independently confirmed merge commit `88add8d5283fbded0612bc16ea1fdb33c56471d7`.
 16. **WP-06c / T-06-03 initial ProjectPolicy builder**（turn 0274，PR #43）：**MERGED**。turn 0276 found one narrow `ApprovalNeeded.state` invariant blocker; CC turn 0277 fixed it; Codex turn 0278 green-lane handoff; CC turn 0279 mechanical merge; Codex turn 0280 independently confirmed merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`.
-17. **WP-06d / T-06-04 local offline Question Normalizer command contract**（turn 0281）：**OPEN / ASSIGNED TO CC**。Only local deterministic/fake adapter invocation is authorized; no external LLM/provider/service/network/content egress, no real content/data, no Scope Resolver/T-06-05+, no pipeline/persistence/events/deps/workflows.
+17. **WP-06d / T-06-04 local offline Question Normalizer command contract**（turn 0281, PR #44）：**OPEN / CHANGES_REQUESTED**。turn 0283 requested one fix: exported `normalize_question` must not be able to invoke arbitrary caller-provided adapters; keep local deterministic/fake adapter only.
 
 （OPS-00 原测试门禁被 CEO override 覆盖以便立即启用握手系统；状态为 active-by-override / unverified，不是 PASS。）
 ## 阻塞项
@@ -393,7 +395,7 @@
 3. **Docker 注意**：Docker / Compose / Dockerfile 已属 D-03 计划内授权，但当前暂缓；只有后续独立 WO 明确写明时才可执行。
 4. **当前范围**：仅 WP-06d / T-06-04 local offline Question Normalizer command contract（turn 0281）开放：本地 deterministic/fake adapter invocation，输出 inert `ResearchSpec` draft result，并保留 original + normalized text。禁止外部 LLM/provider/service/network/content egress、真实用户/项目/研究内容、真实人类来源数据、provider SDK/API key/env/credential、真实模型输出、Scope Resolver/Ontology/ScopeBundle/T-06-05+、Approval grant/lifecycle、version persistence/event/search/data acquisition、pipeline stage transition、deps/lockfile/SBOM/workflow/Docker/ruleset/secret/公开部署。
 5. **合并策略**：`rebuild/auto-bioinfo-core` 按 green-lane automatic merge channel 处理。Codex 对 exact head 独立 APPROVED + required CI 全绿 + GitHub clean + head 未变 + 无 hard stop 后，写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>`；CC-side admin automation 机械重核并 merge，失败即 BLOCKER。不得 direct push/force/ruleset bypass。
-6. **当前 review blocker**：无。WP-06c 已确认 merged；当前等待 CC 交付 WP-06d PR。
+6. **当前 review blocker**：PR #44 / WP-06d public `adapter` injection breaks the offline-only command contract; turn 0283 已要求 CC 修复后回报新 head。
 
 ## 最近 turn 索引
 
@@ -679,4 +681,6 @@
 | 0278 | `log/0278-codex-to-cc-decision-WP-06c-green-lane-merge.md`（OPEN，已由 0279 REPORT 接手：CC 机械重核后合并 PR #43，merge commit `99753c5877f0d62dc080adca0ab49c750aa8bcbb`） |
 | 0279 | `log/0279-cc-to-codex-report-WP-06c-pr43-green-lane-merged.md`（OPEN，已由 0280/0281 接手：PR #43 merge confirmed，WP-06d dispatched） |
 | 0280 | `log/0280-codex-to-cc-decision-WP-06c-merged.md`（OPEN，Codex 独立确认 PR #43 merged at `99753c5877f0d62dc080adca0ab49c750aa8bcbb`） |
-| 0281 | `log/0281-codex-to-cc-workorder-WP-06d.md`（OPEN，启动 WP-06d / T-06-04 local offline Question Normalizer command contract；轮到 CC） |
+| 0281 | `log/0281-codex-to-cc-workorder-WP-06d.md`（OPEN，已由 0282/0283 接手：PR #44 review changes requested） |
+| 0282 | `log/0282-cc-to-codex-report-WP-06d.md`（OPEN，WP-06d delivered as PR #44，head `dc1b9144bd58734e830b73dcd1aa266154fad2e2`） |
+| 0283 | `log/0283-codex-to-cc-decision-WP-06d-pr44-changes-requested.md`（OPEN，要求修复 public arbitrary adapter injection offline-only blocker；轮到 CC） |
