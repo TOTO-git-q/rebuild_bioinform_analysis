@@ -24,6 +24,16 @@ whether the request appears to bundle multiple research questions.  When it does
 it offers inert :class:`SplitSuggestion` text snippets for *human review only*; it
 **never** automatically splits the request, creates a sub-request or child
 project, or produces any executable artifact.
+
+WP-06c adds the third slice: :func:`build_initial_policy`, a pure, local,
+deterministic *initial-policy builder* that turns explicit synthetic
+user-constraint facts (data sensitivity, network, resources, automation level,
+execution mode) into an inert initial :class:`ProjectPolicy` projection — or, when
+the *required* data-sensitivity policy is missing/malformed, into a fail-closed
+:class:`ApprovalNeeded` outcome.  It reuses the existing ``ProjectPolicy`` schema
+and :func:`validate_project_policy`, never silently defaults to a permissive
+policy, never grants an approval, and never persists, emits, sends out, or
+authorises anything.
 """
 
 from __future__ import annotations
@@ -46,6 +56,41 @@ from .multi_question import (
     IntakeAssessment,
     SplitSuggestion,
     assess_intake,
+)
+from .policy_builder import (
+    CODE_AUTOMATION_MALFORMED,
+    CODE_BUILT,
+    CODE_CONSTRAINTS_MALFORMED,
+    CODE_EXECUTION_MODE_NOT_PERMITTED,
+    CODE_NETWORK_MALFORMED,
+    CODE_POLICY_INVALID,
+    CODE_POLICY_VERSION_MALFORMED,
+    CODE_PROJECT_ID_MALFORMED,
+    CODE_RESOURCES_MALFORMED,
+    CODE_SENSITIVITY_MALFORMED,
+    CODE_SENSITIVITY_MISSING,
+    CODE_SENSITIVITY_UNRECOGNIZED,
+    DEFAULT_AUTOMATION_LEVEL,
+    DEFAULT_EXECUTION_MODE,
+    DEFAULT_NETWORK,
+    DEFAULT_RESOURCES,
+    GATE_DATA_SENSITIVITY,
+    KEY_AUTOMATION,
+    KEY_EXECUTION_MODE,
+    KEY_NETWORK,
+    KEY_RESOURCES,
+    KEY_SENSITIVITY,
+    NETWORK_LEVELS,
+    PERMITTED_EXECUTION_MODES,
+    RESOURCE_LEVELS,
+    SENSITIVITY_LEVELS,
+    STATUS_APPROVAL_NEEDED,
+    STATUS_BUILT,
+    STATUS_REJECTED_MALFORMED,
+    STATUSES,
+    ApprovalNeeded,
+    PolicyBuildOutcome,
+    build_initial_policy,
 )
 from .support_scope import (
     CLASS_MALFORMED_REQUEST,
@@ -126,4 +171,37 @@ __all__ = [
     "IntakeAssessment",
     "SplitSuggestion",
     "assess_intake",
+    "STATUS_BUILT",
+    "STATUS_APPROVAL_NEEDED",
+    "STATUS_REJECTED_MALFORMED",
+    "STATUSES",
+    "CODE_BUILT",
+    "CODE_SENSITIVITY_MISSING",
+    "CODE_SENSITIVITY_MALFORMED",
+    "CODE_SENSITIVITY_UNRECOGNIZED",
+    "CODE_PROJECT_ID_MALFORMED",
+    "CODE_POLICY_VERSION_MALFORMED",
+    "CODE_CONSTRAINTS_MALFORMED",
+    "CODE_NETWORK_MALFORMED",
+    "CODE_RESOURCES_MALFORMED",
+    "CODE_AUTOMATION_MALFORMED",
+    "CODE_EXECUTION_MODE_NOT_PERMITTED",
+    "CODE_POLICY_INVALID",
+    "KEY_SENSITIVITY",
+    "KEY_NETWORK",
+    "KEY_RESOURCES",
+    "KEY_AUTOMATION",
+    "KEY_EXECUTION_MODE",
+    "SENSITIVITY_LEVELS",
+    "NETWORK_LEVELS",
+    "RESOURCE_LEVELS",
+    "PERMITTED_EXECUTION_MODES",
+    "DEFAULT_NETWORK",
+    "DEFAULT_RESOURCES",
+    "DEFAULT_EXECUTION_MODE",
+    "DEFAULT_AUTOMATION_LEVEL",
+    "GATE_DATA_SENSITIVITY",
+    "ApprovalNeeded",
+    "PolicyBuildOutcome",
+    "build_initial_policy",
 ]
