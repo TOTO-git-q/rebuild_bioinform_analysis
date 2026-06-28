@@ -50,6 +50,25 @@ network/clock.  A created draft preserves *both* the exact original request text
 (verbatim, with its content hash) and a deterministic normalized-text view, never
 guesses unknown organism/tissue/condition/comparison facts, and is never
 persisted, versioned, emitted, or treated as authorization.
+
+WP-06e adds the fifth slice: :func:`resolve_scope`, a pure, local, deterministic
+*Scope Resolver preflight command* that turns an inert ``ResearchSpec`` draft (or
+a :class:`QuestionNormalizationResult`) plus a usable policy into an inert
+:class:`ScopeBundle` *draft* projection over the species/tissue/condition/
+comparison axes, alongside an :class:`AmbiguityReport` *draft* projection of the
+open unknowns.  It preserves every upstream gate (a support-scope stop stays a
+stop; a multi-question / needs-clarification request stays human-review oriented
+and is never auto-resolved; a missing / approval-needed / malformed policy stays
+inert), and resolves a scope axis **only** from facts the draft explicitly states
+or that a tiny, public, clearly-synthetic fixture vocabulary recognises.  The
+architecture's ontology/resolver call is realised as a deterministic in-process
+fake/offline component (:class:`OfflineScopeResolverAdapter`) only — no real
+ontology service, search API, provider, SDK, network, or clock.  Every unknown
+organism/tissue/condition/comparison fact stays an empty field and an ``open``
+ambiguity item; a draft with no explicit usable scope fact yields
+``needs_clarification`` rather than a fabricated bundle.  The result carries no
+real ontology id, is never marked authoritative, and is never persisted,
+versioned, emitted, or treated as authorization.
 """
 
 from __future__ import annotations
@@ -121,6 +140,21 @@ from .question_normalizer import (
     OfflineQuestionNormalizerAdapter,
     QuestionNormalizationResult,
     normalize_question,
+)
+from .scope_resolver import (
+    CODE_SCOPE_DRAFT_CREATED,
+    CODE_UNSUPPORTED_SCOPE,
+    CODE_UPSTREAM_REJECTED,
+    DEFAULT_VOCABULARY,
+    STATUS_SCOPE_DRAFT_CREATED,
+    STATUS_UNSUPPORTED_SCOPE,
+    SYNTHETIC_CONDITIONS,
+    SYNTHETIC_SPECIES,
+    SYNTHETIC_TISSUES,
+    OfflineScopeResolverAdapter,
+    ScopeResolutionResult,
+    ScopeVocabulary,
+    resolve_scope,
 )
 from .support_scope import (
     CLASS_MALFORMED_REQUEST,
@@ -246,4 +280,17 @@ __all__ = [
     "OfflineQuestionNormalizerAdapter",
     "QuestionNormalizationResult",
     "normalize_question",
+    "STATUS_SCOPE_DRAFT_CREATED",
+    "STATUS_UNSUPPORTED_SCOPE",
+    "CODE_SCOPE_DRAFT_CREATED",
+    "CODE_UNSUPPORTED_SCOPE",
+    "CODE_UPSTREAM_REJECTED",
+    "SYNTHETIC_SPECIES",
+    "SYNTHETIC_TISSUES",
+    "SYNTHETIC_CONDITIONS",
+    "DEFAULT_VOCABULARY",
+    "ScopeVocabulary",
+    "OfflineScopeResolverAdapter",
+    "ScopeResolutionResult",
+    "resolve_scope",
 ]
