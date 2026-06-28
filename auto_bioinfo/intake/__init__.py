@@ -34,6 +34,22 @@ the *required* data-sensitivity policy is missing/malformed, into a fail-closed
 and :func:`validate_project_policy`, never silently defaults to a permissive
 policy, never grants an approval, and never persists, emits, sends out, or
 authorises anything.
+
+WP-06d adds the fourth slice: :func:`normalize_question`, a pure, local,
+deterministic *Question Normalizer command* that turns an in-scope single request
+plus a usable initial :class:`ProjectPolicy` into an inert :class:`ResearchSpec`
+*draft* (``status == "draft"``).  It reuses the WP-06a/WP-06b gate via
+:func:`assess_intake` (any support-scope stop stays a stop and produces no draft;
+a multi-question request stays human-review oriented and is never auto-split into
+child projects) and the WP-06c policy gate via :func:`validate_project_policy` (a
+missing / approval-needed / malformed / non-permitted policy stays inert and never
+becomes an approval).  The architecture's "Agent call" is realised as a
+deterministic in-process fake/offline adapter
+(:class:`OfflineQuestionNormalizerAdapter`) only — no external LLM/provider/SDK/
+network/clock.  A created draft preserves *both* the exact original request text
+(verbatim, with its content hash) and a deterministic normalized-text view, never
+guesses unknown organism/tissue/condition/comparison facts, and is never
+persisted, versioned, emitted, or treated as authorization.
 """
 
 from __future__ import annotations
@@ -91,6 +107,20 @@ from .policy_builder import (
     ApprovalNeeded,
     PolicyBuildOutcome,
     build_initial_policy,
+)
+from .question_normalizer import (
+    CODE_DRAFT_CREATED,
+    CODE_MULTI_QUESTION_REQUIRES_REVIEW,
+    CODE_POLICY_APPROVAL_NEEDED,
+    CODE_POLICY_EXECUTION_MODE_NOT_PERMITTED,
+    CODE_POLICY_MALFORMED,
+    CODE_POLICY_MISSING,
+    DRAFT_STATUS,
+    STATUS_DRAFT_CREATED,
+    STATUS_STOPPED_BY_SUPPORT_SCOPE,
+    OfflineQuestionNormalizerAdapter,
+    QuestionNormalizationResult,
+    normalize_question,
 )
 from .support_scope import (
     CLASS_MALFORMED_REQUEST,
@@ -204,4 +234,16 @@ __all__ = [
     "ApprovalNeeded",
     "PolicyBuildOutcome",
     "build_initial_policy",
+    "STATUS_DRAFT_CREATED",
+    "STATUS_STOPPED_BY_SUPPORT_SCOPE",
+    "DRAFT_STATUS",
+    "CODE_DRAFT_CREATED",
+    "CODE_MULTI_QUESTION_REQUIRES_REVIEW",
+    "CODE_POLICY_MISSING",
+    "CODE_POLICY_APPROVAL_NEEDED",
+    "CODE_POLICY_MALFORMED",
+    "CODE_POLICY_EXECUTION_MODE_NOT_PERMITTED",
+    "OfflineQuestionNormalizerAdapter",
+    "QuestionNormalizationResult",
+    "normalize_question",
 ]
