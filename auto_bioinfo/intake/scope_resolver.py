@@ -329,6 +329,24 @@ class OfflineScopeResolverAdapter:
         else:
             open_items.append(self._item("comparison", "no explicit two-group comparison stated in the draft; left empty rather than assumed"))
 
+        # --- Condition axis: the explicit ``condition_or_phenotype`` fact. ----
+        # An explicitly stated condition is never dropped: if the synthetic
+        # vocabulary recognises it, it is projected onto the conditions axis
+        # (without claiming ontology authority); if it is unrecognised, it stays an
+        # ``open`` condition ambiguity rather than being silently discarded.
+        if facts.condition.strip():
+            if vocab.knows_condition(facts.condition):
+                condition = facts.condition.strip()
+                if condition not in conditions:
+                    conditions.append(condition)
+            else:
+                open_items.append(
+                    self._item(
+                        "condition",
+                        f"condition {facts.condition.strip()!r} is not in the synthetic condition vocabulary; kept open rather than confirmed as a known condition",
+                    )
+                )
+
         # --- Tissue axis: only an explicitly named, recognised tissue. -------
         tissues: list[str] = []
         if facts.tissue.strip() and vocab.knows_tissue(facts.tissue):

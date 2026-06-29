@@ -151,6 +151,57 @@ class ScopeDraftCreatedTests(unittest.TestCase):
         self.assertIn("condition", result.open_questions)
 
 
+class ExplicitConditionTests(unittest.TestCase):
+    """An explicit ``condition_or_phenotype`` fact is never silently dropped."""
+
+    def test_recognized_explicit_condition_populates_conditions_axis(self):
+        # A recognised explicit condition is projected onto the conditions axis,
+        # even with no comparison groups stated; it is never dropped.
+        spec = _draft_spec(
+            research_question="Identify differential expression in tumor samples",
+            organism="mouse",
+            condition_or_phenotype="tumor",
+        )
+        result = resolve_scope(spec, _usable_policy(), project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_SCOPE_DRAFT_CREATED)
+        bundle = result.scope_bundle
+        self.assertIsNotNone(bundle)
+        self.assertEqual(bundle["conditions"], ["tumor"])
+        self.assertEqual(bundle["species"], ["mouse"])
+        # The fact is projected, so it is NOT also an open condition ambiguity.
+        self.assertNotIn("condition", result.open_questions)
+        self.assertEqual(validate_scope_bundle(bundle), [])
+
+    def test_unrecognized_explicit_condition_stays_open_not_dropped(self):
+        # An unrecognised explicit condition is kept as an open ambiguity rather
+        # than being silently discarded or guessed onto the conditions axis.
+        spec = _draft_spec(
+            research_question="Identify differential expression in cachexia samples",
+            organism="mouse",
+            condition_or_phenotype="cachexia",  # not in synthetic condition vocab
+        )
+        result = resolve_scope(spec, _usable_policy(), project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_SCOPE_DRAFT_CREATED)
+        bundle = result.scope_bundle
+        self.assertIsNotNone(bundle)
+        self.assertEqual(bundle["conditions"], [])  # never guessed
+        self.assertIn("condition", result.open_questions)  # surfaced, not dropped
+        self.assertEqual(validate_ambiguity_report(result.ambiguity_report), [])
+
+    def test_explicit_condition_not_duplicated_when_also_a_comparison_group(self):
+        # When the same recognised term appears as both an explicit condition and a
+        # comparison group, the conditions axis stays de-duplicated.
+        spec = _draft_spec(
+            research_question=TOY_REQUEST,
+            organism="mouse",
+            condition_or_phenotype="tumor",
+            comparison_groups=["tumor", "normal"],
+        )
+        result = resolve_scope(spec, _usable_policy(), project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_SCOPE_DRAFT_CREATED)
+        self.assertEqual(result.scope_bundle["conditions"], ["tumor", "normal"])
+
+
 class NeedsClarificationTests(unittest.TestCase):
     def test_no_explicit_scope_fact_stays_open_no_bundle(self):
         result = resolve_scope(_draft_spec(), _usable_policy(), project_id=PROJECT_ID)
