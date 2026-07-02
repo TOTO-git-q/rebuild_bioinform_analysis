@@ -79,6 +79,7 @@ from .scope_resolver import (
     DRAFT_STATUS,
     ScopeResolutionResult,
     ScopeVocabulary,
+    _CODE_STATUS as SCOPE_CODE_STATUS,
     _facts_from_spec,
 )
 from .scope_resolver import (
@@ -206,6 +207,14 @@ FORBIDDEN_AUTHORITY_FLAGS = ("authoritative", "locked", "resolved_authoritative"
 # The scope axes a bundle carries, paired with the draft fact each is produced from
 # on the exact WP-06e path.
 _SCOPE_AXES = ("species", "tissues", "conditions", "comparisons")
+
+# The exact bounded ``(status, reason_code)`` pairs WP-06e can emit, derived from
+# the resolver's own code→status map so the two vocabularies cannot drift.  A
+# readiness verdict fails closed on any pair outside this set: a tampered / faithful-
+# looking projection cannot smuggle an out-of-vocabulary reason code, nor pair a
+# real status with a reason code it never legitimately carries (in particular, a
+# ``scope_draft_created`` status only ever pairs with ``SCOPE_DRAFT_CREATED``).
+_VALID_UPSTREAM_PAIRS = frozenset((status, code) for code, status in SCOPE_CODE_STATUS.items())
 
 
 @dataclass(frozen=True)
@@ -358,15 +367,39 @@ def _source_spec_id(source: Any) -> tuple[str | None, str | None]:
 
 
 def _authoritative_findings(projection: Mapping[str, Any], label: str) -> list[str]:
-    """Findings if a projection carries a real id or a truthy authority flag."""
+    """Findings if a projection carries a real id or a truthy authority flag anywhere.
+
+    The scan is **deep**: an authoritative-looking identifier (``ontology_id`` /
+    ``mapped_id``) or a truthy authority flag must fail closed whether it sits at the
+    top level of the projection or is nested inside an ambiguity item, a
+    bundle/report sub-structure, or any list therein.  A review projection must stay
+    inert draft data end to end, so an authoritative marker smuggled into a nested
+    item is just as disqualifying as one at the root.
+    """
     findings: list[str] = []
-    for key in FORBIDDEN_PROJECTION_KEYS:
-        if str(projection.get(key, "") or "").strip():
-            findings.append(f"{label} carries a forbidden authoritative field {key!r}; a review projection must not carry a real identifier")
-    for flag in FORBIDDEN_AUTHORITY_FLAGS:
-        if flag in projection and bool(projection.get(flag)):
-            findings.append(f"{label} sets authority flag {flag!r} truthy; a review projection must stay non-authoritative")
+    _scan_authoritative(projection, label, findings)
     return findings
+
+
+def _scan_authoritative(node: Any, label: str, findings: list[str]) -> None:
+    """Recursively collect authority/id violations found under ``node``.
+
+    Read-only walk over the already-copied projection: descends into every nested
+    mapping and list/tuple so no nesting depth can hide a forbidden identifier or a
+    truthy authority-like flag.
+    """
+    if isinstance(node, Mapping):
+        for key in FORBIDDEN_PROJECTION_KEYS:
+            if str(node.get(key, "") or "").strip():
+                findings.append(f"{label} carries a forbidden authoritative field {key!r}; a review projection must not carry a real identifier")
+        for flag in FORBIDDEN_AUTHORITY_FLAGS:
+            if flag in node and bool(node.get(flag)):
+                findings.append(f"{label} sets authority flag {flag!r} truthy; a review projection must stay non-authoritative")
+        for value in node.values():
+            _scan_authoritative(value, label, findings)
+    elif isinstance(node, (list, tuple)):
+        for value in node:
+            _scan_authoritative(value, label, findings)
 
 
 def _axis_traceable(axis: str, value: str, facts: Any, vocab: ScopeVocabulary) -> bool:
@@ -494,6 +527,16 @@ def assess_scope_readiness(
             research_spec=research_spec,
             upstream_status=upstream_status,
             upstream_reason_code=upstream_reason,
+        )
+
+    # 2b. The upstream status/reason_code pair must be a bounded WP-06e outcome.
+    # A faithful projection cannot pair a real status with an out-of-vocabulary or
+    # mismatched reason code (e.g. a ``scope_draft_created`` status carrying anything
+    # but ``SCOPE_DRAFT_CREATED``); such a pair fails closed rather than being judged.
+    if (upstream_status, upstream_reason) not in _VALID_UPSTREAM_PAIRS:
+        return _pass_through(
+            CODE_RESOLUTION_MALFORMED,
+            f"upstream status/reason_code pair ({upstream_status!r}, {upstream_reason!r}) is not a bounded WP-06e scope-resolution outcome; scope is not ready",
         )
 
     # 3. Carry a non-``scope_draft_created`` upstream verdict through verbatim.

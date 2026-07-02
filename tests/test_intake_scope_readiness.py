@@ -228,6 +228,70 @@ class ConsistencyTests(unittest.TestCase):
         self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
         self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
 
+    def test_nested_authoritative_ontology_id_in_ambiguity_item_fails_closed(self):
+        # Regression (PR #47 blocker 1): an authoritative id smuggled into a nested
+        # ambiguity item — not the top-level projection — must still fail closed.
+        _spec, resolution = _ready_resolution()
+        data = resolution.to_dict()
+        data["ambiguity_report"]["items"].append(
+            {"subject": "tissue", "impact": "note", "status": "open", "ontology_id": "UBERON:0002107"}
+        )
+        result = assess_scope_readiness(data, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
+
+    def test_nested_authority_flag_in_ambiguity_item_fails_closed(self):
+        # Regression (PR #47 blocker 1): a truthy authority flag nested inside an
+        # ambiguity item must fail closed, not just one at the projection root.
+        _spec, resolution = _ready_resolution()
+        data = resolution.to_dict()
+        data["ambiguity_report"]["items"].append(
+            {"subject": "tissue", "impact": "note", "status": "open", "authoritative": True}
+        )
+        result = assess_scope_readiness(data, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
+
+    def test_nested_mapped_id_in_scope_bundle_substructure_fails_closed(self):
+        # Regression (PR #47 blocker 1): a forbidden id nested inside a bundle
+        # sub-structure (a list of mappings) must fail closed at any depth.
+        _spec, resolution = _ready_resolution()
+        data = resolution.to_dict()
+        data["scope_bundle"]["provenance"] = [{"mapped_id": "NCBITaxon:10090"}]
+        result = assess_scope_readiness(data, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
+
+    def test_invalid_upstream_reason_code_fails_closed(self):
+        # Regression (PR #47 blocker 2): a scope_draft_created status carrying an
+        # out-of-vocabulary reason code must fail closed, never become ready.
+        _spec, resolution = _ready_resolution()
+        data = resolution.to_dict()
+        data["reason_code"] = "NOT_A_SCOPE_REASON_CODE"
+        result = assess_scope_readiness(data, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_RESOLUTION_MALFORMED)
+
+    def test_mismatched_status_reason_pair_fails_closed(self):
+        # Regression (PR #47 blocker 2): a valid-but-wrong reason code (one that
+        # belongs to a different status) paired with scope_draft_created is not a
+        # bounded WP-06e outcome and must fail closed.
+        _spec, resolution = _ready_resolution()
+        data = resolution.to_dict()
+        data["reason_code"] = "SCOPE_NEEDS_CLARIFICATION"  # valid code, wrong status
+        result = assess_scope_readiness(data, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_RESOLUTION_MALFORMED)
+
+    def test_invalid_upstream_reason_code_on_dataclass_fails_closed(self):
+        # Regression (PR #47 blocker 2): the dataclass path fails closed on an
+        # invalid pair too, not only the mapping projection path.
+        _spec, resolution = _ready_resolution()
+        tampered = dataclasses.replace(resolution, reason_code="NOT_A_SCOPE_REASON_CODE")
+        result = assess_scope_readiness(tampered, project_id=PROJECT_ID)
+        self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
+        self.assertEqual(result.reason_code, CODE_RESOLUTION_MALFORMED)
+
     def test_non_draft_projection_fails_closed(self):
         _spec, resolution = _ready_resolution()
         data = resolution.to_dict()
