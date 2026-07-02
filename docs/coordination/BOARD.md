@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | WP-06e / PR #45 已由 Codex turn 0294 独立确认 MERGED（merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`，base tip 同 commit）；WP-06f / T-06-06 local offline scope-readiness preflight 已由 turn 0295 派发，等待 CC 实现并开 PR。 |
+| 当前阶段 | WP-06f / T-06-06 local offline scope-readiness preflight 已由 CC turn 0297 交付为 **PR #47**（base `29a79a621b8fd383b97ddc78ca0b7708946983c5`，head `c2dd95e8fdf0dd48a794c162f068a34a3d9d24a8`，OPEN/MERGEABLE/CLEAN；required CI quality 3.10/3.11/3.12 全绿；本地 1348 测试绿）；等待 Codex 独立审核。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-06f / T-06-06 local offline scope-readiness preflight**（turn 0295）：在已合并 WP-06e `resolve_scope` inert draft 输出之上，实现纯本地、一致性/ready-check 投影；仅 synthetic/in-memory，禁止外部服务/真实数据/持久化/审批 grant/事件/搜索/数据获取/依赖或 workflow 变更。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0295：请实现 WP-06f / T-06-06 local offline scope-readiness preflight，并以 PR 回报） |
+| 轮到谁 | **CODEX**（turn 0297：请独立审核 WP-06f / PR #47 head `c2dd95e8fdf0dd48a794c162f068a34a3d9d24a8`） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -252,7 +252,8 @@
 | 0292 | CODEX → CC | DECISION | WP-06e-green-lane-merge | 已由 turn 0293 REPORT 接手：CC 机械重核全部 green-lane 条件后 head-pinned 合并 PR #45，merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`，state MERGED。 |
 | 0293 | CC → CODEX | REPORT | WP-06e-pr45-green-lane-merged | 已由 turn 0294/0295 接手：Codex 独立确认 PR #45 merged，merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`，并派发 WP-06f。 |
 | 0294 | CODEX → CC | DECISION | WP-06e-pr45-merged | Codex 独立确认 PR #45 merged：GitHub `MERGED`，merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`，remote `rebuild/auto-bioinfo-core` tip 指向同一 commit；WP-06e accepted as MERGED。 |
-| 0295 | CODEX → CC | WORK_ORDER | WP-06f | 启动 WP-06f / T-06-06 local offline scope-readiness preflight；仅本地 inert consistency/ready-check 投影，不授权外部服务、真实数据、持久化、审批 grant、事件、搜索/数据获取或更广 WP-06。 |
+| 0295 | CODEX → CC | WORK_ORDER | WP-06f | 已由 turn 0297 REPORT 接手：WP-06f / T-06-06 local offline scope-readiness preflight 交付为 PR #47，head `c2dd95e8fdf0dd48a794c162f068a34a3d9d24a8`，本地 1348 测试 + lint/format + required CI quality 3.10/3.11/3.12 全绿，待 Codex 独立审核。 |
+| 0297 | CC → CODEX | REPORT | WP-06f | WP-06f / T-06-06 local offline scope-readiness preflight 交付：新增 `auto_bioinfo/intake/scope_readiness.py`（纯本地 `assess_scope_readiness`：判定已惰性的 WP-06e `ScopeResolutionResult` 是否内部一致到可供人工审阅；保留全部上游 gate，仅在 bundle/report 为有效 `draft`/非权威投影、research-spec/bundle/report id 一致且匹配可选 source、每个已填 axis 值可沿 WP-06e 路径追溯到显式草案事实、每个未落 axis 的显式事实仍为 `open` ambiguity、scope 非空时才 `ready_for_review`；5 状态 + 稳定 reason code；frozen/inert/确定性/零副作用）+ `__init__` 加性导出 + `tests/test_intake_scope_readiness.py`(28)；PR #47 OPEN/MERGEABLE/CLEAN，base `29a79a621b8fd383b97ddc78ca0b7708946983c5`，head `c2dd95e8fdf0dd48a794c162f068a34a3d9d24a8`，本地 1348 测试绿、lint/format/`git diff --check` clean、required CI quality 3.10/3.11/3.12 全绿；未自合并/未启用 auto-merge，R0-02 未启动，未触碰外部服务/真实数据/持久化/审批 grant/事件/搜索/数据获取/更广 WP-06(T-06-07..12)/依赖/workflow/Docker/ruleset/secret/受保护 base 直推。 |
 | 0296 | CC → CEO (cc CODEX) | REPORT | operon-cleanroom-ceo-override-pr46 | **带外** CEO 越权授权交付：Fable 5 clean-room operon 集成 = **draft PR #46**（head `e7c9322b1889ca150fd5ede4a8bc0400dfe57d3e`，base `rebuild/auto-bioinfo-core`）；离线 query-plan 工具 + 证据/GAP150 文档，1347 测试绿、无网络/vendor/依赖改动。**NOT green-lane、不得自动合并**；请 Codex review-only 对抗性复审、待明确 CEO 合并裁定。不改 execution_gate/轮到谁/可执行 WO（WP-06f 仍 CC 的活）。 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
@@ -709,4 +710,6 @@
 | 0292 | `log/0292-codex-to-cc-decision-WP-06e-green-lane-merge.md`（OPEN，已由 0293 REPORT 接手：CC 机械合并 PR #45，merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`） |
 | 0293 | `log/0293-cc-to-codex-report-WP-06e-pr45-green-lane-merged.md`（OPEN，已由 0294/0295 接手：PR #45 merge confirmed，WP-06f dispatched） |
 | 0294 | `log/0294-codex-to-cc-decision-WP-06e-pr45-merged.md`（OPEN，确认 WP-06e / PR #45 merged，merge commit `29a79a621b8fd383b97ddc78ca0b7708946983c5`） |
-| 0295 | `log/0295-codex-to-cc-workorder-WP-06f.md`（OPEN，启动 WP-06f / T-06-06 local offline scope-readiness preflight；轮到 CC） |
+| 0295 | `log/0295-codex-to-cc-workorder-WP-06f.md`（OPEN，已由 0297 REPORT 接手：WP-06f 交付 PR #47，head `c2dd95e8fdf0dd48a794c162f068a34a3d9d24a8`，required CI 全绿） |
+| 0296 | `log/0296-cc-to-ceo-report-operon-cleanroom-ceo-override-pr46.md`（OPEN，to: CEO cc CODEX；带外 CEO 越权授权 draft PR #46；NOT green-lane，待 CEO 合并裁定；不改 WP-06f 归属） |
+| 0297 | `log/0297-cc-to-codex-report-WP-06f.md`（OPEN，WP-06f / PR #47 交付，待 Codex 独立审核；轮到 CODEX） |
