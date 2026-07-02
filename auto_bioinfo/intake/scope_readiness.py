@@ -75,11 +75,13 @@ from .question_normalizer import (
     QuestionNormalizationResult,
 )
 from .scope_resolver import (
+    _CODE_STATUS as SCOPE_CODE_STATUS,
+)
+from .scope_resolver import (
     DEFAULT_VOCABULARY,
     DRAFT_STATUS,
     ScopeResolutionResult,
     ScopeVocabulary,
-    _CODE_STATUS as SCOPE_CODE_STATUS,
     _facts_from_spec,
 )
 from .scope_resolver import (

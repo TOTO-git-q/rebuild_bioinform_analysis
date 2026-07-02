@@ -233,9 +233,7 @@ class ConsistencyTests(unittest.TestCase):
         # ambiguity item — not the top-level projection — must still fail closed.
         _spec, resolution = _ready_resolution()
         data = resolution.to_dict()
-        data["ambiguity_report"]["items"].append(
-            {"subject": "tissue", "impact": "note", "status": "open", "ontology_id": "UBERON:0002107"}
-        )
+        data["ambiguity_report"]["items"].append({"subject": "tissue", "impact": "note", "status": "open", "ontology_id": "UBERON:0002107"})
         result = assess_scope_readiness(data, project_id=PROJECT_ID)
         self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
         self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
@@ -245,9 +243,7 @@ class ConsistencyTests(unittest.TestCase):
         # ambiguity item must fail closed, not just one at the projection root.
         _spec, resolution = _ready_resolution()
         data = resolution.to_dict()
-        data["ambiguity_report"]["items"].append(
-            {"subject": "tissue", "impact": "note", "status": "open", "authoritative": True}
-        )
+        data["ambiguity_report"]["items"].append({"subject": "tissue", "impact": "note", "status": "open", "authoritative": True})
         result = assess_scope_readiness(data, project_id=PROJECT_ID)
         self.assertEqual(result.status, STATUS_REJECTED_INCONSISTENT)
         self.assertEqual(result.reason_code, CODE_AUTHORITATIVE_PROJECTION)
