@@ -73,9 +73,7 @@ _SENSITIVE_KEYS = ("token", "secret", "password", "credential", "api_key", "auth
 # ``marker=value`` / ``marker: value`` patterns redacted out of captured
 # stdout/stderr and other free-text log values so a controlled log artifact never
 # carries a raw secret / token / API-key string (T-14-13).
-_SENSITIVE_VALUE_PATTERNS = tuple(
-    re.compile(r"(?i)(" + re.escape(marker) + r")\s*[=:]\s*\S+") for marker in _SENSITIVE_KEYS
-)
+_SENSITIVE_VALUE_PATTERNS = tuple(re.compile(r"(?i)(" + re.escape(marker) + r")\s*[=:]\s*\S+") for marker in _SENSITIVE_KEYS)
 
 
 def _redact_sensitive_text(text: str) -> str:
@@ -175,9 +173,7 @@ class Sandbox:
         # Fail closed: a relative path outside the declared write scope is rejected
         # even though it does not traverse or escape to an absolute location.
         if self.write_scope and not self._normalize(output.relative_path).startswith(self.write_scope):
-            raise SandboxViolation(
-                f"output path {output.relative_path!r} is outside the declared write scope {self.write_scope!r}"
-            )
+            raise SandboxViolation(f"output path {output.relative_path!r} is outside the declared write scope {self.write_scope!r}")
         # A symlink-escape is modelled as a declared symlink target that escapes.
         if output.content_role == "symlink" and self._escapes(output.output_name):
             raise SandboxViolation(f"symlink output {output.output_name!r} escapes the sandbox")
@@ -385,7 +381,9 @@ def execute_task(
     else:
         executor = _select_executor(executor_kind)
         options = executor_options or {}
-        result = executor.execute(task_id, outcome, params=params, **options) if executor_kind != EXEC_SLURM else executor.execute(task_id, outcome, params=params)
+        result = (
+            executor.execute(task_id, outcome, params=params, **options) if executor_kind != EXEC_SLURM else executor.execute(task_id, outcome, params=params)
+        )
     if result.error_class and not error_class:
         error_class = result.error_class
 
