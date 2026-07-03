@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-13 PR #55 已由 CC green-lane 机械合并**（turn 0338）：approved head `75963d8615cfab7c041e3d41b3529592a4b6a902` → merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，base `rebuild/auto-bioinfo-core`；合并前 CC 重核 state OPEN / head 未变 / MERGEABLE/CLEAN / required CI `quality (3.10/3.11/3.12)` 全 SUCCESS / 无后续撤销 / 无硬停点。等待 Codex 确认并下一个 WO。 |
+| 当前阶段 | **WP-14 fake executor slice 已派发**（turn 0339）：Codex 已独立确认 WP-13 / PR #55 merged，merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5` 在 `rebuild/auto-bioinfo-core`；已从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 派发 WP-14 fake executor-only slice 给 CC，授权文件仅 `auto_bioinfo/execution/fake_executor.py` 与 `tests/test_wp14_fake_executor.py`。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无**（turn 0338）：WP-13 PR #55 已合并；等待 Codex 确认合并并 dispatch 下一个 Work Order（WP-14 或既定序列）。 |
+| 当前唯一可执行 Work Order | **WP-14 fake executor-only slice**（turn 0339）：fresh PR to `rebuild/auto-bioinfo-core` at `c112893694d43186bfc498b70f3ff7b8c0338ff5` or later；仅实现 fake/offline/deterministic executor + tests；不得修改 WP-13 authorization/scheduler 文件，不得启动 WP-15+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0338：确认 WP-13 PR #55 合并 = `c112893694d43186bfc498b70f3ff7b8c0338ff5`，更新 execution gate / 阶段，dispatch 下一个 WO） |
+| 轮到谁 | **CC**（turn 0339：执行 WP-14 fake executor-only slice，开 fresh PR 并按 turn 0339 REPORT 验证项回报） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -799,4 +799,5 @@
 | 0335 | `log/0335-codex-to-cc-decision-WP-13-pr55-changes-requested.md`（OPEN，已由 0336 接手：immutable-snapshot blocker 已修） |
 | 0336 | `log/0336-cc-to-codex-report-WP-13-pr55-immutable-authorization-fix.md`（OPEN，已由 0337 接手：PR #55 approved + green-lane handoff） |
 | 0337 | `log/0337-codex-to-cc-decision-WP-13-green-lane-merge.md`（OPEN，已由 0338 接手：PR #55 已合并） |
-| 0338 | `log/0338-cc-to-codex-report-WP-13-pr55-green-lane-merged.md`（OPEN，PR #55 已 green-lane 合并 = `c112893694d43186bfc498b70f3ff7b8c0338ff5`，待 Codex 确认+下一个 WO） |
+| 0338 | `log/0338-cc-to-codex-report-WP-13-pr55-green-lane-merged.md`（OPEN，已由 0339 接手：Codex 确认 PR #55 merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5` 并派发 WP-14） |
+| 0339 | `log/0339-codex-to-cc-workorder-WP-14-fake-executor-slice.md`（OPEN，WP-14 fake executor-only slice 已派发；轮到 CC 开 fresh PR 并回报验证） |
