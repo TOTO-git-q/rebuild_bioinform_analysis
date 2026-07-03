@@ -41,6 +41,7 @@ DIAG_ORPHAN_NODE = "ORPHAN_NODE"
 DIAG_UNCOVERED_SUBQUESTION = "UNCOVERED_SUBQUESTION"
 DIAG_MISSING_EXECUTION_FIELD = "MISSING_EXECUTION_FIELD"
 DIAG_CLAIM_LEVEL_VIOLATION = "CLAIM_LEVEL_VIOLATION"
+DIAG_INVALID_CLAIM_LEVEL = "INVALID_CLAIM_LEVEL"
 DIAG_METHOD_NOT_APPLICABLE = "METHOD_NOT_APPLICABLE"
 DIAG_INVALID_PLAN = "INVALID_WORKFLOW_PLAN"
 DIAG_NO_ACTIVE_CONTRACT = "NO_ACTIVE_CONTRACT"
@@ -51,6 +52,7 @@ DIAG_CODES = (
     DIAG_UNCOVERED_SUBQUESTION,
     DIAG_MISSING_EXECUTION_FIELD,
     DIAG_CLAIM_LEVEL_VIOLATION,
+    DIAG_INVALID_CLAIM_LEVEL,
     DIAG_METHOD_NOT_APPLICABLE,
     DIAG_INVALID_PLAN,
     DIAG_NO_ACTIVE_CONTRACT,
@@ -263,7 +265,38 @@ def compile_workflow(
             )
             continue
 
-        allowed_claim = str(method_plan.get("imposed_claim_ceiling") or contract.get("claim_capability", "descriptive"))
+        # Fail-closed claim-level validation: never compile a formal plan from a
+        # claim level we do not recognise.  Every level accepted from the method
+        # plan or the contract must be a member of CLAIM_LEVELS, or the whole
+        # sub-question is blocked with a bounded diagnostic (no COMPILE_OK, no
+        # formal WorkflowPlan with an invalid gate ceiling).
+        imposed_claim = method_plan.get("imposed_claim_ceiling")
+        contract_claim = contract.get("claim_capability", "descriptive")
+        invalid_claim = False
+        if imposed_claim not in (None, "") and imposed_claim not in CLAIM_LEVELS:
+            diagnostics.append(
+                _diag(
+                    DIAG_INVALID_CLAIM_LEVEL,
+                    f"sub-question {subquestion_id!r} imposed_claim_ceiling {imposed_claim!r} is not a recognised claim level; refusing to compile",
+                    blocking=True,
+                    subquestion_id=subquestion_id,
+                )
+            )
+            invalid_claim = True
+        if contract_claim not in CLAIM_LEVELS:
+            diagnostics.append(
+                _diag(
+                    DIAG_INVALID_CLAIM_LEVEL,
+                    f"contract for method {method_id!r} declares claim_capability {contract_claim!r} not in CLAIM_LEVELS; refusing to compile",
+                    blocking=True,
+                    subquestion_id=subquestion_id,
+                )
+            )
+            invalid_claim = True
+        if invalid_claim:
+            continue
+
+        allowed_claim = str(imposed_claim or contract_claim)
         exec_fields = defaults.as_fields()
 
         # 1. DataPreparation node — consumes manifest inputs, produces a prepared input artifact.

@@ -10,6 +10,7 @@ from auto_bioinfo.methods.contract_registry import build_default_registry
 from auto_bioinfo.workflow.dag_compiler import (
     COMPILE_OK,
     COMPILE_REPLAN,
+    DIAG_INVALID_CLAIM_LEVEL,
     DIAG_UNCOVERED_SUBQUESTION,
     NODE_ANALYSIS,
     NODE_DATA_PREPARATION,
@@ -114,6 +115,22 @@ class CompileFailurePathTest(unittest.TestCase):
         defaults = ExecutionDefaults(write_scope="")
         result = compile_workflow(self.reg, plans, project_id="proj1", execution_defaults=defaults)
         self.assertEqual(result.status, COMPILE_REPLAN)
+
+    def test_invalid_imposed_claim_ceiling_blocks_compile(self):
+        # A method plan carrying an unrecognised claim level must fail closed:
+        # no COMPILE_OK, no formal WorkflowPlan with an invalid gate ceiling.
+        method_plan, _ = build_method_plan(self.reg, _bulk_profile(), _sq(), evidence_plan_id="ep", candidate_method_ids=["bulk_deg"])
+        method_plan["imposed_claim_ceiling"] = "not_a_claim"
+        plans = [{"subquestion": _sq(), "method_plan": method_plan, "manifest_inputs": ["m1"]}]
+        result = compile_workflow(self.reg, plans, project_id="proj1")
+        self.assertEqual(result.status, COMPILE_REPLAN)
+        self.assertIsNone(result.workflow_plan)
+        self.assertEqual(result.task_packets, [])
+        codes = {d["code"] for d in result.diagnostics}
+        self.assertIn(DIAG_INVALID_CLAIM_LEVEL, codes)
+        # The offending sub-question must be blocked, not silently compiled.
+        offending = [d for d in result.diagnostics if d["code"] == DIAG_INVALID_CLAIM_LEVEL]
+        self.assertTrue(all(d["severity"] == "blocking" for d in offending))
 
     def test_injected_cycle_detected_by_validator(self):
         # A hand-built plan with a cycle must fail the workflow-plan validator.
