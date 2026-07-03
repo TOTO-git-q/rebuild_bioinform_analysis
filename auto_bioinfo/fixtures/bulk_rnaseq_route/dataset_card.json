@@ -1,0 +1,31 @@
+{
+  "dataset_id": "FIXTURE_BULK_RNASEQ_ROUTE",
+  "namespace": "GEO",
+  "identifier": "GSE900001",
+  "accession": "GSE900001",
+  "source_status": "committed_fixture",
+  "source_class": "SYNTHETIC_FIXTURE",
+  "retrieval_mode": "LOCAL_CACHE",
+  "verification_level": "FILES_CHECKSUM_VERIFIED",
+  "modality": "bulk RNA-seq",
+  "organism": "human",
+  "tissue": "liver",
+  "platform": "GPL_SYNTHETIC_BULK",
+  "license": "fixture-only, not a real biological dataset",
+  "access": "open",
+  "files": {
+    "counts": "counts.tsv",
+    "samples": "samples.tsv"
+  },
+  "group_sizes": {
+    "tumor": 3,
+    "normal": 3
+  },
+  "comparison_groups": ["tumor", "normal"],
+  "donor_level": true,
+  "provenance_note": "Synthetic, committed offline fixture for the WP-16 bulk RNA-seq research route and its acceptance/adversarial tests. Honestly labelled as a synthetic fixture; it must never be presented as real verified biological data. Production runs obtain datasets through the real, audited resource discovery lane.",
+  "known_limitations": [
+    "Synthetic counts; results are for pipeline validation only, not biological discovery.",
+    "Single dataset; no independent replication."
+  ]
+}
