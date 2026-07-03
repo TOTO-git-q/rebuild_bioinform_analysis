@@ -227,9 +227,7 @@ class LineageTest(unittest.TestCase):
         )
         graph = self.reg.build_lineage()
         self.assertNotIn("artifact_missing_source", graph["nodes"])
-        self.assertTrue(
-            any(e["to_id"] == "artifact_missing_source" and e["edge_type"] == "derived_from" for e in graph["dangling_edges"])
-        )
+        self.assertTrue(any(e["to_id"] == "artifact_missing_source" and e["edge_type"] == "derived_from" for e in graph["dangling_edges"]))
         findings = self.reg.lineage_check()
         self.assertTrue(any(chart.artifact_id in f and "artifact_missing_source" in f for f in findings))
 
