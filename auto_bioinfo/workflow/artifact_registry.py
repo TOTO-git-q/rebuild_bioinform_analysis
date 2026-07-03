@@ -23,6 +23,7 @@ from __future__ import annotations
 import csv
 import hashlib
 import io
+import json
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -148,6 +149,39 @@ def _media_type_to_format(media_type: str) -> str:
     return FMT_UNKNOWN
 
 
+def validate_declared_content(content: bytes, declared_media_type: str) -> str | None:
+    """Fail-closed content check for a *known* declared media type (T-15-04/05).
+
+    When the declared media type maps to a recognised format, the byte content
+    must actually be that format: the structural sniff must agree, and the bytes
+    must parse (JSON must load; TSV/CSV must be a non-ragged delimited table with
+    at least two columns).  Returns a blocking finding string when a known
+    declared format does not match/parse, else ``None``.  An unknown declared
+    media type is not second-guessed here (nothing to check against).
+    """
+    declared_fmt = _media_type_to_format(declared_media_type)
+    if declared_fmt == FMT_UNKNOWN:
+        return None
+    detected = detect_format(content, declared_media_type=declared_media_type)
+    if detected != declared_fmt:
+        actual = "unrecognized content" if detected == FMT_UNKNOWN else f"{detected!r} content"
+        return f"declared media type maps to {declared_fmt!r} but content is {actual}"
+    if declared_fmt == FMT_JSON:
+        try:
+            json.loads(content.decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return f"declared {declared_fmt!r} content does not parse as JSON"
+    elif declared_fmt in (FMT_TSV, FMT_CSV):
+        delimiter = "\t" if declared_fmt == FMT_TSV else ","
+        text = content.decode("utf-8", errors="replace")
+        rows = [line.split(delimiter) for line in text.splitlines() if line.strip()]
+        if not rows or len(rows[0]) < 2:
+            return f"declared {declared_fmt!r} content is not a delimited table"
+        if len({len(r) for r in rows}) != 1:
+            return f"declared {declared_fmt!r} content has ragged columns"
+    return None
+
+
 @dataclass
 class ArtifactRegistration:
     """A registration record for one output artifact."""
@@ -235,17 +269,17 @@ class ArtifactRegistry:
             state = STATE_QUARANTINED
 
         # 2. integrity: empty / checksum / format (T-15-04/05).
+        detected = detect_format(facts.content, declared_media_type=facts.declared_media_type)
         if state != STATE_QUARANTINED:
             if size == 0:
                 findings.append("artifact is empty")
                 state = STATE_INVALID
-            detected = detect_format(facts.content, declared_media_type=facts.declared_media_type)
-            declared_fmt = _media_type_to_format(facts.declared_media_type)
-            if declared_fmt not in (FMT_UNKNOWN, detected) and detected != FMT_UNKNOWN:
-                findings.append(f"declared media type maps to {declared_fmt!r} but content is {detected!r}")
+            # A known declared media type must fail closed when the actual content
+            # is unrecognized, a different format, or does not parse as declared.
+            content_finding = validate_declared_content(facts.content, facts.declared_media_type)
+            if content_finding is not None:
+                findings.append(content_finding)
                 state = STATE_INVALID
-        else:
-            detected = detect_format(facts.content, declared_media_type=facts.declared_media_type)
 
         manifest = None
         if state == STATE_VALID:
@@ -325,6 +359,7 @@ class ArtifactRegistry:
     def build_lineage(self, *, task_inputs: dict[str, list[str]] | None = None) -> dict[str, Any]:
         """Build the ArtifactEdge graph; returns nodes, edges and dangling findings."""
         task_inputs = task_inputs or {}
+        known_artifacts = set(self._registrations)
         nodes: set[str] = set()
         edges: list[dict[str, Any]] = []
 
@@ -334,7 +369,11 @@ class ArtifactRegistry:
                 nodes.add(reg.producer_task_id)
                 edges.append(self._edge(EDGE_PRODUCED_BY, artifact_id, reg.producer_task_id))
             for src in reg.source_refs:
-                nodes.add(src)
+                # A source ref only becomes a graph node when it resolves to a
+                # registered artifact; a bare/missing upstream ref is left
+                # un-materialised so its derived_from edge is reported dangling.
+                if src in known_artifacts:
+                    nodes.add(src)
                 edges.append(self._edge(EDGE_DERIVED_FROM, artifact_id, src))
         for task_id, inputs in task_inputs.items():
             nodes.add(task_id)
@@ -344,6 +383,7 @@ class ArtifactRegistry:
 
         dangling = [e for e in edges if e["from_id"] not in nodes or e["to_id"] not in nodes]
         edges.sort(key=lambda e: (e["edge_type"], e["from_id"], e["to_id"]))
+        dangling.sort(key=lambda e: (e["edge_type"], e["from_id"], e["to_id"]))
         return {"nodes": sorted(nodes), "edges": edges, "node_count": len(nodes), "edge_count": len(edges), "dangling_edges": dangling}
 
     @staticmethod
@@ -356,15 +396,26 @@ class ArtifactRegistry:
         }
 
     def lineage_check(self) -> list[str]:
-        """A chart artifact must trace to a source table (T-15-09).
+        """A chart artifact must trace to a registered VALID source table (T-15-09).
 
-        Returns blocking findings: a chart/figure with no ``derived_from`` source is
-        a floating figure and blocks.
+        Returns blocking findings: a chart/figure with no ``derived_from`` source,
+        or whose source refs do not all resolve to a registered VALID upstream
+        artifact, is a floating figure and blocks.  A bare string that was never
+        registered must not satisfy lineage merely because it is mentioned.
         """
         findings: list[str] = []
         for reg in self._registrations.values():
-            if reg.content_role in _CHART_ROLES and reg.state == STATE_VALID and not reg.source_refs:
+            if reg.content_role not in _CHART_ROLES or reg.state != STATE_VALID:
+                continue
+            if not reg.source_refs:
                 findings.append(f"chart artifact {reg.artifact_id!r} has no source-table lineage; blocking")
+                continue
+            for src in reg.source_refs:
+                upstream = self._registrations.get(src)
+                if upstream is None:
+                    findings.append(f"chart artifact {reg.artifact_id!r} references unknown source {src!r}; blocking")
+                elif upstream.state != STATE_VALID:
+                    findings.append(f"chart artifact {reg.artifact_id!r} source {src!r} is not VALID (state={upstream.state}); blocking")
         return findings
 
     # --- retention / lifecycle (T-15-11) -------------------------------------
@@ -487,6 +538,7 @@ __all__ = [
     "FORMATS",
     "streaming_checksum",
     "detect_format",
+    "validate_declared_content",
     "FakeObjectStore",
     "OutputFacts",
     "ArtifactRegistration",

@@ -93,6 +93,52 @@ class RegistrationStateTest(unittest.TestCase):
         r = self.reg.register("proj1", _facts(declared_media_type="application/json"), expected_output_names=["deg_results_table"])
         self.assertEqual(r.state, STATE_INVALID)
 
+    def test_json_declared_unknown_content_invalid(self):
+        # Declared JSON but content is not JSON at all (Blocker 1 regression):
+        # a known declared media type over unrecognized content must fail closed.
+        r = self.reg.register(
+            "proj1",
+            _facts(uri="proj1/outputs/report.json", content=b"not json at all", declared_media_type="application/json"),
+            expected_output_names=["deg_results_table"],
+        )
+        self.assertEqual(r.state, STATE_INVALID)
+
+    def test_json_declared_malformed_content_invalid(self):
+        # Declared JSON, sniffs as JSON (leading brace) but does not parse.
+        r = self.reg.register(
+            "proj1",
+            _facts(uri="proj1/outputs/report.json", content=b"{not valid json", declared_media_type="application/json"),
+            expected_output_names=["deg_results_table"],
+        )
+        self.assertEqual(r.state, STATE_INVALID)
+
+    def test_json_declared_valid_content_valid(self):
+        # A valid JSON object under a JSON declaration still registers VALID.
+        r = self.reg.register(
+            "proj1",
+            _facts(uri="proj1/outputs/report.json", content=b'{"result": true}', declared_media_type="application/json"),
+            expected_output_names=["deg_results_table"],
+        )
+        self.assertEqual(r.state, STATE_VALID)
+
+    def test_tsv_declared_not_a_table_invalid(self):
+        # Declared TSV but content has no tab-delimited table (Blocker 1 regression).
+        r = self.reg.register(
+            "proj1",
+            _facts(content=b"just one column no tabs no commas\n"),
+            expected_output_names=["deg_results_table"],
+        )
+        self.assertEqual(r.state, STATE_INVALID)
+
+    def test_tsv_declared_ragged_columns_invalid(self):
+        # Declared TSV but rows have inconsistent column counts.
+        r = self.reg.register(
+            "proj1",
+            _facts(content=b"gene\tlog2fc\tfdr\nGENE1\t1.5\n"),
+            expected_output_names=["deg_results_table"],
+        )
+        self.assertEqual(r.state, STATE_INVALID)
+
     def test_undeclared_output_quarantined(self):
         r = self.reg.register("proj1", _facts(output_name="sneaky"), expected_output_names=["deg_results_table"])
         self.assertEqual(r.state, STATE_QUARANTINED)
@@ -161,6 +207,50 @@ class LineageTest(unittest.TestCase):
         )
         findings = self.reg.lineage_check()
         self.assertTrue(any("no source-table lineage" in f for f in findings))
+
+    def test_missing_source_ref_dangles_and_blocks(self):
+        # Blocker 2 regression: a chart whose source ref was never registered must
+        # NOT silently become a valid graph node. The derived_from edge must be
+        # reported as dangling, and lineage_check must block the chart.
+        chart_content = b"\x89PNG\r\n\x1a\n"
+        chart = self.reg.register(
+            "proj1",
+            _facts(
+                output_name="ghost_chart",
+                uri="proj1/outputs/ghost.png",
+                content=chart_content,
+                declared_media_type="image/png",
+                content_role="chart",
+                source_refs=("artifact_missing_source",),
+            ),
+            expected_output_names=["ghost_chart"],
+        )
+        graph = self.reg.build_lineage()
+        self.assertNotIn("artifact_missing_source", graph["nodes"])
+        self.assertTrue(
+            any(e["to_id"] == "artifact_missing_source" and e["edge_type"] == "derived_from" for e in graph["dangling_edges"])
+        )
+        findings = self.reg.lineage_check()
+        self.assertTrue(any(chart.artifact_id in f and "artifact_missing_source" in f for f in findings))
+
+    def test_registered_source_ref_is_not_dangling(self):
+        # A source ref that resolves to a registered artifact is a real node.
+        chart_content = b"\x89PNG\r\n\x1a\n"
+        self.reg.register(
+            "proj1",
+            _facts(
+                output_name="volcano",
+                uri="proj1/outputs/volcano.png",
+                content=chart_content,
+                declared_media_type="image/png",
+                content_role="chart",
+                source_refs=(self.table.artifact_id,),
+            ),
+            expected_output_names=["volcano"],
+        )
+        graph = self.reg.build_lineage()
+        self.assertEqual(graph["dangling_edges"], [])
+        self.assertEqual(self.reg.lineage_check(), [])
 
     def test_export_counts_match(self):
         graph = self.reg.build_lineage()
