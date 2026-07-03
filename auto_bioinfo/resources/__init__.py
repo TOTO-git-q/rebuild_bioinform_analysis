@@ -1,12 +1,14 @@
-"""Local/offline resource-discovery stage contracts (WP-08, phase 5).
+"""Local/offline resource-closure stage contracts (WP-08 / WP-09, phases 5-6).
 
 This package holds the *local, deterministic, offline* command contracts for the
-resource-discovery lane: real resource *discovery & search audit* (WP-08) —
-turning a frozen :class:`~auto_bioinfo.core.schemas.EvidencePlan` into audited
-:class:`~auto_bioinfo.core.schemas.ResourceCandidate` records — **before** any
+resource-closure lane: real resource *discovery & search audit* (WP-08) and
+resource *verification & metadata factualisation* (WP-09) — turning a frozen
+:class:`~auto_bioinfo.core.schemas.EvidencePlan` into audited
+:class:`~auto_bioinfo.core.schemas.ResourceCandidate` records and, from those,
+verified :class:`~auto_bioinfo.core.schemas.DatasetProfile` facts — **before** any
 real search, data acquisition, approval grant, event emission, persistence, or
-pipeline transition.  Later resource-closure phases (verification, feasibility)
-are intentionally *not* imported or exported here yet.
+pipeline transition.  The later data-feasibility / DatasetManifest-lock phase
+(WP-10) is intentionally *not* imported or exported here yet.
 
 Every module mirrors the :mod:`auto_bioinfo.intake` / :mod:`auto_bioinfo.planning`
 contract style: pure and total over explicit in-memory inputs, no I/O of any kind,
@@ -32,19 +34,43 @@ from .discovery import (
     run_search,
 )
 from .search_policy import NetworkAccessDecision, NetworkAccessPolicy
+from .verification import (
+    AnnotationSourceProfile,
+    PaperProfile,
+    RegistryRecord,
+    VerificationRegistry,
+    VerificationResult,
+    apply_human_correction,
+    classify_license,
+    dataset_completeness,
+    parse_dataset_metadata,
+    verify_candidate,
+    verify_paper_dataset_relation,
+)
 
 __all__ = [
+    "AnnotationSourceProfile",
     "NetworkAccessDecision",
     "NetworkAccessPolicy",
+    "PaperProfile",
     "RankingProposal",
+    "RegistryRecord",
     "SearchQuery",
     "SearchQueryResult",
     "SearchRun",
     "SearchStopDecision",
+    "VerificationRegistry",
+    "VerificationResult",
+    "apply_human_correction",
     "build_search_query",
+    "classify_license",
+    "dataset_completeness",
     "decide_stop",
     "dedupe_candidates",
     "normalize_candidate",
+    "parse_dataset_metadata",
     "propose_ranking",
     "run_search",
+    "verify_candidate",
+    "verify_paper_dataset_relation",
 ]
