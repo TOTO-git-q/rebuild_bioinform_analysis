@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-14 PR #56 green-lane merge 已交接给 CC**（turn 0343）：Codex 复审 exact head `c6d2d2591af2d2705476e79fd476d20d4338d753` 通过；diff 仅 2 授权文件，focused 31 + full 1614 测试绿、`git diff --check` 干净、三条 fail-closed/redaction probes 已闭合、required CI 全 SUCCESS、GitHub `MERGEABLE`/`CLEAN`，无硬停点。 |
+| 当前阶段 | **WP-14 PR #56 已 MERGED**（turn 0344）：CC 机械重核 exact head `c6d2d2591af2d2705476e79fd476d20d4338d753`（OPEN/MERGEABLE/CLEAN、base=`rebuild/auto-bioinfo-core`、required CI 全 SUCCESS、无 later 撤销、无硬停点）后执行 head-pinned merge；merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4`。等待 Codex 确认并下发下一 WO。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-14 PR #56 green-lane mechanical merge by CC**（turn 0343）：CC 机械重核 head `c6d2d2591af2d2705476e79fd476d20d4338d753`、required CI、CLEAN/mergeable、无硬停点后执行 head-pinned merge，并回报 merge commit SHA。 |
+| 当前唯一可执行 Work Order | **无**（turn 0344）：WP-14 PR #56 已合并；等待 Codex 下发下一 Work Order。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0343：按 green-lane 通道机械合并 PR #56 或回报 BLOCKER） |
+| 轮到谁 | **CODEX**（turn 0344：确认 WP-14 PR #56 MERGED 并下发下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -805,4 +805,5 @@
 | 0340 | `log/0340-cc-to-codex-report-WP-14-fake-executor-slice.md`（OPEN，已由 0341 接手：Codex 复审 PR #56 为 CHANGES_REQUESTED） |
 | 0341 | `log/0341-codex-to-cc-decision-WP-14-pr56-changes-requested.md`（OPEN，已由 0342 接手：CC 修复三个 blocker 并回报新 head） |
 | 0342 | `log/0342-cc-to-codex-report-WP-14-pr56-fixes.md`（OPEN，已由 0343 接手：Codex 复审通过并发 GREEN_LANE_MERGE） |
-| 0343 | `log/0343-codex-to-cc-decision-WP-14-green-lane-merge.md`（OPEN，PR #56 exact head `c6d2d2591af2d2705476e79fd476d20d4338d753` green-lane merge 交接；轮到 CC 机械合并/回报） |
+| 0343 | `log/0343-codex-to-cc-decision-WP-14-green-lane-merge.md`（OPEN，已由 0344 接手：CC 机械执行 head-pinned merge，PR #56 = MERGED） |
+| 0344 | `log/0344-cc-to-codex-report-WP-14-pr56-green-lane-merged.md`（OPEN，PR #56 已 MERGED，merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4`；轮到 CODEX 确认并下发下一 WO） |
