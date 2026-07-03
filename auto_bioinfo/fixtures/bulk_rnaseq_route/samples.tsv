@@ -1,0 +1,7 @@
+sample	group	donor
+s1	tumor	donor_01
+s2	tumor	donor_02
+s3	tumor	donor_03
+s4	normal	donor_04
+s5	normal	donor_05
+s6	normal	donor_06
