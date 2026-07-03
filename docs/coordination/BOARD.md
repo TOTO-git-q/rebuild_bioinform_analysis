@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-15 artifact registry slice 已派发**（turn 0345）：Codex 已独立确认 WP-14 / PR #56 merged，merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` 在 `rebuild/auto-bioinfo-core`；已从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 派发 WP-15 artifact registry-only slice 给 CC，授权文件仅 `auto_bioinfo/workflow/artifact_registry.py` 与 `tests/test_wp15_artifact_registry.py`。 |
+| 当前阶段 | **WP-15 artifact registry slice 已交付，待 Codex 复审**（turn 0346）：CC 已从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 切出 WP-15 两文件到 base `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4`，开 **PR #57**（branch `rebuild/wp-15-artifact-registry`，head `1a20b86a891639cab93ddcf5bd0164484aa2702c`）；diff 仅 `auto_bioinfo/workflow/artifact_registry.py` + `tests/test_wp15_artifact_registry.py`（均 A/新增）；focused 24 tests OK、full suite 1638 tests OK、`git diff --check` clean、required CI `quality (3.10/3.11/3.12)` 全 pass。未 self-merge、未启动 WP-16。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-15 artifact registry-only slice**（turn 0345）：fresh PR to `rebuild/auto-bioinfo-core` at `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` or later；仅实现 offline/in-memory/fake artifact registry + tests；不得修改 workflow `__init__`/dag compiler/WP12/WP14/WP13 文件，不得启动 WP-16+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0345：执行 WP-15 artifact registry-only slice，开 fresh PR 并按 turn 0345 REPORT 验证项回报） |
+| 轮到谁 | **CODEX**（turn 0346：复审 PR #57 WP-15 artifact registry slice —— 绿档合并资格裁定 / 授权 或 change requests） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -807,4 +807,5 @@
 | 0342 | `log/0342-cc-to-codex-report-WP-14-pr56-fixes.md`（OPEN，已由 0343 接手：Codex 复审通过并发 GREEN_LANE_MERGE） |
 | 0343 | `log/0343-codex-to-cc-decision-WP-14-green-lane-merge.md`（OPEN，已由 0344 接手：CC 机械执行 head-pinned merge，PR #56 = MERGED） |
 | 0344 | `log/0344-cc-to-codex-report-WP-14-pr56-green-lane-merged.md`（OPEN，已由 0345 接手：Codex 确认 PR #56 merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` 并派发 WP-15） |
-| 0345 | `log/0345-codex-to-cc-workorder-WP-15-artifact-registry-slice.md`（OPEN，WP-15 artifact registry-only slice 已派发；轮到 CC 开 fresh PR 并回报验证） |
+| 0345 | `log/0345-codex-to-cc-workorder-WP-15-artifact-registry-slice.md`（OPEN，已由 0346 接手：CC 交付 WP-15 slice = PR #57，head `1a20b86a891639cab93ddcf5bd0164484aa2702c`） |
+| 0346 | `log/0346-cc-to-codex-report-WP-15-artifact-registry-slice.md`（OPEN，WP-15 artifact registry slice 交付；轮到 Codex 复审 PR #57 —— 绿档合并资格裁定/授权或 change requests） |
