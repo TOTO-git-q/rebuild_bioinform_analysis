@@ -254,10 +254,14 @@ def _build_manifest(
     run_order_steps = [p for p in ("parameters.json", "workflow_plan.json") if p in files]
     run_order_steps += [p for p in sorted(files) if p.startswith("inputs/")]
     run_order_steps += [p for p in sorted(files) if p.startswith("outputs/")]
-    expected_outputs = [{"name": str(rule["expected_output"])} for rule in comparison_spec.get("rules", [])]
     # De-dupe expected outputs by name (a duplicate is rejected by the validator).
     seen: set[str] = set()
-    expected_outputs = [o for o in expected_outputs if not (o["name"] in seen or seen.add(o["name"]))]
+    expected_outputs: list[dict[str, Any]] = []
+    for rule in comparison_spec.get("rules", []):
+        name = str(rule["expected_output"])
+        if name not in seen:
+            seen.add(name)
+            expected_outputs.append({"name": name})
     comparison_rules = [
         {"expected_output": str(rule["expected_output"]), "strategy": rule["strategy"], "tolerance": rule["tolerance"]}
         for rule in comparison_spec.get("rules", [])

@@ -297,7 +297,12 @@ def _claim_limitations(status: str, backing: Sequence[Mapping[str, Any]]) -> lis
         limitations.append("Absence of a significant result under inadequate power is not evidence of no effect.")
     # De-dupe while preserving order.
     seen: set[str] = set()
-    return [x for x in limitations if not (x in seen or seen.add(x))]
+    deduped: list[str] = []
+    for item in limitations:
+        if item not in seen:
+            seen.add(item)
+            deduped.append(item)
+    return deduped
 
 
 def build_gc_approval_package(claim: Mapping[str, Any], evidence_items: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
