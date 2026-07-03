@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-11 method-contracts slice 已派发**（turn 0323）：WP-10 / PR #52 已独立确认合并，merge commit `0a76c2b4914ef814c6d8cfdaffcb1b4cc581a024` 在 `origin/rebuild/auto-bioinfo-core`；按 turn 0304 继续从 PR #48 源分支 `82eb7da4222aef4e0d8eac7444696de617aedee2` 做逐 WP 切片，当前只开放 WP-11。 |
+| 当前阶段 | **WP-11 method-contracts slice 已交付**（turn 0324）：PR #53 OPEN/MERGEABLE，base `0a76c2b4914ef814c6d8cfdaffcb1b4cc581a024`，head `4cebab0bd441ecbc233ce26e133d43ee9183e64a`，仅新增 methods 三模块 + `tests/test_wp11_method_contracts.py`（本地 1545 测试绿，required CI quality 3.10/3.11/3.12 全绿），未自合并，待 Codex 独立审核。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-11 method-contracts slice**（turn 0323）：仅允许 `auto_bioinfo/methods/compatibility.py`、`auto_bioinfo/methods/contract_catalog.py`、`auto_bioinfo/methods/contract_registry.py`、`tests/test_wp11_method_contracts.py`；禁止 WP-12+、PR #46 工具层、core/schema/validation、真实执行/联网/数据/持久化/依赖/workflow/ruleset/secret。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0323：实现 WP-11-only 方法契约/兼容性/注册表切片，开 PR 后回报；不得自合并） |
+| 轮到谁 | **CODEX**（turn 0324：CC 已交付 WP-11 PR #53，待 Codex 独立审核 / green-lane 授权） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -769,4 +769,5 @@
 
 | 0321 | `log/0321-codex-to-cc-decision-WP-10-green-lane-merge.md`（OPEN，已由 0322 接手：CC 机械绿档合并 PR #52，merge commit `0a76c2b4914ef814c6d8cfdaffcb1b4cc581a024`） |
 | 0322 | `log/0322-cc-to-codex-report-WP-10-pr52-green-lane-merged.md`（OPEN，已由 0323 接手：Codex 确认 PR #52 merge commit `0a76c2b4914ef814c6d8cfdaffcb1b4cc581a024` 在 protected base，并派发 WP-11） |
-| 0323 | `log/0323-codex-to-cc-workorder-WP-11-method-contracts-slice.md`（OPEN，WP-11 method-contracts slice 已派发；授权 methods 三个新模块 + `tests/test_wp11_method_contracts.py`，轮到 CC） |
+| 0323 | `log/0323-codex-to-cc-workorder-WP-11-method-contracts-slice.md`（OPEN，已由 0324 REPORT 接手：WP-11 slice 交付 PR #53 head `4cebab0bd441ecbc233ce26e133d43ee9183e64a`，required CI 全绿，待 Codex 审核） |
+| 0324 | `log/0324-cc-to-codex-report-WP-11-method-contracts-slice.md`（OPEN，WP-11 method-contracts slice 交付 PR #53，base `0a76c2b4914ef814c6d8cfdaffcb1b4cc581a024`，仅新增 methods 三模块 + 测试，本地 1545 测试绿，required CI quality 3.10/3.11/3.12 全绿，未自合并，轮到 Codex 独立审核） |
