@@ -428,13 +428,18 @@ class ArtifactRegistry:
         for task_id, names in expected.items():
             produced = by_task.get(task_id, {})
             for name in names:
-                reg = produced.get(name)
-                if reg is None:
+                produced_reg = produced.get(name)
+                if produced_reg is None:
                     findings.append({"task_id": task_id, "output_name": name, "status": "FAIL", "reason": "missing required output"})
                     admissible = False
-                elif reg.state != STATE_VALID or reg.size_bytes == 0:
+                elif produced_reg.state != STATE_VALID or produced_reg.size_bytes == 0:
                     findings.append(
-                        {"task_id": task_id, "output_name": name, "status": "FAIL", "reason": f"output not VALID (state={reg.state}, size={reg.size_bytes})"}
+                        {
+                            "task_id": task_id,
+                            "output_name": name,
+                            "status": "FAIL",
+                            "reason": f"output not VALID (state={produced_reg.state}, size={produced_reg.size_bytes})",
+                        }
                     )
                     admissible = False
                 else:

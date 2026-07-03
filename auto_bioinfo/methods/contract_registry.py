@@ -262,7 +262,7 @@ class MethodRegistry:
 
 def _contract_from_dict(data: dict[str, Any], contract_cls: Any) -> Any:
     """Rebuild a MethodContract dataclass from its dict projection (best effort)."""
-    fields = {f for f in contract_cls.__dataclass_fields__}  # type: ignore[attr-defined]
+    fields = set(contract_cls.__dataclass_fields__)
     kwargs = {k: v for k, v in data.items() if k in fields}
     return contract_cls(**kwargs)
 

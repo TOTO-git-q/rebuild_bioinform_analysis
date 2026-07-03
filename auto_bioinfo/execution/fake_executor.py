@@ -387,8 +387,8 @@ def execute_task(
     if not succeeded and not error_summary:
         error_summary = f"task failed with error class {error_class or 'unknown'}"
 
-    output_refs = [m["artifact_ref"] for m in output_manifests]
-    log_refs = [log_artifact["artifact_ref"]]
+    output_refs: list[str] = [str(m["artifact_ref"]) for m in output_manifests]
+    log_refs: list[str] = [str(log_artifact["artifact_ref"])]
 
     run = TaskRun(
         task_run_id="",
