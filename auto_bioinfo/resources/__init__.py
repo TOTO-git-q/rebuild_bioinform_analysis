@@ -34,19 +34,43 @@ from .discovery import (
     run_search,
 )
 from .search_policy import NetworkAccessDecision, NetworkAccessPolicy
+from .verification import (
+    AnnotationSourceProfile,
+    PaperProfile,
+    RegistryRecord,
+    VerificationRegistry,
+    VerificationResult,
+    apply_human_correction,
+    classify_license,
+    dataset_completeness,
+    parse_dataset_metadata,
+    verify_candidate,
+    verify_paper_dataset_relation,
+)
 
 __all__ = [
+    "AnnotationSourceProfile",
     "NetworkAccessDecision",
     "NetworkAccessPolicy",
+    "PaperProfile",
     "RankingProposal",
+    "RegistryRecord",
     "SearchQuery",
     "SearchQueryResult",
     "SearchRun",
     "SearchStopDecision",
+    "VerificationRegistry",
+    "VerificationResult",
+    "apply_human_correction",
     "build_search_query",
+    "classify_license",
+    "dataset_completeness",
     "decide_stop",
     "dedupe_candidates",
     "normalize_candidate",
+    "parse_dataset_metadata",
     "propose_ranking",
     "run_search",
+    "verify_candidate",
+    "verify_paper_dataset_relation",
 ]
