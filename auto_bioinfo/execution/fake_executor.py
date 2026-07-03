@@ -22,6 +22,7 @@ leaving the main-branch hash unchanged (T-14-14).
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -68,6 +69,21 @@ NON_RETRYABLE_ERRORS = (
 
 # Sensitive field names filtered out of captured logs/metadata (T-14-13).
 _SENSITIVE_KEYS = ("token", "secret", "password", "credential", "api_key", "authorization")
+
+# ``marker=value`` / ``marker: value`` patterns redacted out of captured
+# stdout/stderr and other free-text log values so a controlled log artifact never
+# carries a raw secret / token / API-key string (T-14-13).
+_SENSITIVE_VALUE_PATTERNS = tuple(
+    re.compile(r"(?i)(" + re.escape(marker) + r")\s*[=:]\s*\S+") for marker in _SENSITIVE_KEYS
+)
+
+
+def _redact_sensitive_text(text: str) -> str:
+    """Redact ``sensitive_marker=<value>`` occurrences inside a free-text string."""
+    redacted = text
+    for pattern in _SENSITIVE_VALUE_PATTERNS:
+        redacted = pattern.sub(r"\1=[REDACTED]", redacted)
+    return redacted
 
 
 def is_retryable(error_class: str) -> bool:
@@ -145,9 +161,23 @@ class Sandbox:
             return True
         return ".." in normalized.split("/")
 
+    @staticmethod
+    def _normalize(path: str) -> str:
+        """Normalize a relative path for scope comparison (no filesystem access)."""
+        normalized = path.replace("\\", "/")
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized
+
     def place_output(self, output: RecordedOutput) -> None:
         if self._escapes(output.relative_path):
             raise SandboxViolation(f"output path {output.relative_path!r} escapes the sandbox")
+        # Fail closed: a relative path outside the declared write scope is rejected
+        # even though it does not traverse or escape to an absolute location.
+        if self.write_scope and not self._normalize(output.relative_path).startswith(self.write_scope):
+            raise SandboxViolation(
+                f"output path {output.relative_path!r} is outside the declared write scope {self.write_scope!r}"
+            )
         # A symlink-escape is modelled as a declared symlink target that escapes.
         if output.content_role == "symlink" and self._escapes(output.output_name):
             raise SandboxViolation(f"symlink output {output.output_name!r} escapes the sandbox")
@@ -275,6 +305,8 @@ def _filter_sensitive(data: dict[str, Any]) -> dict[str, Any]:
             out[key] = "[REDACTED]"
         elif isinstance(value, dict):
             out[key] = _filter_sensitive(value)
+        elif isinstance(value, str):
+            out[key] = _redact_sensitive_text(value)
         else:
             out[key] = value
     return out
@@ -336,9 +368,24 @@ def execute_task(
             break
 
     # --- run the fake executor -------------------------------------------------
-    executor = _select_executor(executor_kind)
-    options = executor_options or {}
-    result = executor.execute(task_id, outcome, params=params, **options) if executor_kind != EXEC_SLURM else executor.execute(task_id, outcome, params=params)
+    # Fail closed on an unsupported executor kind: return a bounded failed report
+    # with a non-retryable precondition error instead of raising a KeyError.
+    if executor_kind not in EXECUTOR_KINDS:
+        if not error_class:
+            error_class = ERR_PRECONDITION_FAILED
+        result = ExecutionResult(
+            executor_kind=executor_kind,
+            exit_code=126,
+            signal=None,
+            stdout="",
+            stderr=f"unsupported executor kind {executor_kind!r}",
+            run_metadata={"executor": executor_kind, "supported": False},
+            error_class=ERR_PRECONDITION_FAILED,
+        )
+    else:
+        executor = _select_executor(executor_kind)
+        options = executor_options or {}
+        result = executor.execute(task_id, outcome, params=params, **options) if executor_kind != EXEC_SLURM else executor.execute(task_id, outcome, params=params)
     if result.error_class and not error_class:
         error_class = result.error_class
 
@@ -386,6 +433,9 @@ def execute_task(
     error_summary = outcome.error_summary or escape_violation or (result.stderr if not succeeded else "")
     if not succeeded and not error_summary:
         error_summary = f"task failed with error class {error_class or 'unknown'}"
+    # The record's error_summary is auditable metadata; never let a raw secret /
+    # token derived from stderr survive into it (T-14-13).
+    error_summary = _redact_sensitive_text(error_summary)
 
     output_refs: list[str] = [str(m["artifact_ref"]) for m in output_manifests]
     log_refs: list[str] = [str(log_artifact["artifact_ref"])]

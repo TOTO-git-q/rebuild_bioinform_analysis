@@ -6,6 +6,8 @@ import unittest
 
 from auto_bioinfo.core.validation import validate_task_run
 from auto_bioinfo.execution.fake_executor import (
+    ERR_PATH_ESCAPE,
+    ERR_PRECONDITION_FAILED,
     ERR_SAMPLE_INSUFFICIENT,
     ERR_TRANSIENT_IO,
     EXEC_CONTAINER,
@@ -65,6 +67,14 @@ class SandboxTest(unittest.TestCase):
         sb.place_output(RecordedOutput("r", "outputs/r.tsv", 1, "a" * 64))
         self.assertIn("r", sb.outputs)
 
+    def test_relative_path_outside_write_scope_rejected(self):
+        # Blocker 1: a relative path that neither traverses nor escapes to an
+        # absolute location but falls outside the declared write scope must still
+        # fail closed.
+        sb = Sandbox(write_scope="outputs/", input_ids=[])
+        with self.assertRaises(SandboxViolation):
+            sb.place_output(RecordedOutput("x", "elsewhere/x.tsv", 1, "a" * 64))
+
 
 class RetryClassifierTest(unittest.TestCase):
     def test_transient_retryable(self):
@@ -122,6 +132,22 @@ class ExecuteTaskTest(unittest.TestCase):
         report = execute_task(_packet(), outcome, worker_identity="w1")
         self.assertEqual(report.task_run["result_status"], "failed")
 
+    def test_out_of_write_scope_output_fails_closed(self):
+        # Blocker 1 (Codex probe): write_scope="outputs/" with a declared output at
+        # "elsewhere/x.tsv" must fail closed, not complete.
+        packet = {
+            "task_id": "t_scope_probe",
+            "expected_outputs": ["x"],
+            "expected_inputs": [],
+            "params": {},
+            "execution_fields": {"write_scope": "outputs/"},
+        }
+        outcome = RecordedOutcome(outputs=(RecordedOutput("x", "elsewhere/x.tsv", 1, "a" * 64),))
+        report = execute_task(packet, outcome, worker_identity="w")
+        self.assertEqual(report.task_run["result_status"], "failed")
+        self.assertEqual(report.error_class, ERR_PATH_ESCAPE)
+        self.assertEqual(validate_task_run(report.task_run), [])
+
     def test_over_quota_fails(self):
         outcome = RecordedOutcome(exit_code=0, outputs=(RecordedOutput("deg_results_table", "outputs/big.tsv", 999, "a" * 64),))
         report = execute_task(_packet(), outcome, worker_identity="w1", max_output_bytes=100)
@@ -146,6 +172,50 @@ class ExecuteTaskTest(unittest.TestCase):
         # The metadata is captured; no sensitive marker key leaks (values under
         # sensitive-named keys are redacted).
         self.assertIn("payload", report.log_artifact)
+
+    def test_sensitive_stdout_content_redacted(self):
+        # Blocker 2 (Codex probe): sensitive marker patterns in stdout must be
+        # redacted, not carried raw into the log artifact payload.
+        packet = {
+            "task_id": "t_secret_probe",
+            "expected_outputs": ["x"],
+            "expected_inputs": [],
+            "params": {},
+            "execution_fields": {"write_scope": "outputs/"},
+        }
+        outcome = RecordedOutcome(
+            stdout="api_key=SECRET123 token=ABC",
+            outputs=(RecordedOutput("x", "outputs/x.tsv", 1, "a" * 64),),
+        )
+        report = execute_task(packet, outcome, worker_identity="w")
+        stdout = report.log_artifact["payload"]["stdout"]
+        self.assertNotIn("SECRET123", stdout)
+        self.assertNotIn("ABC", stdout)
+        self.assertIn("[REDACTED]", stdout)
+
+    def test_sensitive_stderr_content_redacted(self):
+        # Blocker 2: stderr sensitive content is redacted too.
+        outcome = RecordedOutcome(
+            exit_code=1,
+            stderr="failure: token=DEADBEEF api_key=hunter2",
+            error_class=ERR_TRANSIENT_IO,
+            error_summary="boom",
+            outputs=(RecordedOutput("deg_results_table", "outputs/r.tsv", 1, "a" * 64),),
+        )
+        report = execute_task(_packet(), outcome, worker_identity="w1")
+        stderr = report.log_artifact["payload"]["stderr"]
+        self.assertNotIn("DEADBEEF", stderr)
+        self.assertNotIn("hunter2", stderr)
+        self.assertIn("[REDACTED]", stderr)
+
+    def test_unsupported_executor_kind_fails_closed(self):
+        # Blocker 3 (Codex probe): an unsupported executor kind returns a bounded
+        # failed report with a non-retryable precondition error, not a KeyError.
+        report = execute_task(_packet(), RecordedOutcome(), worker_identity="w", executor_kind="real_subprocess")
+        self.assertEqual(report.task_run["result_status"], "failed")
+        self.assertEqual(report.error_class, ERR_PRECONDITION_FAILED)
+        self.assertFalse(report.retryable)
+        self.assertEqual(validate_task_run(report.task_run), [])
 
     def test_nextflow_captures_run_metadata(self):
         report = execute_task(_packet(), _success_outcome(), worker_identity="w1", executor_kind=EXEC_NEXTFLOW, executor_options={"profile": "test"})
