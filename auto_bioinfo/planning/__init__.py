@@ -14,3 +14,25 @@ byte-identical output), bounded status/reason-code vocabularies, and results
 that are inert reviewable data — never authoritative, never persisted, never a
 grant to execute.
 """
+
+from .decomposition import DecompositionResult, decompose_research_spec
+from .dependency import (
+    CoverageReport,
+    CoverageResult,
+    DependencyResult,
+    assess_coverage,
+    build_dependency_graph,
+)
+from .evidence_planning import EvidencePlanResult, plan_evidence
+
+__all__ = [
+    "CoverageReport",
+    "CoverageResult",
+    "DecompositionResult",
+    "DependencyResult",
+    "EvidencePlanResult",
+    "assess_coverage",
+    "build_dependency_graph",
+    "decompose_research_spec",
+    "plan_evidence",
+]
