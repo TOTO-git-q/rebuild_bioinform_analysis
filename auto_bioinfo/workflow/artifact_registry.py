@@ -57,6 +57,10 @@ FORMATS = (FMT_TSV, FMT_CSV, FMT_JSON, FMT_MATRIX, FMT_IMAGE, FMT_UNKNOWN)
 
 # Content roles treated as charts/figures (must trace to a source table).
 _CHART_ROLES = ("chart", "plot", "figure", "image")
+# Content roles that count as a tabular source of truth a chart may derive from.
+# A chart's lineage must land on one of these (not, e.g., a run log) to satisfy
+# the WP-15 chart -> source-table -> task constraint.
+_SOURCE_TABLE_ROLES = ("source_table", "result_table", "deg_results_table")
 # Content roles treated as formal evidence (hard delete is refused).
 _EVIDENCE_ROLES = ("result_table", "deg_results_table", "evidence", "source_table")
 
@@ -400,8 +404,10 @@ class ArtifactRegistry:
 
         Returns blocking findings: a chart/figure with no ``derived_from`` source,
         or whose source refs do not all resolve to a registered VALID upstream
-        artifact, is a floating figure and blocks.  A bare string that was never
-        registered must not satisfy lineage merely because it is mentioned.
+        *source-table* artifact, is a floating figure and blocks.  A bare string
+        that was never registered must not satisfy lineage merely because it is
+        mentioned, and a VALID but non-table upstream (e.g. a run log) does not
+        count as a source table for this constraint.
         """
         findings: list[str] = []
         for reg in self._registrations.values():
@@ -416,6 +422,8 @@ class ArtifactRegistry:
                     findings.append(f"chart artifact {reg.artifact_id!r} references unknown source {src!r}; blocking")
                 elif upstream.state != STATE_VALID:
                     findings.append(f"chart artifact {reg.artifact_id!r} source {src!r} is not VALID (state={upstream.state}); blocking")
+                elif upstream.content_role not in _SOURCE_TABLE_ROLES:
+                    findings.append(f"chart artifact {reg.artifact_id!r} source {src!r} is not a source table (role={upstream.content_role!r}); blocking")
         return findings
 
     # --- retention / lifecycle (T-15-11) -------------------------------------

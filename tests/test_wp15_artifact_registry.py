@@ -250,6 +250,83 @@ class LineageTest(unittest.TestCase):
         self.assertEqual(graph["dangling_edges"], [])
         self.assertEqual(self.reg.lineage_check(), [])
 
+    def test_chart_from_run_log_blocks(self):
+        # Blocker 3 regression: a VALID upstream that is NOT a source table (a run
+        # log) must not satisfy the chart -> source-table constraint.
+        run_log = self.reg.register(
+            "proj1",
+            _facts(
+                output_name="log",
+                uri="proj1/outputs/run.log",
+                content=b"step ok\n",
+                declared_media_type="text/plain",
+                content_role="run_log",
+                producer_task_id="task_log",
+            ),
+            expected_output_names=["log"],
+        )
+        self.assertEqual(run_log.state, "VALID")
+        chart = self.reg.register(
+            "proj1",
+            _facts(
+                output_name="chart",
+                uri="proj1/outputs/chart.png",
+                content=b"\x89PNG\r\n\x1a\n",
+                declared_media_type="image/png",
+                content_role="chart",
+                source_refs=(run_log.artifact_id,),
+            ),
+            expected_output_names=["chart"],
+        )
+        findings = self.reg.lineage_check()
+        self.assertTrue(any(chart.artifact_id in f and run_log.artifact_id in f and "not a source table" in f for f in findings))
+
+    def test_chart_from_source_table_role_passes(self):
+        # A chart whose source ref is a registered VALID source_table passes.
+        source = self.reg.register(
+            "proj1",
+            _facts(output_name="source_table", uri="proj1/outputs/src.tsv", content_role="source_table"),
+            expected_output_names=["source_table"],
+        )
+        self.assertEqual(source.state, "VALID")
+        self.reg.register(
+            "proj1",
+            _facts(
+                output_name="volcano",
+                uri="proj1/outputs/volcano.png",
+                content=b"\x89PNG\r\n\x1a\n",
+                declared_media_type="image/png",
+                content_role="chart",
+                source_refs=(source.artifact_id,),
+            ),
+            expected_output_names=["volcano"],
+        )
+        self.assertEqual(self.reg.lineage_check(), [])
+
+    def test_chart_from_non_valid_source_table_blocks(self):
+        # A chart whose upstream has a table role but is INVALID (empty) still blocks
+        # on the not-VALID condition, not the role condition.
+        bad_table = self.reg.register(
+            "proj1",
+            _facts(output_name="empty_table", uri="proj1/outputs/empty.tsv", content=b"", content_role="result_table"),
+            expected_output_names=["empty_table"],
+        )
+        self.assertEqual(bad_table.state, "INVALID")
+        chart = self.reg.register(
+            "proj1",
+            _facts(
+                output_name="chart",
+                uri="proj1/outputs/chart.png",
+                content=b"\x89PNG\r\n\x1a\n",
+                declared_media_type="image/png",
+                content_role="chart",
+                source_refs=(bad_table.artifact_id,),
+            ),
+            expected_output_names=["chart"],
+        )
+        findings = self.reg.lineage_check()
+        self.assertTrue(any(chart.artifact_id in f and "is not VALID" in f for f in findings))
+
     def test_export_counts_match(self):
         graph = self.reg.build_lineage()
         json_graph = self.reg.export_lineage("json")
