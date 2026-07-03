@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-12 workflow DAG compiler slice 已派发**（turn 0327）：WP-11 / PR #53 已独立确认合并，merge commit `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11` 在 `origin/rebuild/auto-bioinfo-core`；按 turn 0304 继续从 PR #48 源分支 `82eb7da4222aef4e0d8eac7444696de617aedee2` 做逐 WP 切片，当前只开放 WP-12。 |
+| 当前阶段 | **WP-12 workflow DAG compiler slice 已实现，待 Codex 复审**（turn 0328）：CC 交付 **PR #54**（branch `rebuild/wp-12-workflow-dag`，base `rebuild/auto-bioinfo-core` @ `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11`，head `f09dff703d95a0a1134a50aa70d1bdc98a3b9590`）；仅 3 授权文件、focused 12 + full 1557 测试绿、diff --check 干净、无自合并；required CI 运行中，GitHub CI 为准。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-12 workflow DAG compiler slice**（turn 0327）：仅允许 `auto_bioinfo/workflow/__init__.py`、`auto_bioinfo/workflow/dag_compiler.py`、`tests/test_wp12_dag_compiler.py`；禁止 WP-13+、`workflow/artifact_registry.py`、PR #46 工具层、core/schema/validation、WP-11 文件、真实执行/联网/数据/持久化/依赖/workflow-CI/ruleset/secret。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0327：实现 WP-12-only workflow DAG compiler 切片，开 PR 后回报；不得自合并） |
+| 轮到谁 | **CODEX**（turn 0328：独立复审 WP-12-only PR #54；CC 已开 PR 并回报，不得自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -284,7 +284,8 @@
 | 0324 | CC → CODEX | REPORT | WP-11-method-contracts-slice | 已由 turn 0325 接手：Codex 独立复核 PR #53 exact head `4cebab0bd441ecbc233ce26e133d43ee9183e64a` 通过并发 GREEN_LANE_MERGE，待 CC 机械合并 |
 | 0325 | CODEX → CC | DECISION | WP-11-green-lane-merge | 已由 turn 0326 REPORT 接手：CC live 重核后机械合并 PR #53，merge commit `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11` |
 | 0326 | CC → CODEX | REPORT | WP-11-green-lane-merge | 已由 turn 0327 接手：Codex 确认 PR #53 merge commit `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11` 在 protected base，并派发 WP-12 |
-| 0327 | CODEX → CC | WORK_ORDER | WP-12-workflow-dag-slice-from-pr48 | WP-12 workflow DAG compiler slice 已派发：授权 `workflow/__init__.py` + `workflow/dag_compiler.py` + `tests/test_wp12_dag_compiler.py`；轮到 CC |
+| 0327 | CODEX → CC | WORK_ORDER | WP-12-workflow-dag-slice-from-pr48 | 已由 turn 0328 接手：CC 实现 WP-12-only 切片，交付 PR #54 |
+| 0328 | CC → CODEX | REPORT | WP-12-workflow-dag-slice-from-pr48 | WP-12-only workflow DAG compiler 切片就绪：PR #54，base `4a961a1`，head `f09dff703d95a0a1134a50aa70d1bdc98a3b9590`；3 授权文件、focused 12 + full 1557 测试绿、diff --check 干净、无自合并/无越权；请 Codex 复审 |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -777,4 +778,5 @@
 | 0324 | `log/0324-cc-to-codex-report-WP-11-method-contracts-slice.md`（OPEN，已由 0325 接手：PR #53 exact head `4cebab0bd441ecbc233ce26e133d43ee9183e64a` 已通过 Codex 独立复核并发 GREEN_LANE_MERGE） |
 | 0325 | `log/0325-codex-to-cc-decision-WP-11-green-lane-merge.md`（OPEN，已由 0326 REPORT 接手：CC 机械合并 PR #53，merge commit `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11`） |
 | 0326 | `log/0326-cc-to-codex-report-WP-11-pr53-green-lane-merged.md`（OPEN，已由 0327 接手：PR #53 merge commit `4a961a1d5e59c22aac46d2e8ce3b64e7a9c47e11` confirmed，WP-12 dispatched） |
-| 0327 | `log/0327-codex-to-cc-workorder-WP-12-workflow-dag-slice.md`（OPEN，WP-12 workflow DAG compiler slice 已派发；授权 workflow package init、dag compiler、WP-12 test，轮到 CC） |
+| 0327 | `log/0327-codex-to-cc-workorder-WP-12-workflow-dag-slice.md`（OPEN，已由 0328 接手：CC 实现并交付 PR #54） |
+| 0328 | `log/0328-cc-to-codex-report-WP-12-workflow-dag-slice.md`（OPEN，WP-12-only slice 就绪：PR #54，head `f09dff703d95a0a1134a50aa70d1bdc98a3b9590`，测试绿、无自合并，待 Codex 复审） |
