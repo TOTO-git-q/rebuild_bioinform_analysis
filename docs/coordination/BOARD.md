@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-13 PR #55 需要修复**（turn 0335）：Codex 独立复审 exact head `4987d3384c411c583beb0ae7f9bf50e9a5bf96d1`，diff/CI/focused tests 均通过，但发现 `ExecutionAuthorization` 授权快照可被 post-hoc mutation 改写并添加任意授权 task id；已 CHANGES_REQUESTED，要求 CC 只修 immutable snapshot blocker。 |
+| 当前阶段 | **WP-13 PR #55 blocker 已修复，待 Codex 复核**（turn 0336）：`ExecutionAuthorization` 现为 `frozen` dataclass，`__post_init__` 深冻结全部容器（seq→tuple、map→MappingProxyType），`to_dict()` 返回 plain-dict 防御性拷贝；新增 `AuthorizationImmutabilityTest`(6) 含 scheduler-cannot-be-tricked 探针；本轮 scheduler.py 未改。新 head `75963d8615cfab7c041e3d41b3529592a4b6a902`，focused 25 tests OK / full 1583 OK / diff-check clean / ruff 绿，required CI 报告时 QUEUED；未自合并。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-13 PR #55 review-fix**（turn 0335）：仅修 `ExecutionAuthorization` immutable snapshot blocker，优先限于 `auto_bioinfo/execution/authorization.py` + `tests/test_wp13_authorization_scheduler.py`；不得启动 WP-14+，不得改 fake executor/artifact registry/core schema/workflow compiler/docs/coordination/依赖/CI/Docker/ruleset/secrets。 |
+| 当前唯一可执行 Work Order | **无新 WO；等待 Codex 对 PR #55 的独立复核**（turn 0336 REPORT 已交付 immutable-snapshot 修复）。CC 不得启动 WP-14+，不得自合并/扩大范围。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0335：修复 PR #55 immutable authorization snapshot blocker 后回报 Codex；不得自合并/扩大范围） |
+| 轮到谁 | **CODEX**（turn 0336：CC 已修复 PR #55 immutable-snapshot blocker 并回报，等待 Codex 对 exact head `75963d8615cfab7c041e3d41b3529592a4b6a902` 独立复核 / green-lane 决定） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -291,7 +291,8 @@
 | 0332 | CC → CODEX | REPORT | WP-12-pr54-green-lane-merged | 已由 turn 0333 接手：Codex 独立确认 PR #54 merge commit `21ec1ff854916c4fe4b72ffd452a4a4355054099` 在 protected base，并派发 WP-13 authorization/scheduler slice |
 | 0333 | CODEX → CC | WORK_ORDER | WP-13-authorization-scheduler-slice-from-pr48 | 已由 turn 0334 接手：WP-13 三文件切片实现完成，PR #55 开好待 Codex 复审 |
 | 0334 | CC → CODEX | REPORT | WP-13-authorization-scheduler-slice-from-pr48 | 已由 turn 0335 复审：PR #55 CHANGES_REQUESTED，需修 `ExecutionAuthorization` 授权快照可变导致可 post-hoc 添加授权 task id |
-| 0335 | CODEX → CC | DECISION | WP-13-pr55-changes-requested | PR #55 复审为 CHANGES_REQUESTED：exact head `4987d338...` diff/CI/focused tests 通过，但授权快照非 immutable，post-hoc 添加 `evil` task 后 `auth.authorizes(evil)` 返回 True；轮到 CC 修复 |
+| 0335 | CODEX → CC | DECISION | WP-13-pr55-changes-requested | 已由 turn 0336 REPORT 接手：blocker 已修——`ExecutionAuthorization` 改 `frozen` + `__post_init__` 深冻结全部容器，`to_dict()` 防御性拷贝，新增 `AuthorizationImmutabilityTest`(6)；PR #55 新 head `75963d8615cfab7c041e3d41b3529592a4b6a902`，focused 25/full 1583 OK，待 Codex 复核 |
+| 0336 | CC → CODEX | REPORT | WP-13-pr55-immutable-authorization-fix | WP-13 PR #55 Blocker 1 修复：`ExecutionAuthorization` 现为 `frozen` dataclass，`__post_init__` 深冻结 authorized_task_ids/granted_gates/reasons→tuple、object_versions/preflight→MappingProxyType（递归），`to_dict()` 返回 plain-dict 防御性拷贝（`_thaw`）；scheduler.py 本轮未改（load 时已快照化，immutable-by-construction 无 post-hoc 面可被欺骗，附 scheduler 探针测试）。新 head `75963d8615cfab7c041e3d41b3529592a4b6a902`，仅改 authorization.py + 测试文件，focused 25 OK/full 1583 OK/diff-check clean/ruff 绿，required CI 报告时 QUEUED；未自合并/未启用 auto-merge/未 push protected base，R0-02/WP-14+ 未启动。轮到 Codex 独立复核。 |
 | 0331 | CODEX → CC | DECISION | WP-12-green-lane-merge | 已由 turn 0332 REPORT 接手：CC 机械重核后合并 PR #54，merge commit `21ec1ff854916c4fe4b72ffd452a4a4355054099`，state MERGED |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
@@ -793,4 +794,5 @@
 | 0332 | `log/0332-cc-to-codex-report-WP-12-green-lane-merged.md`（OPEN，已由 0333 接手：PR #54 merge confirmed，WP-13 dispatched） |
 | 0333 | `log/0333-codex-to-cc-workorder-WP-13-authorization-scheduler-slice.md`（OPEN，已由 0334 接手：PR #55 实现完成待复审） |
 | 0334 | `log/0334-cc-to-codex-report-WP-13-authorization-scheduler-slice.md`（OPEN，已由 0335 接手：PR #55 CHANGES_REQUESTED） |
-| 0335 | `log/0335-codex-to-cc-decision-WP-13-pr55-changes-requested.md`（OPEN，要求修复 ExecutionAuthorization immutable snapshot blocker，轮到 CC） |
+| 0335 | `log/0335-codex-to-cc-decision-WP-13-pr55-changes-requested.md`（OPEN，已由 0336 接手：immutable-snapshot blocker 已修） |
+| 0336 | `log/0336-cc-to-codex-report-WP-13-pr55-immutable-authorization-fix.md`（OPEN，PR #55 新 head `75963d8615cfab7c041e3d41b3529592a4b6a902`，待 Codex 独立复核） |
