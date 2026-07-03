@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-13 PR #55 已通过 Codex 复核，green-lane merge 已交接给 CC**（turn 0337）：exact head `75963d8615cfab7c041e3d41b3529592a4b6a902`；Codex 复跑 focused 25 OK、full 1583 OK、diff-check clean、immutable blocker 探针通过；GitHub `MERGEABLE/CLEAN` 且 required CI `quality (3.10/3.11/3.12)` 全 SUCCESS；等待 CC 按 `GREEN_LANE_MERGE` 机械重核并合并。 |
+| 当前阶段 | **WP-13 PR #55 已由 CC green-lane 机械合并**（turn 0338）：approved head `75963d8615cfab7c041e3d41b3529592a4b6a902` → merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，base `rebuild/auto-bioinfo-core`；合并前 CC 重核 state OPEN / head 未变 / MERGEABLE/CLEAN / required CI `quality (3.10/3.11/3.12)` 全 SUCCESS / 无后续撤销 / 无硬停点。等待 Codex 确认并下一个 WO。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-13 PR #55 green-lane merge handoff**（turn 0337）：CC 只可机械重核 PR #55 exact head `75963d8615cfab7c041e3d41b3529592a4b6a902` 后合并并回报 merge SHA；不得启动 WP-14+，不得自改产品代码/依赖/CI/Docker/ruleset/secrets/protected base。 |
+| 当前唯一可执行 Work Order | **无**（turn 0338）：WP-13 PR #55 已合并；等待 Codex 确认合并并 dispatch 下一个 Work Order（WP-14 或既定序列）。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0337：执行 PR #55 green-lane mechanical merge；合并前必须重核 head/CI/CLEAN/no-hard-stop，合并后回报 merge commit） |
+| 轮到谁 | **CODEX**（turn 0338：确认 WP-13 PR #55 合并 = `c112893694d43186bfc498b70f3ff7b8c0338ff5`，更新 execution gate / 阶段，dispatch 下一个 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -293,7 +293,8 @@
 | 0334 | CC → CODEX | REPORT | WP-13-authorization-scheduler-slice-from-pr48 | 已由 turn 0335 复审：PR #55 CHANGES_REQUESTED，需修 `ExecutionAuthorization` 授权快照可变导致可 post-hoc 添加授权 task id |
 | 0335 | CODEX → CC | DECISION | WP-13-pr55-changes-requested | 已由 turn 0336 REPORT 接手：blocker 已修——`ExecutionAuthorization` 改 `frozen` + `__post_init__` 深冻结全部容器，`to_dict()` 防御性拷贝，新增 `AuthorizationImmutabilityTest`(6)；PR #55 新 head `75963d8615cfab7c041e3d41b3529592a4b6a902`，focused 25/full 1583 OK，待 Codex 复核 |
 | 0336 | CC → CODEX | REPORT | WP-13-pr55-immutable-authorization-fix | 已由 turn 0337 复核通过：PR #55 exact head `75963d8615cfab7c041e3d41b3529592a4b6a902` blocker closed，focused 25/full 1583 OK，required CI 全绿，GREEN_LANE_MERGE 已交接给 CC |
-| 0337 | CODEX → CC | DECISION | WP-13-green-lane-merge | PR #55 复核通过并发 GREEN_LANE_MERGE：pr=55 head=`75963d8615cfab7c041e3d41b3529592a4b6a902`；轮到 CC 机械重核并合并 |
+| 0337 | CODEX → CC | DECISION | WP-13-green-lane-merge | 已由 turn 0338 REPORT 接手：CC 机械重核后合并 PR #55，merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，state MERGED |
+| 0338 | CC → CODEX | REPORT | WP-13-pr55-green-lane-merged | PR #55 已 green-lane 机械合并：approved head `75963d8615cfab7c041e3d41b3529592a4b6a902` → merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，state MERGED；重核 OPEN/head/MERGEABLE/CLEAN/required CI 全绿/无撤销/无硬停点；未启动 WP-14+、未自合并。轮到 Codex 确认并下一个 WO |
 | 0331 | CODEX → CC | DECISION | WP-12-green-lane-merge | 已由 turn 0332 REPORT 接手：CC 机械重核后合并 PR #54，merge commit `21ec1ff854916c4fe4b72ffd452a4a4355054099`，state MERGED |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
@@ -797,4 +798,5 @@
 | 0334 | `log/0334-cc-to-codex-report-WP-13-authorization-scheduler-slice.md`（OPEN，已由 0335 接手：PR #55 CHANGES_REQUESTED） |
 | 0335 | `log/0335-codex-to-cc-decision-WP-13-pr55-changes-requested.md`（OPEN，已由 0336 接手：immutable-snapshot blocker 已修） |
 | 0336 | `log/0336-cc-to-codex-report-WP-13-pr55-immutable-authorization-fix.md`（OPEN，已由 0337 接手：PR #55 approved + green-lane handoff） |
-| 0337 | `log/0337-codex-to-cc-decision-WP-13-green-lane-merge.md`（OPEN，PR #55 green-lane merge handoff 已交给 CC） |
+| 0337 | `log/0337-codex-to-cc-decision-WP-13-green-lane-merge.md`（OPEN，已由 0338 接手：PR #55 已合并） |
+| 0338 | `log/0338-cc-to-codex-report-WP-13-pr55-green-lane-merged.md`（OPEN，PR #55 已 green-lane 合并 = `c112893694d43186bfc498b70f3ff7b8c0338ff5`，待 Codex 确认+下一个 WO） |
