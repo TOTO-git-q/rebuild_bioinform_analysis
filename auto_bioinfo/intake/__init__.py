@@ -69,6 +69,23 @@ ambiguity item; a draft with no explicit usable scope fact yields
 ``needs_clarification`` rather than a fabricated bundle.  The result carries no
 real ontology id, is never marked authoritative, and is never persisted,
 versioned, emitted, or treated as authorization.
+
+WP-06f adds the sixth slice: :func:`assess_scope_readiness`, a pure, local,
+deterministic *scope-readiness preflight* that judges whether an already-inert
+WP-06e :class:`ScopeResolutionResult` is internally consistent enough for a human
+to review, or must stay paused / be rejected.  It re-runs no resolver and invents
+no scope: it preserves every upstream gate (a support-scope stop stays a stop; a
+multi-question / needs-clarification or unsupported scope stays human-review
+oriented and never becomes ready; a missing / approval-needed policy stays inert),
+and only calls a ``scope_draft_created`` resolution ``ready_for_review`` when its
+:class:`ScopeBundle` / :class:`AmbiguityReport` remain valid ``draft`` /
+non-authoritative projections, the research-spec / bundle / report identifiers
+match (and match an optional ``source`` draft), every populated scope axis value is
+traceable to an explicit draft fact via the exact WP-06e path, every explicit fact
+that did not reach an axis survives as an ``open`` ambiguity, and the scope is
+non-empty.  A ``ready_for_review`` verdict is inert reviewable data — never a grant
+to execute — and the preflight persists nothing, emits nothing, grants no approval,
+and contacts no external service.
 """
 
 from __future__ import annotations
@@ -140,6 +157,28 @@ from .question_normalizer import (
     OfflineQuestionNormalizerAdapter,
     QuestionNormalizationResult,
     normalize_question,
+)
+from .scope_readiness import (
+    CODE_APPROVAL_NEEDED as READINESS_CODE_APPROVAL_NEEDED,
+)
+from .scope_readiness import (
+    CODE_AUTHORITATIVE_PROJECTION,
+    CODE_DROPPED_UNKNOWN_AXIS,
+    CODE_EMPTY_SCOPE,
+    CODE_IDENTIFIER_MISMATCH,
+    CODE_OPEN_AMBIGUITY,
+    CODE_READY_FOR_REVIEW,
+    CODE_RESOLUTION_MALFORMED,
+    CODE_SCOPE_BUNDLE_INVALID,
+    CODE_SOURCE_MISMATCH,
+    CODE_STOPPED_BY_UPSTREAM_GATE,
+    CODE_UNTRACEABLE_SCOPE,
+    STATUS_CLARIFICATION_REQUIRED,
+    STATUS_READY_FOR_REVIEW,
+    STATUS_REJECTED_INCONSISTENT,
+    STATUS_STOPPED_BY_UPSTREAM_GATE,
+    ScopeReadinessResult,
+    assess_scope_readiness,
 )
 from .scope_resolver import (
     CODE_SCOPE_DRAFT_CREATED,
@@ -293,4 +332,22 @@ __all__ = [
     "OfflineScopeResolverAdapter",
     "ScopeResolutionResult",
     "resolve_scope",
+    "STATUS_READY_FOR_REVIEW",
+    "STATUS_CLARIFICATION_REQUIRED",
+    "STATUS_STOPPED_BY_UPSTREAM_GATE",
+    "STATUS_REJECTED_INCONSISTENT",
+    "CODE_READY_FOR_REVIEW",
+    "CODE_OPEN_AMBIGUITY",
+    "CODE_STOPPED_BY_UPSTREAM_GATE",
+    "READINESS_CODE_APPROVAL_NEEDED",
+    "CODE_RESOLUTION_MALFORMED",
+    "CODE_SCOPE_BUNDLE_INVALID",
+    "CODE_AUTHORITATIVE_PROJECTION",
+    "CODE_IDENTIFIER_MISMATCH",
+    "CODE_SOURCE_MISMATCH",
+    "CODE_UNTRACEABLE_SCOPE",
+    "CODE_DROPPED_UNKNOWN_AXIS",
+    "CODE_EMPTY_SCOPE",
+    "ScopeReadinessResult",
+    "assess_scope_readiness",
 ]
