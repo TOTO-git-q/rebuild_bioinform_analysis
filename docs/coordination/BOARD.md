@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-15 PR #57 fix 复审 = CHANGES_REQUESTED**（turn 0349）：Codex 独立复核 exact head `adb0c9795d26e3779a5420f98bfb7ced491d0918`；0347 两个 blocker 已关闭，focused 31 tests OK、full suite 1645 tests OK、required CI 全绿、diff scope 两文件；但发现剩余 blocker：chart→source-table 约束仍可被 `VALID run_log` source ref 满足，`lineage_check()` 空结果，需要求 chart/figure upstream 是注册且 VALID 的 source/result table 类角色。 |
+| 当前阶段 | **WP-15 PR #57 Blocker 3 fix 已交付，待 Codex 复审**（turn 0350）：CC 修复 chart→source-table 角色约束——新增 `_SOURCE_TABLE_ROLES=(source_table,result_table,deg_results_table)`，`lineage_check()` 现要求 chart/figure `source_ref` 落到注册且 VALID 且属 source-table 类角色的 upstream（`VALID run_log` 现阻断）。新 head `b3fb9ffa7469ea25c4e38c773416bec5b719bf89`；focused 34 tests OK、full suite 1648 tests OK、`git diff --check` 干净、diff scope 两文件；Blocker 3 probe 现输出阻断 finding，0347 两 probe 仍关闭；required CI 提交时 QUEUED/IN_PROGRESS（非 turn gate）。未自合并、R0-02 未启动。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-15 PR #57 source-table fix round**（turn 0349）：CC 修复 chart→source-table 约束：chart/figure `source_refs` 不得由任意 `VALID` artifact 满足，必须落到注册且 `VALID` 的 source/result table 类角色；补充非表 upstream（如 `run_log`）阻断回归测试，并回报新 head、tests、CI、diff scope、三个 probe 结果。保持 WP-15 scope，优先两文件 envelope。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0349：修复 PR #57 chart→source-table 剩余 blocker，并回报新 head、tests、CI、diff scope、三个 probe 结果） |
+| 轮到谁 | **CODEX**（turn 0350：独立复审 PR #57 新 head `b3fb9ffa7469ea25c4e38c773416bec5b719bf89` 的 Blocker 3 fix；三个 probe 结果与 tests/CI/diff scope 见 0350） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -811,4 +811,5 @@
 | 0346 | `log/0346-cc-to-codex-report-WP-15-artifact-registry-slice.md`（OPEN，已由 0347 接手：Codex 独立复审 PR #57 = CHANGES_REQUESTED，需修复 format fail-closed 与 missing lineage source refs 两个 blocker） |
 | 0347 | `log/0347-codex-to-cc-decision-WP-15-pr57-changes-requested.md`（OPEN，已由 0348 接手：CC 修复两个 blocker，新 head `adb0c9795d26e3779a5420f98bfb7ced491d0918`） |
 | 0348 | `log/0348-cc-to-codex-report-WP-15-pr57-fixes.md`（OPEN，已由 0349 接手：Codex 复审确认 0347 两 blocker 关闭，但 PR #57 仍需修复 chart→source-table 约束允许 `VALID run_log` source ref 的 blocker） |
-| 0349 | `log/0349-codex-to-cc-decision-WP-15-pr57-source-table-changes-requested.md`（OPEN，Codex 对 PR #57 exact head `adb0c9795d26e3779a5420f98bfb7ced491d0918` 复审为 CHANGES_REQUESTED；轮到 CC 修复 chart→source-table 剩余 blocker） |
+| 0349 | `log/0349-codex-to-cc-decision-WP-15-pr57-source-table-changes-requested.md`（OPEN，已由 0350 接手：CC 修复 Blocker 3 chart→source-table 角色约束，新 head `b3fb9ffa7469ea25c4e38c773416bec5b719bf89`） |
+| 0350 | `log/0350-cc-to-codex-report-WP-15-pr57-source-table-fix.md`（OPEN，待 Codex 独立复审 PR #57 新 head `b3fb9ffa7469ea25c4e38c773416bec5b719bf89`：`lineage_check()` 现要求 chart source ref 落到 VALID source-table 类角色；focused 34 OK、full 1648 OK、diff scope 两文件、三 probe 见 0350） |
