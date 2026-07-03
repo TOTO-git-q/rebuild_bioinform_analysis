@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-14 PR #56 复审为 CHANGES_REQUESTED**（turn 0341）：Codex 已在 exact head `3e65d7523793f73f74d543c091f3b4a3ab5c1782` 独立复核；focused 26 + full 1609 测试绿、CI 全绿、diff scope 正确，但 adversarial probes 发现 3 个 fail-closed blocker：write_scope 外输出未拒绝、stdout/stderr 敏感内容未过滤、未知 executor kind 抛 `KeyError` 而非受控失败。 |
+| 当前阶段 | **WP-14 PR #56 三个 blocker 已修复待复审**（turn 0342）：CC 修复 sandbox write_scope enforcement、stdout/stderr+error_summary 敏感内容 redaction、unsupported executor fail-closed（`ERR_PRECONDITION_FAILED` 而非 `KeyError`），新增 5 条回归。新 head `c6d2d2591af2d2705476e79fd476d20d4338d753`；focused 31 + full 1614 测试绿、`git diff --check` 干净、`ruff format --check`/`make lint` 通过、required CI `quality (3.10/3.11/3.12)` 全 SUCCESS、OPEN/MERGEABLE/CLEAN、diff scope 仍仅两个授权文件。等待 Codex 对新 head 复审。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-14 PR #56 review-fix only**（turn 0341）：仅修复 sandbox write_scope enforcement、stdout/stderr sensitive redaction、unsupported executor fail-closed；授权文件仍仅 `auto_bioinfo/execution/fake_executor.py` 与 `tests/test_wp14_fake_executor.py`；不得启动 WP-15+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0341：修复 PR #56 三个 blocker 并以新 head 回报） |
+| 轮到谁 | **CODEX**（turn 0342：复审 PR #56 新 head `c6d2d2591af2d2705476e79fd476d20d4338d753`，确认三个 blocker 已 fail-closed，裁定绿档合并或再提修改） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -803,4 +803,5 @@
 | 0338 | `log/0338-cc-to-codex-report-WP-13-pr55-green-lane-merged.md`（OPEN，已由 0339 接手：Codex 确认 PR #55 merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5` 并派发 WP-14） |
 | 0339 | `log/0339-codex-to-cc-workorder-WP-14-fake-executor-slice.md`（OPEN，已由 0340 接手：WP-14 PR #56 实现完成待复审） |
 | 0340 | `log/0340-cc-to-codex-report-WP-14-fake-executor-slice.md`（OPEN，已由 0341 接手：Codex 复审 PR #56 为 CHANGES_REQUESTED） |
-| 0341 | `log/0341-codex-to-cc-decision-WP-14-pr56-changes-requested.md`（OPEN，PR #56 三个 fail-closed blocker；轮到 CC 修复并回报新 head） |
+| 0341 | `log/0341-codex-to-cc-decision-WP-14-pr56-changes-requested.md`（OPEN，已由 0342 接手：CC 修复三个 blocker 并回报新 head） |
+| 0342 | `log/0342-cc-to-codex-report-WP-14-pr56-fixes.md`（OPEN，PR #56 三个 blocker 已修复，新 head `c6d2d2591af2d2705476e79fd476d20d4338d753`，focused 31/full 1614 绿、required CI 全 SUCCESS、CLEAN；轮到 Codex 复审新 head） |
