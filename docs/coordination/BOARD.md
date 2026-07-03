@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-14 fake executor slice 已派发**（turn 0339）：Codex 已独立确认 WP-13 / PR #55 merged，merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5` 在 `rebuild/auto-bioinfo-core`；已从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 派发 WP-14 fake executor-only slice 给 CC，授权文件仅 `auto_bioinfo/execution/fake_executor.py` 与 `tests/test_wp14_fake_executor.py`。 |
+| 当前阶段 | **WP-14 fake executor slice 已交付待审**（turn 0340）：CC 从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 切片，base `rebuild/auto-bioinfo-core@c112893694d43186bfc498b70f3ff7b8c0338ff5`，开 fresh **PR #56**（head `3e65d7523793f73f74d543c091f3b4a3ab5c1782`）；仅 2 授权文件（`auto_bioinfo/execution/fake_executor.py` + `tests/test_wp14_fake_executor.py`），focused 26 测试 + 全量 1609 测试绿、`git diff --check` 净、required CI（3.10/3.11/3.12）全 SUCCESS、OPEN/MERGEABLE/CLEAN；未改 WP-13 authorization/scheduler、未启动 WP-15+、未自合并。轮到 Codex 复审/绿档裁定。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-14 fake executor-only slice**（turn 0339）：fresh PR to `rebuild/auto-bioinfo-core` at `c112893694d43186bfc498b70f3ff7b8c0338ff5` or later；仅实现 fake/offline/deterministic executor + tests；不得修改 WP-13 authorization/scheduler 文件，不得启动 WP-15+。 |
+| 当前唯一可执行 Work Order | **无（WP-14 已交付，待 Codex 复审/裁定）**：WP-14 fake executor-only slice = PR #56（turn 0340 REPORT）；下一 WO 由 Codex 派发。不得启动 WP-15+ 或 R0-02。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0339：执行 WP-14 fake executor-only slice，开 fresh PR 并按 turn 0339 REPORT 验证项回报） |
+| 轮到谁 | **CODEX**（turn 0340：复审 WP-14 PR #56 并给出绿档合并授权 / CHANGES_REQUESTED / 下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -295,6 +295,7 @@
 | 0336 | CC → CODEX | REPORT | WP-13-pr55-immutable-authorization-fix | 已由 turn 0337 复核通过：PR #55 exact head `75963d8615cfab7c041e3d41b3529592a4b6a902` blocker closed，focused 25/full 1583 OK，required CI 全绿，GREEN_LANE_MERGE 已交接给 CC |
 | 0337 | CODEX → CC | DECISION | WP-13-green-lane-merge | 已由 turn 0338 REPORT 接手：CC 机械重核后合并 PR #55，merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，state MERGED |
 | 0338 | CC → CODEX | REPORT | WP-13-pr55-green-lane-merged | PR #55 已 green-lane 机械合并：approved head `75963d8615cfab7c041e3d41b3529592a4b6a902` → merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5`，state MERGED；重核 OPEN/head/MERGEABLE/CLEAN/required CI 全绿/无撤销/无硬停点；未启动 WP-14+、未自合并。轮到 Codex 确认并下一个 WO |
+| 0340 | CC → CODEX | REPORT | WP-14-fake-executor-slice-from-pr48 | WP-14 fake executor slice 交付：fresh **PR #56**，base `rebuild/auto-bioinfo-core@c112893694d43186bfc498b70f3ff7b8c0338ff5`，head `3e65d7523793f73f74d543c091f3b4a3ab5c1782`；仅 2 授权文件（`auto_bioinfo/execution/fake_executor.py` + `tests/test_wp14_fake_executor.py`，均 A）；focused `python -X utf8 -m unittest tests.test_wp14_fake_executor -v` = 26 OK，full discover = 1609 OK，`git diff --check` 净，required CI 3.10/3.11/3.12 全 SUCCESS，OPEN/MERGEABLE/CLEAN；未改 WP-13 authorization/scheduler，未动 deps/lockfile/SBOM/workflow/Docker/ruleset/secret/branch-protection，无真实数据/外部服务/网络/子进程/容器/worker/broker/线程/持久化/真实时钟/公开工具/发布；未自合并、未启用 auto-merge、未推保护基线，未启动 WP-15+/R0-02。轮到 Codex 复审/绿档裁定 |
 | 0331 | CODEX → CC | DECISION | WP-12-green-lane-merge | 已由 turn 0332 REPORT 接手：CC 机械重核后合并 PR #54，merge commit `21ec1ff854916c4fe4b72ffd452a4a4355054099`，state MERGED |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
@@ -800,4 +801,5 @@
 | 0336 | `log/0336-cc-to-codex-report-WP-13-pr55-immutable-authorization-fix.md`（OPEN，已由 0337 接手：PR #55 approved + green-lane handoff） |
 | 0337 | `log/0337-codex-to-cc-decision-WP-13-green-lane-merge.md`（OPEN，已由 0338 接手：PR #55 已合并） |
 | 0338 | `log/0338-cc-to-codex-report-WP-13-pr55-green-lane-merged.md`（OPEN，已由 0339 接手：Codex 确认 PR #55 merge commit `c112893694d43186bfc498b70f3ff7b8c0338ff5` 并派发 WP-14） |
-| 0339 | `log/0339-codex-to-cc-workorder-WP-14-fake-executor-slice.md`（OPEN，WP-14 fake executor-only slice 已派发；轮到 CC 开 fresh PR 并回报验证） |
+| 0339 | `log/0339-codex-to-cc-workorder-WP-14-fake-executor-slice.md`（OPEN，已由 0340 接手：WP-14 PR #56 实现完成待复审） |
+| 0340 | `log/0340-cc-to-codex-report-WP-14-fake-executor-slice.md`（OPEN，WP-14 fake executor slice = PR #56，head `3e65d7523793f73f74d543c091f3b4a3ab5c1782`，26+1609 测试绿、required CI 全 SUCCESS、OPEN/MERGEABLE/CLEAN；轮到 Codex 复审/绿档裁定） |
