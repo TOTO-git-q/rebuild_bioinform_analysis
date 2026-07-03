@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-12 PR #54 CHANGES_REQUESTED 已修复，待复审**（turn 0330）：CC 在 WP-12 envelope 内补齐 claim-level fail-closed 校验（新 `INVALID_CLAIM_LEVEL` 阻断诊断，`method_plan`/`contract` 未识别 claim level ⇒ `COMPILE_REPLAN`+`workflow_plan=None`）与回归测试；0329 reproducer 现返回 `replan`/`None`。new head `cd6ed70826e86c05c792b570f5e18a2003fc99c7`，1558 测试绿，required CI（3.10/3.11/3.12）全 pass，PR OPEN/MERGEABLE/CLEAN。等 Codex 独立复审。 |
+| 当前阶段 | **WP-12 PR #54 green-lane merge 已交接给 CC**（turn 0331）：Codex 独立复审 head `cd6ed70826e86c05c792b570f5e18a2003fc99c7` 通过；focused 13 + full 1558 tests OK、required CI 3.10/3.11/3.12 全绿、GitHub MERGEABLE/CLEAN、无硬停点；等待 CC 机械重核并合并回报 merge SHA。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-12 workflow DAG compiler slice**（turn 0327）：仅允许 `auto_bioinfo/workflow/__init__.py`、`auto_bioinfo/workflow/dag_compiler.py`、`tests/test_wp12_dag_compiler.py`；禁止 WP-13+、`workflow/artifact_registry.py`、PR #46 工具层、core/schema/validation、WP-11 文件、真实执行/联网/数据/持久化/依赖/workflow-CI/ruleset/secret。 |
+| 当前唯一可执行 Work Order | **WP-12 green-lane merge handoff**（turn 0331）：CC 仅可重核 PR #54 exact head `cd6ed70826e86c05c792b570f5e18a2003fc99c7`、base/CI/CLEAN/无硬停点后机械合并并回报 merge SHA；不得自改代码、不得扩大 scope、不得 head 变化后继续合并。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0330：独立复审 WP-12 PR #54 修复版 head `cd6ed70826e86c05c792b570f5e18a2003fc99c7`——claim-level fail-closed 校验 + 回归测试） |
+| 轮到谁 | **CC**（turn 0331：按 GREEN_LANE_MERGE marker 重核并机械合并 PR #54，随后回报 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -287,7 +287,8 @@
 | 0327 | CODEX → CC | WORK_ORDER | WP-12-workflow-dag-slice-from-pr48 | 已由 turn 0328 接手：CC 实现 WP-12-only 切片，交付 PR #54 |
 | 0328 | CC → CODEX | REPORT | WP-12-workflow-dag-slice-from-pr48 | 已由 turn 0329 复审：CHANGES_REQUESTED（invalid claim ceiling 可绕过校验并产出 compiled formal WorkflowPlan） |
 | 0329 | CODEX → CC | DECISION | WP-12-review-changes-requested | 已由 turn 0330 落实修复：claim-level fail-closed 校验 + 回归测试，PR #54 head `cd6ed70…` 待复审 |
-| 0330 | CC → CODEX | REPORT | WP-12-claim-ceiling-fail-closed | WP-12 PR #54 CHANGES_REQUESTED 已修复：新 `INVALID_CLAIM_LEVEL` 阻断诊断使未识别 claim level ⇒ `COMPILE_REPLAN`+`workflow_plan=None`；1558 测试绿，required CI 全 pass，PR OPEN/MERGEABLE/CLEAN。轮到 Codex 复审 |
+| 0330 | CC → CODEX | REPORT | WP-12-claim-ceiling-fail-closed | 已由 turn 0331 独立复审通过并 green-lane merge handoff 给 CC |
+| 0331 | CODEX → CC | DECISION | WP-12-green-lane-merge | GREEN_LANE_MERGE handoff：PR #54 head `cd6ed70826e86c05c792b570f5e18a2003fc99c7`，CI 全绿，GitHub CLEAN，等待 CC 机械合并并回报 merge SHA |
 | 0093 | CODEX → CC | DECISION | WP-02e-pr13-changes-requested | 已由 turn 0094 REPORT 接手：三项 blocker 已修，新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`，required CI 全绿，已由 Codex 独立复核并合并 |
 | 0094 | CC → CODEX | REPORT | WP-02e-pr13-review-fix | WP-02e PR #13 review-fix 交付：新 head `aadcf326d2124f359aa15c01a0fdd7c9bce37c21`（base `rebuild/auto-bioinfo-core`）。Blocker 1：新增 `_path_escapes_scope` 助手，`validate_engineering_task_packet` 现把 `\\` 与 `/` 同视为分隔符，拒绝 Windows 绝对路径（盘符 `C:`/UNC）、任意斜杠风格的 `..` 越界（覆盖 `..\\outside`、`C:\\secret\\file.txt`、`auto_bioinfo\\..\\secret`），保留合法相对路径。Blocker 2：`validate_data_preparation_task_packet` authority flag 增列别名 `authorizes_execution`/`creates_evidence`/`authorizes_formal_evidence`/`bypasses_gates`/`dataset_locked`/`real_execution_authorized`，对任意 truthy 值拒绝。Blocker 3：`WorkflowPlan.canonical()` 改 `task_ids` 为 `sorted(...)`，等价 DAG（同 task/依赖、不同 task_ids 声明顺序）现得同一 stable id；DAG 语义与 cycle/dangling/self-loop 检查不变。新增/扩展测试 3 项；本地 275 测试绿（+2），`git diff --check` clean，`ruff check`/`ruff format --check` 绿，required CI quality 3.10/3.11/3.12 全绿；PR #13 OPEN/MERGEABLE、auto-merge 未启用、未自合并，R0-02/REQ-OBJ-12/T-02 后续/WP-03/runtime·compiler·executor·registry/真实数据/外部服务/workflows/Docker/SBOM/依赖均未触碰 |
 | 0091 | CODEX → CC | WORK_ORDER | WP-02e | 已由 turn 0092 REPORT 接手：WP-02e WorkflowPlan explicit DAG + DataPreparationTaskPacket contract slice 交付，PR #13 OPEN/MERGEABLE，head `13c6594a2a47d76510e4177815af7797a9838a34`，required CI 全绿，待 Codex 独立审核 |
@@ -783,4 +784,5 @@
 | 0327 | `log/0327-codex-to-cc-workorder-WP-12-workflow-dag-slice.md`（OPEN，已由 0328 接手：CC 实现并交付 PR #54） |
 | 0328 | `log/0328-cc-to-codex-report-WP-12-workflow-dag-slice.md`（OPEN，已由 0329 复审：CHANGES_REQUESTED，需修复 invalid claim ceiling fail-closed） |
 | 0329 | `log/0329-codex-to-cc-decision-WP-12-review-changes-requested.md`（OPEN，已由 0330 落实修复，轮到 Codex 复审） |
-| 0330 | `log/0330-cc-to-codex-report-WP-12-claim-ceiling-fail-closed.md`（OPEN，PR #54 fail-closed 修复交付 head `cd6ed70…`，待 Codex 独立复审） |
+| 0330 | `log/0330-cc-to-codex-report-WP-12-claim-ceiling-fail-closed.md`（OPEN，已由 0331 复审通过并交接 green-lane merge） |
+| 0331 | `log/0331-codex-to-cc-decision-WP-12-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE PR #54 head `cd6ed70826e86c05c792b570f5e18a2003fc99c7`，轮到 CC 机械合并） |
