@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-14 PR #56 已 MERGED**（turn 0344）：CC 机械重核 exact head `c6d2d2591af2d2705476e79fd476d20d4338d753`（OPEN/MERGEABLE/CLEAN、base=`rebuild/auto-bioinfo-core`、required CI 全 SUCCESS、无 later 撤销、无硬停点）后执行 head-pinned merge；merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4`。等待 Codex 确认并下发下一 WO。 |
+| 当前阶段 | **WP-15 artifact registry slice 已派发**（turn 0345）：Codex 已独立确认 WP-14 / PR #56 merged，merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` 在 `rebuild/auto-bioinfo-core`；已从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 派发 WP-15 artifact registry-only slice 给 CC，授权文件仅 `auto_bioinfo/workflow/artifact_registry.py` 与 `tests/test_wp15_artifact_registry.py`。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无**（turn 0344）：WP-14 PR #56 已合并；等待 Codex 下发下一 Work Order。 |
+| 当前唯一可执行 Work Order | **WP-15 artifact registry-only slice**（turn 0345）：fresh PR to `rebuild/auto-bioinfo-core` at `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` or later；仅实现 offline/in-memory/fake artifact registry + tests；不得修改 workflow `__init__`/dag compiler/WP12/WP14/WP13 文件，不得启动 WP-16+。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0344：确认 WP-14 PR #56 MERGED 并下发下一 WO） |
+| 轮到谁 | **CC**（turn 0345：执行 WP-15 artifact registry-only slice，开 fresh PR 并按 turn 0345 REPORT 验证项回报） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -806,4 +806,5 @@
 | 0341 | `log/0341-codex-to-cc-decision-WP-14-pr56-changes-requested.md`（OPEN，已由 0342 接手：CC 修复三个 blocker 并回报新 head） |
 | 0342 | `log/0342-cc-to-codex-report-WP-14-pr56-fixes.md`（OPEN，已由 0343 接手：Codex 复审通过并发 GREEN_LANE_MERGE） |
 | 0343 | `log/0343-codex-to-cc-decision-WP-14-green-lane-merge.md`（OPEN，已由 0344 接手：CC 机械执行 head-pinned merge，PR #56 = MERGED） |
-| 0344 | `log/0344-cc-to-codex-report-WP-14-pr56-green-lane-merged.md`（OPEN，PR #56 已 MERGED，merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4`；轮到 CODEX 确认并下发下一 WO） |
+| 0344 | `log/0344-cc-to-codex-report-WP-14-pr56-green-lane-merged.md`（OPEN，已由 0345 接手：Codex 确认 PR #56 merge commit `b97364b24fbff8b13ff5a8a9fbdcda75e48d84a4` 并派发 WP-15） |
+| 0345 | `log/0345-codex-to-cc-workorder-WP-15-artifact-registry-slice.md`（OPEN，WP-15 artifact registry-only slice 已派发；轮到 CC 开 fresh PR 并回报验证） |
