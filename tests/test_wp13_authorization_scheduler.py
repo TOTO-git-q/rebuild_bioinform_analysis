@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import dataclasses
 import unittest
+from types import MappingProxyType
 
 from auto_bioinfo.execution.authorization import (
     AUTH_APPROVAL_REQUIRED,
@@ -109,7 +111,7 @@ class PreflightTest(unittest.TestCase):
     def test_missing_approval_gate(self):
         auth = authorize_execution(_base_request(self.result, required_gates=frozenset({"G-E"}), granted_gates=frozenset()))
         self.assertEqual(auth.decision, AUTH_APPROVAL_REQUIRED)
-        self.assertEqual(auth.authorized_task_ids, [])
+        self.assertEqual(auth.authorized_task_ids, ())
 
     def test_granted_approval_authorizes(self):
         auth = authorize_execution(_base_request(self.result, required_gates=frozenset({"G-E"}), granted_gates=frozenset({"G-E"})))
@@ -124,6 +126,80 @@ class PreflightTest(unittest.TestCase):
     def test_preflight_report_shape(self):
         report = run_preflight(_base_request(self.result))
         self.assertIn("counts", report.to_dict())
+
+
+class AuthorizationImmutabilityTest(unittest.TestCase):
+    """A minted authorization snapshot cannot be tampered with after the fact."""
+
+    def setUp(self):
+        _, self.result = _compiled()
+        self.auth = authorize_execution(_base_request(self.result), plan_hash=self.result.plan_hash)
+        self.assertEqual(self.auth.decision, AUTH_AUTHORIZED)
+
+    def test_decision_field_assignment_is_rejected(self):
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            self.auth.decision = AUTH_BLOCKED  # type: ignore[misc]
+        self.assertEqual(self.auth.decision, AUTH_AUTHORIZED)
+
+    def test_authorized_task_ids_cannot_add_or_remove_authority(self):
+        self.assertIsInstance(self.auth.authorized_task_ids, tuple)
+        # No in-place mutation of the stored collection.
+        with self.assertRaises(AttributeError):
+            self.auth.authorized_task_ids.append("evil")  # type: ignore[attr-defined]
+        with self.assertRaises(AttributeError):
+            self.auth.authorized_task_ids.clear()  # type: ignore[attr-defined]
+        # No reassignment of the field itself.
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            self.auth.authorized_task_ids = ("evil",)  # type: ignore[misc]
+        self.assertFalse(self.auth.authorizes("evil"))
+        # A previously-authorized task stays authorized (nothing was removed).
+        for tid in self.result.workflow_plan["task_ids"]:
+            self.assertTrue(self.auth.authorizes(tid))
+
+    def test_object_versions_and_preflight_facts_are_read_only(self):
+        self.assertIsInstance(self.auth.object_versions, MappingProxyType)
+        with self.assertRaises(TypeError):
+            self.auth.object_versions["plan_hash"] = "tampered"  # type: ignore[index]
+        self.assertIsInstance(self.auth.preflight, MappingProxyType)
+        with self.assertRaises(TypeError):
+            self.auth.preflight["failed"] = True  # type: ignore[index]
+        # Nested containers are frozen too — no append/insert through them.
+        with self.assertRaises(AttributeError):
+            self.auth.preflight["findings"].append({})  # type: ignore[attr-defined]
+
+    def test_granted_gates_and_reasons_are_immutable(self):
+        self.assertIsInstance(self.auth.granted_gates, tuple)
+        self.assertIsInstance(self.auth.reasons, tuple)
+        with self.assertRaises(AttributeError):
+            self.auth.reasons.append("x")  # type: ignore[attr-defined]
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            self.auth.granted_gates = ("forged",)  # type: ignore[misc]
+
+    def test_to_dict_returns_defensive_copies(self):
+        d = self.auth.to_dict()
+        d["decision"] = AUTH_BLOCKED
+        d["authorized_task_ids"].append("evil")
+        d["object_versions"]["plan_hash"] = "tampered"
+        d["preflight"]["findings"].append({"forged": True})
+        # None of that reached back into the snapshot.
+        self.assertEqual(self.auth.decision, AUTH_AUTHORIZED)
+        self.assertNotIn("evil", self.auth.authorized_task_ids)
+        self.assertNotEqual(self.auth.object_versions.get("plan_hash"), "tampered")
+        self.assertFalse(self.auth.authorizes("evil"))
+
+    def test_scheduler_cannot_be_tricked_by_post_hoc_snapshot_mutation(self):
+        # A BLOCKED snapshot authorizes nothing; attacker tries to grant authority
+        # by mutating it, then loads a scheduler from it.
+        blocked = authorize_execution(_base_request(self.result, artifact_facts={}))
+        self.assertEqual(blocked.decision, AUTH_BLOCKED)
+        tasks = tasks_from_workflow_plan(self.result.workflow_plan, project_id="proj1", authorization_id=blocked.authorization_id)
+        with self.assertRaises(dataclasses.FrozenInstanceError):
+            blocked.decision = AUTH_AUTHORIZED  # type: ignore[misc]
+        with self.assertRaises(AttributeError):
+            blocked.authorized_task_ids.append(tasks[0].task_id)  # type: ignore[attr-defined]
+        sched = Scheduler()
+        sched.load_authorization(tasks, blocked)
+        self.assertEqual(sched.dispatch_all(), [])
 
 
 class SchedulerTest(unittest.TestCase):

@@ -18,10 +18,40 @@ byte-identical inputs yield byte-identical authorizations.
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, field
+from types import MappingProxyType
 from typing import Any
 
 from ..core.ids import hash_payload, make_stable_id
+
+
+def _freeze(value: Any) -> Any:
+    """Recursively convert mappings/sequences into read-only structures.
+
+    ``dict`` becomes a :class:`~types.MappingProxyType` and ``list``/``tuple``
+    becomes a ``tuple``, all the way down, so a stored snapshot cannot be
+    mutated in place through the object it is attached to.
+    """
+    if isinstance(value, (dict, MappingProxyType)):
+        return MappingProxyType({k: _freeze(v) for k, v in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze(v) for v in value)
+    return value
+
+
+def _thaw(value: Any) -> Any:
+    """Recursively convert frozen structures back into plain dict/list copies.
+
+    Used by ``to_dict()`` so callers receive a defensive, JSON-friendly copy
+    they may mutate without touching the immutable snapshot.
+    """
+    if isinstance(value, (dict, MappingProxyType)):
+        return {k: _thaw(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_thaw(v) for v in value]
+    return value
+
 
 # --- Bounded check vocabulary ------------------------------------------------
 CHECK_PASS = "PASS"
@@ -297,7 +327,7 @@ def run_preflight(request: AuthorizationRequest) -> PreflightReport:
     return PreflightReport(findings=findings)
 
 
-@dataclass
+@dataclass(frozen=True)
 class ExecutionAuthorization:
     """An immutable authorization snapshot (T-13-09).
 
@@ -306,20 +336,36 @@ class ExecutionAuthorization:
     and the preflight report.  The snapshot *is* the authority: a scheduler may
     only deliver tasks named in an ``AUTHORIZED`` snapshot.  It grants nothing on
     its own beyond that record and is never edited in place.
+
+    The dataclass is ``frozen`` and every stored container is deep-frozen in
+    ``__post_init__`` (sequences → ``tuple``, mappings → read-only proxy), so
+    neither reassigning a field nor mutating an exposed container can add or
+    remove authority after ``authorize_execution()`` returns.  ``to_dict()``
+    returns a defensive plain-``dict`` copy, so mutating that copy cannot reach
+    back into the snapshot either.
     """
 
     project_id: str
     decision: str
     plan_hash: str
-    authorized_task_ids: list[str]
+    authorized_task_ids: tuple[str, ...]
     snapshot_hash: str
-    preflight: dict[str, Any]
+    preflight: Mapping[str, Any]
     policy_hash: str = ""
-    granted_gates: list[str] = field(default_factory=list)
-    object_versions: dict[str, Any] = field(default_factory=dict)
-    reasons: list[str] = field(default_factory=list)
+    granted_gates: tuple[str, ...] = ()
+    object_versions: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))
+    reasons: tuple[str, ...] = ()
     authorization_id: str = ""
     created_at: str = ""
+
+    def __post_init__(self) -> None:
+        # Deep-freeze every stored container regardless of what the caller
+        # passed (list/dict/tuple), so the snapshot is immutable by construction.
+        object.__setattr__(self, "authorized_task_ids", tuple(self.authorized_task_ids))
+        object.__setattr__(self, "granted_gates", tuple(self.granted_gates))
+        object.__setattr__(self, "reasons", tuple(self.reasons))
+        object.__setattr__(self, "object_versions", _freeze(self.object_versions))
+        object.__setattr__(self, "preflight", _freeze(self.preflight))
 
     @property
     def authorized(self) -> bool:
@@ -329,7 +375,20 @@ class ExecutionAuthorization:
         return self.authorized and task_id in self.authorized_task_ids
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {
+            "project_id": self.project_id,
+            "decision": self.decision,
+            "plan_hash": self.plan_hash,
+            "authorized_task_ids": list(self.authorized_task_ids),
+            "snapshot_hash": self.snapshot_hash,
+            "preflight": _thaw(self.preflight),
+            "policy_hash": self.policy_hash,
+            "granted_gates": list(self.granted_gates),
+            "object_versions": _thaw(self.object_versions),
+            "reasons": list(self.reasons),
+            "authorization_id": self.authorization_id,
+            "created_at": self.created_at,
+        }
 
 
 def authorize_execution(request: AuthorizationRequest, *, plan_hash: str = "") -> ExecutionAuthorization:
