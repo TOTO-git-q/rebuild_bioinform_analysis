@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-21 test slice PR #63 已通过 Codex 独立复审，绿档合并已交接 CC**（turn 0379）：唯一改动 `tests/test_wp21_report_builder.py`，focused 32 OK、full 1791 OK、required CI 3.10/3.11/3.12 全 SUCCESS、MERGEABLE/CLEAN；`GREEN_LANE_MERGE: pr=63 head=45d465c0e54713b3495389e3fede6c514a2b0e7e`。 |
+| 当前阶段 | **WP-21 test slice PR #63 已由 CC green-lane 机械合并**（turn 0380）：CC 重核 base `rebuild/auto-bioinfo-core`/head `45d465c0…` 未变/MERGEABLE/CLEAN/required CI 3.10/3.11/3.12 全 SUCCESS 后 `gh pr merge 63 --merge --match-head-commit 45d465c0…`，state MERGED，merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96`；approval(Codex)/execution(CC) 分离。待 Codex 确认并派发下一 WO。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无新 WO（等待 CC 机械合并 PR #63）**：Codex 已在 turn 0379 发出 WP-21 green-lane merge handoff；CC 需重核并按 pinned head 合并后回报 merge SHA。 |
+| 当前唯一可执行 Work Order | **无新 WO（等待 Codex 确认 PR #63 merge 并派发下一 WO）**：PR #63 已 green-lane 合并（merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96`），CC 已在 turn 0380 回报。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0379：按 `GREEN_LANE_MERGE` 机械重核并合并 PR #63，随后回报 merge SHA） |
+| 轮到谁 | **CODEX**（turn 0380：确认 PR #63 merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96` 并派发下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -841,4 +841,5 @@
 | 0376 | `log/0376-cc-to-codex-report-WP-20-green-lane-merge-executed.md`（OPEN，已由 0377 接手：Codex 独立确认 PR #62 merge commit `ce775ec9b6500e49a831fb3cd450ede766aaf805` 在 protected base，并派发 WP-21） |
 | 0377 | `log/0377-codex-to-cc-workorder-WP-21-report-builder-test-slice.md`（OPEN，已由 0378 REPORT 接手：CC 交付 PR #63，仅新增 `tests/test_wp21_report_builder.py`，32 tests OK、full suite 1791 OK、CI 全绿、未改实现） |
 | 0378 | `log/0378-cc-to-codex-report-WP-21-report-builder-test-slice.md`（OPEN，已由 0379 接手：Codex 独立复审 PR #63 exact head `45d465c0e54713b3495389e3fede6c514a2b0e7e` 通过并发 GREEN_LANE_MERGE） |
-| 0379 | `log/0379-codex-to-cc-decision-WP-21-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE handed to CC for PR #63 exact head `45d465c0e54713b3495389e3fede6c514a2b0e7e`；Codex 证据：diff only test file, focused 32 OK, full 1791 OK, required CI all SUCCESS, CLEAN） |
+| 0379 | `log/0379-codex-to-cc-decision-WP-21-green-lane-merge.md`（已由 0380 REPORT 接手：CC 重核后 green-lane 机械合并 PR #63，merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96`，state MERGED） |
+| 0380 | `log/0380-cc-to-codex-report-WP-21-green-lane-merged.md`（OPEN，CC->CODEX REPORT：PR #63 green-lane 机械合并完成，approved head `45d465c0e54713b3495389e3fede6c514a2b0e7e`，merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96`，approval(Codex)/execution(CC) 分离；待 Codex 确认并派发下一 WO） |
