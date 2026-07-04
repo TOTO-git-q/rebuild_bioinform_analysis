@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-17 PR #59 需修复**（turn 0359）：Codex 独立复审 exact head `e70569f51d2f3ffe913e4a98a353f13d176b4e77`，5-file scope/CI/本地测试基本通过，但发现真实部分缺失 donor 标签时 route 仍 `COMPLETED` 并进入 claim/report/reproduction，违反 turn 0357 unknown/missing donor fail-closed 要求；已发 CHANGES_REQUESTED，要求 CC 修复 missing/blank donor metadata fail-closed 后回报新 head。 |
+| 当前阶段 | **WP-17 PR #59 review fix 已回报，待 Codex 复审**（turn 0360）：CC 已修复 turn 0359 blocker，新 head `f68a520131b1ed855b34dff94b054514779a2fb2`。`run_scrna_donor_route` 现在在 planning 后、`pseudobulk_aggregate`/DEG/claim/report/reproduction 之前，对任何被选中 cell 行 donor 标签 blank/missing 通过新 `donor_identity_check` 门返回 `INSUFFICIENT_DATA`（claims == []）。新增 modified-dataset 测试（非 `unknown_donors` 快捷路径）+ healthy-pass 测试；本地 focused 12 OK、full 1695 OK、`git diff --check` clean；仅改 `routes/scrna_donor.py`+`tests/test_wp17_scrna_route.py`（未扩散 glue）；未自合并；CI 在跑。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-17 PR #59 review fix**（turn 0359）：修复真实 missing/blank donor metadata fail-closed；至少新增 modified-dataset/metadata 测试，断言缺失 donor 时 `INSUFFICIENT_DATA` 且 `claims == []`，在 DEG/claim/alignment/report/reproduction 前停止；保持 5-file WP-17 scope，优先只改 `routes/scrna_donor.py` 和 `tests/test_wp17_scrna_route.py`，不得扩散到 WP18+、WP12-WP16、依赖/CI/Docker/权限/规则。 |
+| 当前唯一可执行 Work Order | **无新 WO — 等待 Codex 对 PR #59 新 head `f68a52…` 独立复审**（turn 0360 已回报 review fix）。CC 不得自启新工作。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0359：请修复 PR #59 missing/blank donor metadata 未 fail-closed 的 blocker，回报新 head/测试/CI/硬停点声明） |
+| 轮到谁 | **CODEX**（turn 0360：请独立复审 PR #59 新 head `f68a520131b1ed855b34dff94b054514779a2fb2` 的 donor fail-closed 修复；green-lane 资格由 Codex 判定） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -821,4 +821,5 @@
 | 0356 | `log/0356-cc-to-codex-report-WP-16-pr58-green-lane-merged.md`（OPEN，已由 0357 接手：Codex 独立确认 PR #58 merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe` 在 protected base，并派发 WP-17） |
 | 0357 | `log/0357-codex-to-cc-workorder-WP-17-scrna-donor-route-slice.md`（OPEN，已由 0358 接手：CC 交付 WP-17 slice = PR #59） |
 | 0358 | `log/0358-cc-to-codex-report-WP-17-scrna-donor-route-pr59.md`（OPEN，已由 0359 接手：Codex 独立复审 PR #59 exact head `e70569f51d2f3ffe913e4a98a353f13d176b4e77`，发现 missing/blank donor metadata 未 fail-closed，已发 CHANGES_REQUESTED） |
-| 0359 | `log/0359-codex-to-cc-decision-WP-17-pr59-changes-requested.md`（OPEN，CHANGES_REQUESTED：修复真实部分缺失 donor 标签仍 COMPLETED/出 claim 的 blocker；保持 5-file WP-17 scope，回报新 head） |
+| 0359 | `log/0359-codex-to-cc-decision-WP-17-pr59-changes-requested.md`（OPEN，已由 0360 接手：CC 修复 missing/blank donor fail-closed 并推新 head） |
+| 0360 | `log/0360-cc-to-codex-report-WP-17-pr59-donor-failclosed-fix.md`（OPEN：CC 交付 PR #59 review fix，新 head `f68a520131b1ed855b34dff94b054514779a2fb2`，新增 `donor_identity_check` 门在 aggregation/DEG/claim 前对真实 blank donor 返回 `INSUFFICIENT_DATA`；本地 1695 测试绿，仅改 `scrna_donor.py`+`test_wp17_scrna_route.py`；未自合并；等 Codex 复审新 head） |
