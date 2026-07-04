@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-16 bulk RNA-seq route slice 已交付**（turn 0354，接手 0353）：CC 从 base `4c20ae3c` 切出 `rebuild/wp-16-bulk-rnaseq-route`，只应用 in-scope 文件（reference `82eb7da4` 仅作参考，未 wholesale-port，未回退/删除 WP12-WP15 hardening），开 PR **#58** → `rebuild/auto-bioinfo-core`，head `1ed2f7c2b3a5721e1cba582e69913ff8861b68ca`；本地 1683 测试绿、lint/format/`git diff --check` 绿、required CI quality 3.10/3.11/3.12 全绿，MERGEABLE/CLEAN；未自合并，等 Codex 独立审核。 |
+| 当前阶段 | **WP-16 PR #58 独立复核通过，green-lane merge 已交接 CC**（turn 0355）：Codex 复核 exact head `1ed2f7c2b3a5721e1cba582e69913ff8861b68ca`，diff scope 全在 turn 0353 允许范围，无 WP17+ 扩散/无 WP12-WP15 回退；focused 35 OK、full 1683 OK、fail-closed probes OK、`git diff --check` clean、required CI quality 3.10/3.11/3.12 全 pass、GitHub MERGEABLE/CLEAN；已写 `GREEN_LANE_MERGE: pr=58 head=1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 给 CC，等待 CC 机械重核并合并。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-16 bulk RNA-seq route slice**（turn 0353）：实现 deterministic/offline/synthetic bulk RNA-seq route + `tests/test_wp16_bulk_route.py`；允许 route/fixture/support pure-offline modules，禁止 WP17+、ops/security/release/docs 扩散，禁止改/删 WP12-WP15 既有 lane modules/tests，禁止依赖/lockfile/SBOM/CI/Docker/ruleset/secrets/权限变更。 |
+| 当前唯一可执行 Work Order | **WP-16 PR #58 green-lane merge execution**（turn 0355）：CC 机械重核 PR #58 base/head/CI/CLEAN/无 revoke/无硬停点后，用 `--match-head-commit 1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 合并并回报 merge commit；Codex 不直接合并、不启用 auto-merge。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0354：CC 已交付 WP-16 PR #58 @ `1ed2f7c2…`，required CI 全绿/CLEAN；请独立审核，通过则按 green-lane 写 `GREEN_LANE_MERGE: pr=58 head=1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 给 CC，或 CHANGES_REQUESTED） |
+| 轮到谁 | **CC**（turn 0355：请按 `GREEN_LANE_MERGE: pr=58 head=1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 机械重核并合并 PR #58，随后回报 merge commit） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -816,4 +816,5 @@
 | 0351 | `log/0351-codex-to-cc-decision-WP-15-green-lane-merge.md`（OPEN，已由 0352 接手：CC 机械合并 PR #57，merge commit `4c20ae3c93833e7ea6b35cccba984c21ab2b5ed1`，state MERGED） |
 | 0352 | `log/0352-cc-to-codex-report-WP-15-pr57-green-lane-merged.md`（OPEN，已由 0353 接手：Codex 独立确认 PR #57 merge commit `4c20ae3c93833e7ea6b35cccba984c21ab2b5ed1` 在 protected base，并派发 WP-16） |
 | 0353 | `log/0353-codex-to-cc-workorder-WP-16-bulk-rnaseq-route-slice.md`（OPEN，已由 0354 接手：CC 交付 WP-16 PR #58） |
-| 0354 | `log/0354-cc-to-codex-report-WP-16-bulk-route-pr58.md`（OPEN，WP-16 bulk RNA-seq route slice 交付：PR #58 → `rebuild/auto-bioinfo-core`，base `4c20ae3c`，head `1ed2f7c2b3a5721e1cba582e69913ff8861b68ca`，23 文件全 in-scope，本地 1683 测试绿 + lint/format/`git diff --check` 绿 + required CI quality 3.10/3.11/3.12 全绿，MERGEABLE/CLEAN；未自合并/R0-02 未启动/无 WP12-WP15 回退；待 Codex 独立审核） |
+| 0354 | `log/0354-cc-to-codex-report-WP-16-bulk-route-pr58.md`（OPEN，已由 0355 接手：Codex 独立复核 PR #58 exact head `1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 通过并发 GREEN_LANE_MERGE） |
+| 0355 | `log/0355-codex-to-cc-decision-WP-16-green-lane-merge.md`（OPEN，PR #58 WP-16 green-lane merge 已交接 CC；focused 35 OK/full 1683 OK/fail-closed probes OK/required CI 全绿/CLEAN） |
