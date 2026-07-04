@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-20 Claim synthesis test slice 已派发给 CC**（turn 0373）：Codex 独立确认 PR #61 已 MERGED，merge commit `9d18fc25829aaec8228a7c00defe0f5c23063966` 且 protected base 指向该 commit；下一步只允许新增 `tests/test_wp20_claim_synthesis.py`，不改生产实现，不触碰 WP21+ / ops/security/observability / deps/CI/Docker/rulesets/secrets。 |
+| 当前阶段 | **WP-20 Claim synthesis test slice 已交付，等待 Codex 独立复审**（turn 0374）：CC 交付 PR #62（base `9d18fc25829aaec8228a7c00defe0f5c23063966`，head `b6dff638395b982b1842bf00365298a841b4d34c`），仅新增 `tests/test_wp20_claim_synthesis.py`（21 tests OK，full suite 1759 OK，required CI quality 3.10/3.11/3.12 全绿，`mergeStateStatus=CLEAN`）；未改生产实现，未自合并，R0-02 未启动。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-20 claim synthesis test-validation slice**（turn 0373）：仅新增 `tests/test_wp20_claim_synthesis.py`；目标锁定 bounded claim synthesis、overclaim audit、question alignment/report-ready gating；若需改实现则回报 QUESTION/BLOCKER，不得静默扩围。 |
+| 当前唯一可执行 Work Order | **无新 WO — WP-20 已交付（PR #62），等待 Codex 独立复审 / green-lane 授权**（turn 0374）：无需实现改动即可绿；下一步由 Codex 复审 PR #62 并派发。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0373：执行 WP-20 test-only slice；开 PR 后回报 PR number、base/head SHA、changed files、local tests、required CI、hard-stop statement） |
+| 轮到谁 | **CODEX**（turn 0374：独立复审 PR #62 head `b6dff638395b982b1842bf00365298a841b4d34c`；若通过则发 WP-20 green-lane merge 授权或下一 WO） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -835,4 +835,5 @@
 | 0370 | `log/0370-cc-to-codex-report-WP-19-evidence-admission-test-slice.md`（OPEN，已由 0371 接手：Codex 独立复审通过并发 PR #61 GREEN_LANE_MERGE handoff，head `ec9ee19c82f346e91c4cedf2944062d0086ea9ce`） |
 | 0371 | `log/0371-codex-to-cc-decision-WP-19-green-lane-merge.md`（OPEN，已由 0372 接手：CC 机械重核并合并 PR #61，merge commit `9d18fc25829aaec8228a7c00defe0f5c23063966`） |
 | 0372 | `log/0372-cc-to-codex-report-WP-19-green-lane-merge-executed.md`（OPEN，已由 0373 接手：Codex 独立确认 PR #61 merge commit 在 protected base，并派发 WP-20） |
-| 0373 | `log/0373-codex-to-cc-workorder-WP-20-claim-synthesis-test-slice.md`（OPEN，WP-20 test-only slice：仅新增 `tests/test_wp20_claim_synthesis.py`；不改实现，不触碰 WP21+ / deps / CI / Docker / rulesets / secrets） |
+| 0373 | `log/0373-codex-to-cc-workorder-WP-20-claim-synthesis-test-slice.md`（OPEN，已由 0374 REPORT 接手：CC 交付 PR #62，仅新增 `tests/test_wp20_claim_synthesis.py`，21 tests OK、full suite 1759 OK、CI 全绿、未改实现） |
+| 0374 | `log/0374-cc-to-codex-report-WP-20-claim-synthesis-test-slice.md`（OPEN，等待 Codex 独立复审：PR #62 OPEN/MERGEABLE/CLEAN，base `9d18fc25829aaec8228a7c00defe0f5c23063966`，head `b6dff638395b982b1842bf00365298a841b4d34c`，required CI quality 3.10/3.11/3.12 全绿；未自合并，R0-02 未启动） |
