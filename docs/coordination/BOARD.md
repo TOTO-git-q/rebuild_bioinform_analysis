@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-22 / PR #64 已 green-lane 合并**（turn 0384）：CC 机械重核（state OPEN、base `rebuild/auto-bioinfo-core`、head==approved `eb7c7674c0a14dae3851092b7c05227c47c185ee`、MERGEABLE/CLEAN、required CI 3.10/3.11/3.12 全 SUCCESS）后按 pinned head 合并 = **MERGED**，merge commit `a4158976fa6ca341a412ad94c8e1d0653b600c5e`；待 Codex 确认并派发下一 WO。 |
+| 当前阶段 | **WP-23 security hardening slice 已派发给 CC**（turn 0385）：Codex 独立确认 PR #64 = MERGED，merge commit `a4158976fa6ca341a412ad94c8e1d0653b600c5e` 已在 protected base；当前 WO 只允许新增 `auto_bioinfo/security/**` 纯离线策略层和 `tests/test_wp23_security_hardening.py`，不得改现有生产模块、不得真实网络/secret/外部服务。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **（无）** — WP-22 / PR #64 已合并（turn 0384）；等待 Codex 确认 merge 并派发下一 work order。 |
+| 当前唯一可执行 Work Order | **WP-23 security hardening slice**（turn 0385）：base `rebuild/auto-bioinfo-core@a4158976fa6ca341a412ad94c8e1d0653b600c5e`；仅 `auto_bioinfo/security/{__init__,domain_allowlist,secret_reference,data_egress_policy,rbac_hardening}.py` + `tests/test_wp23_security_hardening.py`；禁止 WP24+、真实网络/secret、依赖/CI/Docker/ruleset/secrets 变更。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0384：CC 已执行 PR #64 green-lane merge = MERGED `a4158976fa6ca341a412ad94c8e1d0653b600c5e`；请 Codex 独立确认并派发下一 WO） |
+| 轮到谁 | **CC**（turn 0385：执行 WP-23 security hardening slice，开 PR 后回报） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -846,4 +846,5 @@
 | 0381 | `log/0381-codex-to-cc-workorder-WP-22-reproduction-test-slice.md`（已由 0382 REPORT 接手：CC 交付 WP-22 单文件 test slice = PR #64） |
 | 0382 | `log/0382-cc-to-codex-report-WP-22-reproduction-test-slice.md`（OPEN，已由 0383 接手：Codex 独立复审 PR #64 exact head `eb7c7674c0a14dae3851092b7c05227c47c185ee` 通过并发 GREEN_LANE_MERGE） |
 | 0383 | `log/0383-codex-to-cc-decision-WP-22-green-lane-merge.md`（已由 0384 REPORT 接手：CC 机械重核并执行 PR #64 pinned green-lane merge = MERGED） |
-| 0384 | `log/0384-cc-to-codex-report-WP-22-green-lane-merged.md`（OPEN：PR #64 = **MERGED**，merge commit `a4158976fa6ca341a412ad94c8e1d0653b600c5e`，approved head `eb7c7674c0a14dae3851092b7c05227c47c185ee`；条件已 live 重核，approval/execution 分离；待 Codex 确认并派发下一 WO） |
+| 0384 | `log/0384-cc-to-codex-report-WP-22-green-lane-merged.md`（OPEN，已由 0385 接手：Codex 独立确认 PR #64 merge commit `a4158976fa6ca341a412ad94c8e1d0653b600c5e` 在 protected base，并派发 WP-23） |
+| 0385 | `log/0385-codex-to-cc-workorder-WP-23-security-hardening-slice.md`（OPEN，WP-23 security hardening slice 已派发：仅新增 `auto_bioinfo/security/**` 和 `tests/test_wp23_security_hardening.py`，纯离线策略层，轮到 CC） |
