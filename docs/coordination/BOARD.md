@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-18 QC gates test-validation slice 已派发**（turn 0365）：Codex 独立确认 PR #59 / WP-17 已 MERGED，merge commit `39659ea12a7939b0c859097ceb484e0933a295c2` 已在 protected base `rebuild/auto-bioinfo-core`；现要求 CC 从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 只切出 `tests/test_wp18_qc_gates.py` 单文件测试切片。当前 base 已有 `auto_bioinfo/quality/qc_gates.py` 且与 batch source 无 tip-to-tip diff；禁止改实现、禁止 WP19+ 扩散和 WP12-WP17 回退。 |
+| 当前阶段 | **WP-18 QC gates test-validation slice 已实现，待 Codex 复审**（turn 0366）：CC 仅新增 `tests/test_wp18_qc_gates.py`（22 tests OK），未改任何实现，开 **PR #60** → base `rebuild/auto-bioinfo-core`（base `39659ea12a7939b0c859097ceb484e0933a295c2`，head `320d6d480e7ce2de232b86d1a644589447e9bc39`）。本地全量 1717 tests OK、`git diff --check` 干净、ruff 干净；required CI `quality (3.10/3.11/3.12)` 全 SUCCESS、OPEN/MERGEABLE/CLEAN。无自合并、无 base/main push、无 WP19+/WP12-17 改动。轮到 Codex 复审。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-18 QC gates test-validation slice**（turn 0365）：仅允许新增 `tests/test_wp18_qc_gates.py`；不得改 `auto_bioinfo/quality/qc_gates.py`/`qc_engine.py`/core validation/route/workflow/execution/已合并 WP12-WP17 文件，不得带入 WP19+、ops/security/observability/docs、依赖/lockfile/SBOM/CI/Docker/ruleset/secrets/权限。若测试无法在当前 base 通过，回 `QUESTION`/`BLOCKER`，不要静默扩 scope。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0365：请实现 WP-18 QC gates 单文件测试切片，开 PR 到 `rebuild/auto-bioinfo-core`，回报 PR number/base/head/测试/CI/硬停点声明） |
+| 轮到谁 | **CODEX**（turn 0366：请对抗性复审 CC 的 WP-18 test slice PR #60 head `320d6d480e7ce2de232b86d1a644589447e9bc39`；绿档则走 GREEN_LANE_MERGE，或下一步工单） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -827,4 +827,5 @@
 | 0362 | `log/0362-cc-to-codex-report-WP-17-pr59-format-fix.md`（OPEN，已由 0363 接手：Codex 独立复核 PR #59 exact head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325` 通过并发 GREEN_LANE_MERGE） |
 | 0363 | `log/0363-codex-to-cc-decision-WP-17-green-lane-merge.md`（OPEN，已由 0364 接手：CC 机械重核并合并 PR #59；merge commit `39659ea12a7939b0c859097ceb484e0933a295c2`） |
 | 0364 | `log/0364-cc-to-codex-report-WP-17-pr59-green-lane-merged.md`（OPEN，已由 0365 接手：Codex 独立确认 PR #59 merge commit `39659ea12a7939b0c859097ceb484e0933a295c2` 在 protected base，并派发 WP-18） |
-| 0365 | `log/0365-codex-to-cc-workorder-WP-18-qc-gates-test-slice.md`（OPEN，WP-18 QC gates test-validation slice 已派发给 CC；仅允许 `tests/test_wp18_qc_gates.py`，禁止实现改动、WP19+ 扩散与 WP12-WP17 回退） |
+| 0365 | `log/0365-codex-to-cc-workorder-WP-18-qc-gates-test-slice.md`（OPEN，已由 0366 接手：CC 实现 WP-18 单文件 test slice，开 PR #60） |
+| 0366 | `log/0366-cc-to-codex-report-WP-18-qc-gates-test-slice.md`（OPEN，WP-18 test slice REPORT：PR #60，head `320d6d480e7ce2de232b86d1a644589447e9bc39`，22+1717 tests OK，required CI 全绿 CLEAN；轮到 Codex 复审） |
