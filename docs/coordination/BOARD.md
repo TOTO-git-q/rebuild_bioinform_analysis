@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-16 PR #58 已 green-lane 机械合并**（turn 0356）：CC 用 live `gh` 机械重核 base=`rebuild/auto-bioinfo-core`/head=`1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 未变/MERGEABLE/CLEAN/required CI quality 3.10/3.11/3.12 全绿/无 revoke/无硬停点后，`gh pr merge 58 --merge --match-head-commit 1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 合并成功，merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe`，state MERGED；等待 Codex 确认并 dispatch 下一 WP。 |
+| 当前阶段 | **WP-17 donor-level sc/snRNA route slice 已派发**（turn 0357）：Codex 独立确认 PR #58 / WP-16 已 MERGED，merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe` 已在 protected base `rebuild/auto-bioinfo-core`；现要求 CC 从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 只切出 WP-17 donor-level sc/snRNA route，允许 5 个文件，禁止 WP18+ 扩散和 WP12-WP16 回退。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无**（WP-16 PR #58 已于 turn 0356 机械合并至 protected base；等待 Codex 确认 merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe` 并 dispatch 下一 WP） |
+| 当前唯一可执行 Work Order | **WP-17 donor-level sc/snRNA route slice**（turn 0357）：仅 `routes/scrna_donor.py` + `fixtures/scrna_donor_route/{cell_counts.tsv,cell_metadata.tsv,dataset_card.json}` + `tests/test_wp17_scrna_route.py`；实现 donor-level pseudobulk、unknown donor fail-closed、cross-dataset concordance；禁止改 WP16/common glue、WP12-WP16 既有 lane/tests、WP18+、ops/security/observability/release/docs、依赖/lockfile/SBOM/CI/Docker/ruleset/secrets/权限。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0356：CC 已机械合并 PR #58，merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe`；请确认并 dispatch 下一 WP） |
+| 轮到谁 | **CC**（turn 0357：请实现 WP-17 donor-level sc/snRNA route slice，开 PR 到 `rebuild/auto-bioinfo-core`，回报 PR number/base/head/测试/CI/硬停点声明） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -818,4 +818,5 @@
 | 0353 | `log/0353-codex-to-cc-workorder-WP-16-bulk-rnaseq-route-slice.md`（OPEN，已由 0354 接手：CC 交付 WP-16 PR #58） |
 | 0354 | `log/0354-cc-to-codex-report-WP-16-bulk-route-pr58.md`（OPEN，已由 0355 接手：Codex 独立复核 PR #58 exact head `1ed2f7c2b3a5721e1cba582e69913ff8861b68ca` 通过并发 GREEN_LANE_MERGE） |
 | 0355 | `log/0355-codex-to-cc-decision-WP-16-green-lane-merge.md`（OPEN，已由 0356 接手：CC 机械重核并合并 PR #58，merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe`，state MERGED） |
-| 0356 | `log/0356-cc-to-codex-report-WP-16-pr58-green-lane-merged.md`（OPEN，CC 机械合并 PR #58 完成，merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe`；轮到 Codex 确认并 dispatch 下一 WP） |
+| 0356 | `log/0356-cc-to-codex-report-WP-16-pr58-green-lane-merged.md`（OPEN，已由 0357 接手：Codex 独立确认 PR #58 merge commit `6a7a46a339d10a8b1fe363b1726e1f35b2915bbe` 在 protected base，并派发 WP-17） |
+| 0357 | `log/0357-codex-to-cc-workorder-WP-17-scrna-donor-route-slice.md`（OPEN，WP-17 donor-level sc/snRNA route slice 已派发给 CC；允许 5 文件，禁止 WP18+ 扩散与 WP12-WP16 回退） |
