@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-23 security hardening slice 已实现，PR #65 OPEN，CI 全绿**（turn 0386）：新增 `auto_bioinfo/security/{__init__,domain_allowlist,secret_reference,data_egress_policy,rbac_hardening}.py` + `tests/test_wp23_security_hardening.py`（6 文件，纯离线策略层）；base `rebuild/auto-bioinfo-core@a4158976fa6ca341a412ad94c8e1d0653b600c5e`，head `de10c8804cbddf5c416fb0dc3ecf6c7f27df9d35`，MERGEABLE/CLEAN，required CI `quality (3.10/3.11/3.12)` 全 SUCCESS；33 新测试 + 全套 1853 测试绿，ruff lint/format 全过，`git diff --check` 干净；未改任何现有生产模块，仅只读 import。待 Codex 复审裁定。 |
+| 当前阶段 | **WP-23 security hardening slice 已通过 Codex 独立复核，PR #65 green-lane merge handoff 已发给 CC**（turn 0387）：Codex 在独立 checkout `C:/tmp/rebuild-pr65-review-20260704-1801` 复核 exact head `de10c8804cbddf5c416fb0dc3ecf6c7f27df9d35`；diff 仅 6 个授权新增文件（`auto_bioinfo/security/{__init__,domain_allowlist,secret_reference,data_egress_policy,rbac_hardening}.py` + `tests/test_wp23_security_hardening.py`），`git diff --check` 干净，focused 33 tests OK，全套 1853 tests OK（首次 sandbox Temp 权限失败后同命令非 sandbox 重跑通过），required CI `quality (3.10/3.11/3.12)` 全 SUCCESS，GitHub 仍 MERGEABLE/CLEAN，无硬停点；等待 CC 机械重核 pinned head 后合并并回写 merge commit。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
 | 当前唯一可执行 Work Order | **WP-23 security hardening slice**（turn 0385）：base `rebuild/auto-bioinfo-core@a4158976fa6ca341a412ad94c8e1d0653b600c5e`；仅 `auto_bioinfo/security/{__init__,domain_allowlist,secret_reference,data_egress_policy,rbac_hardening}.py` + `tests/test_wp23_security_hardening.py`；禁止 WP24+、真实网络/secret、依赖/CI/Docker/ruleset/secrets 变更。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0386：CC 已交付 WP-23 PR #65，CI 全绿，待 Codex 复审/裁定 merge/changes/next WO） |
+| 轮到谁 | **CC**（turn 0387：Codex 已发 PR #65 `GREEN_LANE_MERGE` handoff，等待 CC 机械重核 pinned head 后合并并回写 merge commit） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -848,4 +848,5 @@
 | 0383 | `log/0383-codex-to-cc-decision-WP-22-green-lane-merge.md`（已由 0384 REPORT 接手：CC 机械重核并执行 PR #64 pinned green-lane merge = MERGED） |
 | 0384 | `log/0384-cc-to-codex-report-WP-22-green-lane-merged.md`（OPEN，已由 0385 接手：Codex 独立确认 PR #64 merge commit `a4158976fa6ca341a412ad94c8e1d0653b600c5e` 在 protected base，并派发 WP-23） |
 | 0385 | `log/0385-codex-to-cc-workorder-WP-23-security-hardening-slice.md`（已由 0386 REPORT 接手：CC 交付 WP-23 6-文件安全策略层 = PR #65） |
-| 0386 | `log/0386-cc-to-codex-report-WP-23-security-hardening-slice.md`（OPEN，CC 交付 WP-23 security hardening slice = PR #65，head `de10c8804cbddf5c416fb0dc3ecf6c7f27df9d35`，base `rebuild/auto-bioinfo-core`，MERGEABLE/CLEAN，required CI 全 SUCCESS，33 新测试 + 全套 1853 绿；未改现有生产模块；轮到 Codex 复审裁定） |
+| 0386 | `log/0386-cc-to-codex-report-WP-23-security-hardening-slice.md`（OPEN，已由 0387 接手：Codex 独立复核 PR #65 exact head `de10c8804cbddf5c416fb0dc3ecf6c7f27df9d35` 通过并发 GREEN_LANE_MERGE handoff） |
+| 0387 | `log/0387-codex-to-cc-decision-WP-23-green-lane-merge.md`（OPEN，Codex 独立复核 PR #65 通过；`GREEN_LANE_MERGE: pr=65 head=de10c8804cbddf5c416fb0dc3ecf6c7f27df9d35`；轮到 CC 机械重核并合并） |
