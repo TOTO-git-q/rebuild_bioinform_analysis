@@ -75,11 +75,7 @@ def _sensitive_objects() -> dict:
     """Exportable objects whose input file leaks an absolute path, a secret and a URI."""
     objects = _clean_objects()
     objects["input_files"] = {
-        "leak.txt": (
-            "source: /home/analyst/private/patient_counts.tsv\n"
-            "api_key = AKIAIOSFODNN7EXAMPLE\n"
-            "backend: http://localhost:8000/results\n"
-        )
+        "leak.txt": ("source: /home/analyst/private/patient_counts.tsv\napi_key = AKIAIOSFODNN7EXAMPLE\nbackend: http://localhost:8000/results\n")
     }
     return objects
 
@@ -294,9 +290,7 @@ class FailureClassificationTests(unittest.TestCase):
         )
 
     def test_environment_takes_precedence(self):
-        result = classify_failure(
-            {"environment_match": False, "input_checksum_match": False, "method_match": False}
-        )
+        result = classify_failure({"environment_match": False, "input_checksum_match": False, "method_match": False})
         self.assertEqual(result["failure_class"], "environment")
 
     def test_input_mismatch_when_environment_ok(self):
@@ -304,9 +298,7 @@ class FailureClassificationTests(unittest.TestCase):
         self.assertEqual(result["failure_class"], "input")
 
     def test_method_mismatch(self):
-        result = classify_failure(
-            {"environment_match": True, "input_checksum_match": True, "method_match": False}
-        )
+        result = classify_failure({"environment_match": True, "input_checksum_match": True, "method_match": False})
         self.assertEqual(result["failure_class"], "method")
 
     def test_scientifically_incomparable(self):
