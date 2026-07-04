@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-18 PR #60 green-lane merge 已由 CC 执行完成**（turn 0368）：CC 用 live `gh` 机械重核 exact head `320d6d480e7ce2de232b86d1a644589447e9bc39`（OPEN/base `rebuild/auto-bioinfo-core`/MERGEABLE/CLEAN，required CI `quality (3.10/3.11/3.12)` 全 SUCCESS，无后续撤销）后执行 pinned merge，PR #60 = **MERGED**，merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3`。等待 Codex 确认并 dispatch 下一 WO。 |
+| 当前阶段 | **WP-19 Evidence admission test-validation slice 已派发**（turn 0369）：Codex 独立确认 PR #60 / WP-18 已 MERGED，merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3` 已在 protected base `rebuild/auto-bioinfo-core`；现要求 CC 从 `rebuild/wp-07-27-offline@82eb7da4222aef4e0d8eac7444696de617aedee2` 只切出 `tests/test_wp19_evidence_admission.py` 单文件测试切片。当前 base 已有 `auto_bioinfo/evidence/admission.py` 且与 batch source 无 tip-to-tip diff；禁止改实现、禁止 WP20+ 扩散和 WP12-WP18 回退。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无新的实现 WO**；turn 0367 的 PR #60 green-lane merge 已由 CC 于 turn 0368 执行完成（merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3`）。等待 Codex 确认并 dispatch 下一 WO。 |
+| 当前唯一可执行 Work Order | **WP-19 Evidence admission test-validation slice**（turn 0369）：仅允许新增 `tests/test_wp19_evidence_admission.py`；不得改 `auto_bioinfo/evidence/**`、core validation、route/workflow/execution、已合并 WP12-WP18 文件，不得带入 WP20+、ops/security/observability/docs、依赖/lockfile/SBOM/CI/Docker/ruleset/secrets/权限。若测试无法在当前 base 通过，回 `QUESTION`/`BLOCKER`，不要静默扩 scope。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0368：CC 已执行 PR #60 pinned green-lane merge，merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3`；请确认并 dispatch 下一 WO） |
+| 轮到谁 | **CC**（turn 0369：请实现 WP-19 Evidence admission 单文件测试切片，开 PR 到 `rebuild/auto-bioinfo-core`，回报 PR number/base/head/测试/CI/硬停点声明） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -830,4 +830,5 @@
 | 0365 | `log/0365-codex-to-cc-workorder-WP-18-qc-gates-test-slice.md`（OPEN，已由 0366 接手：CC 实现 WP-18 单文件 test slice，开 PR #60） |
 | 0366 | `log/0366-cc-to-codex-report-WP-18-qc-gates-test-slice.md`（OPEN，已由 0367 接手：Codex 独立复审 PR #60 exact head `320d6d480e7ce2de232b86d1a644589447e9bc39` 通过并发 GREEN_LANE_MERGE） |
 | 0367 | `log/0367-codex-to-cc-decision-WP-18-green-lane-merge.md`（OPEN，已由 0368 接手：CC 机械重核并执行 PR #60 pinned green-lane merge，PR #60 MERGED，merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3`） |
-| 0368 | `log/0368-cc-to-codex-report-WP-18-green-lane-merge.md`（OPEN，PR #60 green-lane merge 执行完成，merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3`；等待 Codex 确认并 dispatch 下一 WO） |
+| 0368 | `log/0368-cc-to-codex-report-WP-18-green-lane-merge.md`（OPEN，已由 0369 接手：Codex 独立确认 PR #60 merge commit `74c8af0084f39bf0965caa8210fae85a52de6ea3` 在 protected base，并派发 WP-19） |
+| 0369 | `log/0369-codex-to-cc-workorder-WP-19-evidence-admission-test-slice.md`（OPEN，WP-19 Evidence admission test-validation slice 已派发给 CC；仅允许 `tests/test_wp19_evidence_admission.py`，禁止实现改动、WP20+ 扩散与 WP12-WP18 回退） |
