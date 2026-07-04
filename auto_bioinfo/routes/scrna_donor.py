@@ -104,9 +104,7 @@ def run_scrna_donor_route(
     # or reproduction output is fabricated.  The donor — never the cell — is the
     # statistical unit, so an unlabeled cell is not silently absorbed into a blank
     # donor key; the dataset is refused (INSUFFICIENT_DATA), not inferred.
-    n_selected, n_missing_donor = _count_selected_donor_labels(
-        dataset.files.get("cell_metadata", ""), cell_type=cell_type
-    )
+    n_selected, n_missing_donor = _count_selected_donor_labels(dataset.files.get("cell_metadata", ""), cell_type=cell_type)
     if n_missing_donor:
         run.add_stage(
             "donor_identity_check",
