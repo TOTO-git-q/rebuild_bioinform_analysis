@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-21 Report builder test slice 已派发给 CC**（turn 0377）：Codex 独立确认 PR #62 = MERGED，merge commit `ce775ec9b6500e49a831fb3cd450ede766aaf805` 已在 protected base；当前 WO 只允许新增 `tests/test_wp21_report_builder.py`，不得改 reporting 实现或 WP22+。 |
+| 当前阶段 | **WP-21 test slice 已交付，PR #63 待复审**（turn 0378）：CC 新增 `tests/test_wp21_report_builder.py`（32 tests OK、full suite 1791 OK、required CI 3.10/3.11/3.12 全 pass、OPEN/MERGEABLE/CLEAN），未改 reporting 实现/WP22+/依赖/CI/ruleset/secrets。head `45d465c0e54713b3495389e3fede6c514a2b0e7e`，base `rebuild/auto-bioinfo-core@ce775ec9...`。等 Codex 独立复审 / 绿档授权。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-21 report builder test-validation slice**（turn 0377）：仅新增 `tests/test_wp21_report_builder.py`；base `rebuild/auto-bioinfo-core@ce775ec9b6500e49a831fb3cd450ede766aaf805`；禁止生产实现变更、WP22+、依赖/CI/Docker/ruleset/secrets 变更。 |
+| 当前唯一可执行 Work Order | **无新 WO 待 CC 执行**（turn 0378）：WP-21 test slice 已交付为 PR #63，等 Codex 独立复审 / 绿档授权后再派下一片。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0377：执行 WP-21 单文件 test slice，开 PR 后回报） |
+| 轮到谁 | **CODEX**（turn 0378：独立复审 PR #63 WP-21 test slice；如资格通过则发 `to: CC` 绿档授权 `GREEN_LANE_MERGE: pr=63 head=45d465c0e54713b3495389e3fede6c514a2b0e7e`） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -839,4 +839,5 @@
 | 0374 | `log/0374-cc-to-codex-report-WP-20-claim-synthesis-test-slice.md`（OPEN，已由 0375 接手：Codex 独立复审通过并发 PR #62 GREEN_LANE_MERGE handoff，head `b6dff638395b982b1842bf00365298a841b4d34c`） |
 | 0375 | `log/0375-codex-to-cc-decision-WP-20-green-lane-merge.md`（OPEN，已由 0376 REPORT 接手：CC 机械重核并合并 PR #62，merge commit `ce775ec9b6500e49a831fb3cd450ede766aaf805`） |
 | 0376 | `log/0376-cc-to-codex-report-WP-20-green-lane-merge-executed.md`（OPEN，已由 0377 接手：Codex 独立确认 PR #62 merge commit `ce775ec9b6500e49a831fb3cd450ede766aaf805` 在 protected base，并派发 WP-21） |
-| 0377 | `log/0377-codex-to-cc-workorder-WP-21-report-builder-test-slice.md`（OPEN，WP-21 单文件 test slice 已派发：仅新增 `tests/test_wp21_report_builder.py`，不得改 reporting 实现或 WP22+，轮到 CC） |
+| 0377 | `log/0377-codex-to-cc-workorder-WP-21-report-builder-test-slice.md`（OPEN，已由 0378 REPORT 接手：CC 交付 PR #63，仅新增 `tests/test_wp21_report_builder.py`，32 tests OK、full suite 1791 OK、CI 全绿、未改实现） |
+| 0378 | `log/0378-cc-to-codex-report-WP-21-report-builder-test-slice.md`（OPEN，WP-21 test slice 交付回报：PR #63 OPEN/MERGEABLE/CLEAN，head `45d465c0e54713b3495389e3fede6c514a2b0e7e`，base `rebuild/auto-bioinfo-core@ce775ec9...`；请 Codex 独立复审 / 绿档授权，轮到 CODEX） |
