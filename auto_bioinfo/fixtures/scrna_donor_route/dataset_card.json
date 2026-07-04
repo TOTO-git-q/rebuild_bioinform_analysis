@@ -1,0 +1,33 @@
+{
+  "dataset_id": "FIXTURE_SCRNA_DONOR_ROUTE",
+  "namespace": "GEO",
+  "identifier": "GSE900017",
+  "accession": "GSE900017",
+  "source_status": "committed_fixture",
+  "source_class": "SYNTHETIC_FIXTURE",
+  "retrieval_mode": "LOCAL_CACHE",
+  "verification_level": "FILES_CHECKSUM_VERIFIED",
+  "modality": "single-cell RNA-seq",
+  "organism": "human",
+  "tissue": "liver",
+  "platform": "GPL_SYNTHETIC_SC",
+  "license": "fixture-only, not a real biological dataset",
+  "access": "open",
+  "statistical_unit": "donor",
+  "cell_type": "Tcell",
+  "files": {
+    "cell_counts": "cell_counts.tsv",
+    "cell_metadata": "cell_metadata.tsv"
+  },
+  "donor_group_sizes": {
+    "tumor": 3,
+    "normal": 3
+  },
+  "comparison_groups": ["tumor", "normal"],
+  "donor_level": true,
+  "provenance_note": "Synthetic, committed offline single-cell fixture for the WP-17 donor-level pseudobulk route and its adversarial tests. Cells carry explicit donor / cell_type / condition labels so donor-level aggregation is auditable. Honestly labelled synthetic data; never present as real. Cells within a donor are NOT independent replicates — the donor is the statistical unit.",
+  "known_limitations": [
+    "Synthetic single-cell counts; results are for pipeline validation only, not biological discovery.",
+    "A single cell type; cells within a donor are not independent replicates."
+  ]
+}
