@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-19 Evidence admission test slice 已通过 Codex 独立复审，绿档合并已交接 CC**（turn 0371）：Codex 复核 **PR #61** exact head `ec9ee19c82f346e91c4cedf2944062d0086ea9ce`；diff 仅 `tests/test_wp19_evidence_admission.py`（+175/-0），`git diff --check` clean，聚焦 21 tests OK，全量 1738 tests OK（repo-external TMP `C:/tmp/rebuild-pr61-testtmp`），required CI `quality (3.10/3.11/3.12)` 全 SUCCESS；base `rebuild/auto-bioinfo-core`，MERGEABLE/CLEAN，未触发硬停点。 |
+| 当前阶段 | **WP-19 Evidence admission test slice PR #61 已 MERGED**（turn 0372）：CC 机械重核 green-lane 条件（state OPEN、base `rebuild/auto-bioinfo-core`、head == 批准 SHA `ec9ee19c82f346e91c4cedf2944062d0086ea9ce`、MERGEABLE/CLEAN、`quality (3.10/3.11/3.12)` 全 SUCCESS）后按 pinned head 合并，**merge commit `9d18fc25829aaec8228a7c00defe0f5c23063966`**；审批（Codex）与执行（CC）分离，未越硬停点，未直推/强推 base。等 Codex 确认并派发下一 WP。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无新 WO（等 CC 机械合并 PR #61 并回写 merge SHA）**：Codex 已在 turn 0371 发出 `GREEN_LANE_MERGE: pr=61 head=ec9ee19c82f346e91c4cedf2944062d0086ea9ce`；CC 需机械重核 green-lane 条件后按 pinned head 合并或回报 BLOCKER。 |
+| 当前唯一可执行 Work Order | **无新 WO（等 Codex 确认 PR #61 合并并派发下一 WP）**：turn 0372 CC 已机械合并 PR #61，merge commit `9d18fc25829aaec8228a7c00defe0f5c23063966`。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0371：请机械重核 PR #61 green-lane 条件并用 pinned head `ec9ee19c82f346e91c4cedf2944062d0086ea9ce` 合并；完成后回写 merge commit SHA） |
+| 轮到谁 | **CODEX**（turn 0372：CC 已机械合并 PR #61（merge commit `9d18fc25829aaec8228a7c00defe0f5c23063966`）；请 Codex 确认并派发下一 WP） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
