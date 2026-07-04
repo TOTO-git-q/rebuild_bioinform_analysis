@@ -22,7 +22,13 @@ from typing import Any
 from ..methods.registry import get_method
 from . import glue
 from .bulk_rnaseq import AnalysisContext, _run_planning, _run_resources, run_analysis_chain
-from .route_run import STAGE_OK, TERMINAL_COMPLETED, RouteRun
+from .route_run import (
+    STAGE_OK,
+    STAGE_STOPPED,
+    TERMINAL_COMPLETED,
+    TERMINAL_INSUFFICIENT_DATA,
+    RouteRun,
+)
 
 # NB: the request text stays single-topic (only "differentially expressed") so the
 # WP-06b multi-topic gate does not stop it; the single-cell / donor-level nature of
@@ -30,6 +36,27 @@ from .route_run import STAGE_OK, TERMINAL_COMPLETED, RouteRun
 DEFAULT_SCRNA_QUESTION = "Which genes are differentially expressed in liver between tumor and normal donors in human data?"
 
 _SCRNA_METADATA_KEYS = ["donor_labels", "cell_type_labels", "condition_labels"]
+
+
+def _count_selected_donor_labels(cell_metadata_content: str, *, cell_type: str = "") -> tuple[int, int]:
+    """Count selected cells and, of those, how many carry a blank/missing donor label.
+
+    A cell is *selected* when it matches the route's ``cell_type`` filter (all cells
+    when no filter is set).  The donor is the statistical unit, so a real cell whose
+    donor identity is missing/blank cannot be silently folded into an empty-string
+    donor key — it must fail closed before any DEG/claim output (turns 0357/0359).
+    """
+    rows = glue.read_tsv_rows(cell_metadata_content)
+    n_selected = 0
+    n_missing = 0
+    for row in rows:
+        if cell_type and row.get("cell_type", "") != cell_type:
+            continue
+        n_selected += 1
+        donor = str(row.get("donor", row.get("donor_id", "")) or "").strip()
+        if not donor:
+            n_missing += 1
+    return n_selected, n_missing
 
 
 def _donor_samples(cell_metadata_content: str, *, cell_type: str = "", unknown_donors: bool = False) -> list[dict[str, str]]:
@@ -70,6 +97,34 @@ def run_scrna_donor_route(
     if planning is None:
         return run
     research_spec, scope_bundle, subquestions, evidence_plan = planning
+
+    # ---- donor-identity integrity gate (the sc boundary) -------------------
+    # Real partially missing donor labels in the selected sc/snRNA metadata must
+    # fail closed BEFORE any pseudobulk aggregation, DEG, claim, alignment, report
+    # or reproduction output is fabricated.  The donor — never the cell — is the
+    # statistical unit, so an unlabeled cell is not silently absorbed into a blank
+    # donor key; the dataset is refused (INSUFFICIENT_DATA), not inferred.
+    n_selected, n_missing_donor = _count_selected_donor_labels(
+        dataset.files.get("cell_metadata", ""), cell_type=cell_type
+    )
+    if n_missing_donor:
+        run.add_stage(
+            "donor_identity_check",
+            STAGE_STOPPED,
+            reason="MISSING_DONOR_LABEL",
+            payload={"n_selected_cells": n_selected, "n_missing_donor": n_missing_donor},
+        )
+        run.stop(
+            TERMINAL_INSUFFICIENT_DATA,
+            f"{n_missing_donor} of {n_selected} selected cell(s) have a missing/blank donor label; "
+            "donor identity is the statistical unit and cannot be inferred",
+        )
+        return run
+    run.add_stage(
+        "donor_identity_check",
+        STAGE_OK,
+        payload={"n_selected_cells": n_selected, "n_missing_donor": 0},
+    )
 
     # ---- resource closure over donor-level samples -------------------------
     donor_samples = _donor_samples(

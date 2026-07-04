@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import tempfile
 import unittest
 
@@ -44,6 +45,47 @@ class ScrnaDonorRouteTest(unittest.TestCase):
         self.assertEqual(run.claims, [])
         # It stopped at feasibility (before any fabricated result).
         self.assertEqual(run.stage("feasibility").status, "stopped")
+
+    def test_real_blank_donor_label_fails_closed_before_claims(self):
+        # A genuinely partially missing donor label in the selected metadata (not
+        # the synthetic ``unknown_donors`` shortcut) must fail closed before any
+        # pseudobulk / DEG / claim / alignment / report / reproduction output.
+        base = glue.load_route_dataset("scrna_donor_route")
+        rows = base.files["cell_metadata"].splitlines()
+        # Blank the donor field on exactly one selected (Tcell) cell row: "c07".
+        patched = []
+        for line in rows:
+            parts = line.split("\t")
+            if parts and parts[0] == "c07":
+                parts[1] = ""  # donor column blanked
+            patched.append("\t".join(parts))
+        blank_donor_metadata = "\n".join(patched) + "\n"
+        files = dict(base.files)
+        files["cell_metadata"] = blank_donor_metadata
+        dataset = dataclasses.replace(base, files=files)
+
+        with tempfile.TemporaryDirectory() as d:
+            run = run_scrna_donor_route(workspace=d, dataset=dataset)
+
+        self.assertEqual(run.terminal_status, TERMINAL_INSUFFICIENT_DATA)
+        self.assertEqual(run.claims, [])
+        gate = run.stage("donor_identity_check")
+        self.assertIsNotNone(gate)
+        self.assertEqual(gate.status, "stopped")
+        self.assertEqual(gate.payload["n_missing_donor"], 1)
+        # Fail-closed happened before any fabricated downstream stage/object.
+        self.assertIsNone(run.stage("pseudobulk_aggregation"))
+        self.assertEqual(run.report, {})
+        self.assertEqual(run.reproduction, {})
+
+    def test_healthy_dataset_passes_donor_identity_check(self):
+        with tempfile.TemporaryDirectory() as d:
+            run = run_scrna_donor_route(workspace=d)
+        gate = run.stage("donor_identity_check")
+        self.assertIsNotNone(gate)
+        self.assertEqual(gate.status, "ok")
+        self.assertEqual(gate.payload["n_missing_donor"], 0)
+        self.assertEqual(gate.payload["n_selected_cells"], 18)
 
     def test_determinism(self):
         out = []
