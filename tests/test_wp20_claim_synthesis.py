@@ -56,9 +56,7 @@ def make_evidence(
         "subquestion_ids": [sq],
         "evidence_type": etype,
         "allowed_claim_level": allowed,
-        "supports_or_opposes": "opposes"
-        if relation == "opposes"
-        else ("neutral" if relation in ("neutral", "inconclusive") else "supports"),
+        "supports_or_opposes": "opposes" if relation == "opposes" else ("neutral" if relation in ("neutral", "inconclusive") else "supports"),
         "evidence_relation": relation,
         "replication_status": replication,
         "scope": scope or {"species": ["human"], "tissue": ["liver"], "condition": ["tumor", "normal"]},
@@ -82,9 +80,7 @@ SPEC = {"project_id": "proj_1", "research_spec_id": "spec_1", "max_claim_level":
 
 class ClaimSynthesisTest(unittest.TestCase):
     def test_supporting_evidence_yields_valid_association_claim(self):
-        result = synthesize_claims(
-            evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association")
         self.assertEqual(len(result.claims), 1)
         claim = result.claims[0]
         self.assertEqual(claim["claim_level"], "association")
@@ -152,9 +148,7 @@ class ClaimSynthesisTest(unittest.TestCase):
 
     def test_conflict_downgrades_status_and_records_opposing(self):
         evs = [make_evidence("evidence_item_1", "supports"), make_evidence("evidence_item_2", "opposes")]
-        result = synthesize_claims(
-            evidence_items=evs, subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=evs, subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association")
         claim = result.claims[0]
         self.assertEqual(claim["status"], "conflicting")
         self.assertIn("evidence_item_2", claim["opposing_evidence_refs"])
@@ -167,9 +161,7 @@ class ClaimSynthesisTest(unittest.TestCase):
 
     def test_unanswered_subquestion_recorded_not_dropped(self):
         subq = SUBQ + [{"subquestion_id": "subq_2", "claim_ceiling": "association"}]
-        result = synthesize_claims(
-            evidence_items=[make_evidence()], subquestions=subq, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=[make_evidence()], subquestions=subq, scope_bundle=SCOPE, project_ceiling="association")
         self.assertEqual(len(result.claims), 1)
         self.assertEqual([u["subquestion_id"] for u in result.unanswered_questions], ["subq_2"])
         self.assertTrue(result.unanswered_questions[0]["reason"])
@@ -231,9 +223,7 @@ class OverclaimDetectionTest(unittest.TestCase):
         self.assertEqual(corr[0]["kind"], "single_cohort_to_universal")
 
     def test_clean_association_language_not_flagged(self):
-        corr = detect_overclaims(
-            [self._claim("At the association level, expression differs between the two groups")], [make_evidence()]
-        )
+        corr = detect_overclaims([self._claim("At the association level, expression differs between the two groups")], [make_evidence()])
         self.assertEqual(corr, [])
 
 
@@ -251,9 +241,7 @@ class AlignmentAuditTest(unittest.TestCase):
         )
 
     def test_clean_claims_approve_and_report_ready(self):
-        result = synthesize_claims(
-            evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association")
         audit = self._audit(result.claims)
         self.assertEqual(audit["alignment_report"]["final_decision"], "approve")
         self.assertTrue(audit["report_ready"])
@@ -278,9 +266,7 @@ class AlignmentAuditTest(unittest.TestCase):
         self.assertEqual(validate_question_alignment_report(audit["alignment_report"]), [])
 
     def test_unanswered_subquestion_blocks_report_readiness(self):
-        result = synthesize_claims(
-            evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association")
         audit = self._audit(result.claims, subquestions=SUBQ + [{"subquestion_id": "subq_2", "claim_ceiling": "association"}])
         self.assertFalse(audit["report_ready"])
         kinds = {b["kind"] for b in audit["report_blocking_issues"]}
@@ -301,9 +287,7 @@ class AlignmentAuditTest(unittest.TestCase):
         self.assertIn("answered_negative", states)
 
     def test_answered_state_for_supporting_claim(self):
-        result = synthesize_claims(
-            evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association"
-        )
+        result = synthesize_claims(evidence_items=[make_evidence()], subquestions=SUBQ, scope_bundle=SCOPE, project_ceiling="association")
         audit = self._audit(result.claims)
         states = {c["state"] for c in audit["coverage"]}
         self.assertEqual(states, {"answered"})
