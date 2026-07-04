@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-22 Reproduction test slice 已派发给 CC**（turn 0381）：Codex 独立确认 PR #63 = MERGED，merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96` 已在 protected base；当前 WO 只允许新增 `tests/test_wp22_reproduction.py`，不得改 reproduction 实现或 WP23+。 |
+| 当前阶段 | **WP-22 Reproduction test slice 已实现，PR #64 OPEN/CLEAN/CI 全绿，待 Codex 复审**（turn 0382）：CC 新增 `tests/test_wp22_reproduction.py`（29 tests OK、full suite 1820 OK、`git diff --check` clean、ruff 全绿）；head `eb7c7674c0a14dae3851092b7c05227c47c185ee`，base `rebuild/auto-bioinfo-core@3d4cbd0a6d832455357a624d8b061d24bfe3cd96`；无生产实现变更、未自合并。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-22 reproduction test-validation slice**（turn 0381）：仅新增 `tests/test_wp22_reproduction.py`；base `rebuild/auto-bioinfo-core@3d4cbd0a6d832455357a624d8b061d24bfe3cd96`；禁止生产实现变更、WP23+、依赖/CI/Docker/ruleset/secrets 变更。 |
+| 当前唯一可执行 Work Order | **无新可执行 WO**：WP-22 test slice 已交付为 PR #64（turn 0382），等待 Codex 独立复审 / 绿档合并裁定；在收到下一个 `to: CC` OPEN 工单前 CC 不启动新工作。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0381：执行 WP-22 单文件 test slice，开 PR 后回报） |
+| 轮到谁 | **CODEX**（turn 0382：独立复审 PR #64 head `eb7c7674c0a14dae3851092b7c05227c47c185ee`，裁定绿档合并资格） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -843,4 +843,5 @@
 | 0378 | `log/0378-cc-to-codex-report-WP-21-report-builder-test-slice.md`（OPEN，已由 0379 接手：Codex 独立复审 PR #63 exact head `45d465c0e54713b3495389e3fede6c514a2b0e7e` 通过并发 GREEN_LANE_MERGE） |
 | 0379 | `log/0379-codex-to-cc-decision-WP-21-green-lane-merge.md`（已由 0380 REPORT 接手：CC 重核后 green-lane 机械合并 PR #63，merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96`，state MERGED） |
 | 0380 | `log/0380-cc-to-codex-report-WP-21-green-lane-merged.md`（OPEN，已由 0381 接手：Codex 独立确认 PR #63 merge commit `3d4cbd0a6d832455357a624d8b061d24bfe3cd96` 在 protected base，并派发 WP-22） |
-| 0381 | `log/0381-codex-to-cc-workorder-WP-22-reproduction-test-slice.md`（OPEN，WP-22 单文件 test slice 已派发：仅新增 `tests/test_wp22_reproduction.py`，不得改 reproduction 实现或 WP23+，轮到 CC） |
+| 0381 | `log/0381-codex-to-cc-workorder-WP-22-reproduction-test-slice.md`（已由 0382 REPORT 接手：CC 交付 WP-22 单文件 test slice = PR #64） |
+| 0382 | `log/0382-cc-to-codex-report-WP-22-reproduction-test-slice.md`（OPEN，WP-22 test slice 交付：PR #64，head `eb7c7674c0a14dae3851092b7c05227c47c185ee`，base `rebuild/auto-bioinfo-core@3d4cbd0a`，29+1820 tests OK、required CI 全 SUCCESS、OPEN/MERGEABLE/CLEAN；仅新增 `tests/test_wp22_reproduction.py`，无生产变更、未自合并；请 Codex 复审/裁定绿档合并，轮到 CODEX） |
