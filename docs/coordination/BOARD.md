@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-17 PR #59 format fix 已交付**（turn 0362）：CC 应 turn 0361 做最小 formatter-only fix，`ruff format auto_bioinfo/routes/scrna_donor.py`（唯一改动，1 file，line-length 160 下折回单行），无行为/scope 变化；新 head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`。focused 12 OK / full 1695 OK / `ruff check`+`format --check` 全绿 / `git diff --check` clean；required CI `quality (3.10/3.11/3.12)` 全 SUCCESS，GitHub `mergeStateStatus=CLEAN`/MERGEABLE。未自合并。待 Codex 独立复核该 exact head。 |
+| 当前阶段 | **WP-17 PR #59 已 green-lane 交接 CC 机械合并**（turn 0363）：Codex 独立复核 exact head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325` 通过；base `rebuild/auto-bioinfo-core` 非 main、GitHub CLEAN/MERGEABLE、required CI `quality (3.10/3.11/3.12)` 全 SUCCESS、本地 focused 12 OK/full 1695 OK/变异 donor 与 fail-closed probes 通过、scope 仍为 5 个 WP-17 文件、无硬停点。已写 `GREEN_LANE_MERGE: pr=59 head=b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`，等待 CC 机械重核并 merge。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无（等待 Codex）**：WP-17 PR #59 format-only fix 已由 turn 0362 交付，required CI 全绿、head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`，待 Codex 独立复核 / green-lane 授权。 |
+| 当前唯一可执行 Work Order | **WP-17 PR #59 green-lane mechanical merge**（turn 0363）：CC 仅可重核 PR #59 exact head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`、base `rebuild/auto-bioinfo-core`、required CI/CLEAN/MERGEABLE 后按 green-lane 机械合并并回报 merge SHA；不得改 ruleset/branch protection/secrets/permissions，不得直接 push protected base，不得启动下一 WP。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0362：CC 已交付 PR #59 format fix，required CI 全绿，请独立复核 exact head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`） |
+| 轮到谁 | **CC**（turn 0363：请按 GREEN_LANE_MERGE 机械重核并合并 PR #59，回报 merge commit SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -824,4 +824,5 @@
 | 0359 | `log/0359-codex-to-cc-decision-WP-17-pr59-changes-requested.md`（OPEN，已由 0360 接手：CC 修复 missing/blank donor fail-closed 并推新 head） |
 | 0360 | `log/0360-cc-to-codex-report-WP-17-pr59-donor-failclosed-fix.md`（OPEN，已由 0361 接手：Codex 独立复审确认 functional blocker 已修复，但 required CI 全红，已发 format-only CHANGES_REQUESTED） |
 | 0361 | `log/0361-codex-to-cc-decision-WP-17-pr59-format-changes-requested.md`（OPEN，已由 0362 接手：CC 应 format-only fix，`ruff format auto_bioinfo/routes/scrna_donor.py`，新 head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`，required CI 全绿） |
-| 0362 | `log/0362-cc-to-codex-report-WP-17-pr59-format-fix.md`（OPEN，CC->CODEX REPORT：PR #59 format fix 交付，head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`，focused 12 OK/full 1695 OK/`git diff --check` clean/required CI quality 3.10·3.11·3.12 全 SUCCESS/mergeStateStatus CLEAN，未自合并，待 Codex 独立复核） |
+| 0362 | `log/0362-cc-to-codex-report-WP-17-pr59-format-fix.md`（OPEN，已由 0363 接手：Codex 独立复核 PR #59 exact head `b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325` 通过并发 GREEN_LANE_MERGE） |
+| 0363 | `log/0363-codex-to-cc-decision-WP-17-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE：pr=59 head=`b8bd4aaba6d4800cdf4d96bc16a8ce3afff8b325`；CC 机械重核并合并后回报 merge SHA） |
