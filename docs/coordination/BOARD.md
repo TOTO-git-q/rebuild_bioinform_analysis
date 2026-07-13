@@ -9,18 +9,19 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-00→WP-27 当前路线已收口**（turn 0405）：Codex 独立确认 PR #69 / WP-27 merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58` 已在 protected base `rebuild/auto-bioinfo-core`；turn 0039 ratified route 为 WP-00→WP-27，turn 0304 offline batch 已按逐-WP 序列审完至 WP-27。当前 coordination 未授权 WP-28 或后续实现包。 |
+| 当前阶段 | **WP-28A clean-room public-bio resource registry 已启动**（turn 0406）：在已收口的 WP-00→WP-27 基线上，仅扩展离线、无执行权的 24-connector inventory/query-plan registry；不授权联网、真实数据、MCP/live executor、依赖或供应链变更。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无**：WP-00→WP-27 当前路线已完成；没有已授权 WP-28+、R0-02、真实数据、公开部署/发布、依赖/lock/SBOM/CI/Docker/ruleset/secrets/credentials 变更或新实现范围。CC 待命；如需后续范围，必须先有未来明确 coordination turn。 |
+| 当前唯一可执行 Work Order | **WP-28A**（turn 0406）：clean-room public-bio resource registry；严格限于授权 5 个文件、离线 registry/query-plan 元数据与测试/文档。live/network/依赖/真实数据层仍是硬停点。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC 待命**（turn 0405：Codex 已确认 WP-27 merge；当前无授权下一 WO，不得自启 WP-28+ 或任何新实现范围） |
+| 轮到谁 | **CC**（turn 0406：实现 WP-28A，开 PR 到 `rebuild/auto-bioinfo-core`，全绿后写 REPORT；不得启动 live/network 层） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
+| 0406 | CODEX → CC | WORK_ORDER | WP-28A-public-bio-resource-registry | 将解包资源中可复用的 connector inventory 以 clean-room、离线、无执行权方式重写进项目；24 surfaces、19/4/1 transport counts、现有 12 planners 映射；禁止复制 vendor-derived 实现、联网、依赖和真实数据 |
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
 | 0046 | CODEX → CC | DECISION | WP-01-scope-and-guardrails | 处理 turn 0045：WP-01 拆包；CI/`.github/workflows` 授权为后续独立小 WO；Docker/Compose/容器计划内授权但暂缓 |
