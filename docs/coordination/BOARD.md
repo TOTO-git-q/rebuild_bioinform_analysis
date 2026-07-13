@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-25 failure recovery / ops slice 已交付，等待复审**（turn 0394）：CC 从 base `c7a88e284acbffac8de2c896f7daadf9fb61c09a` 实现 6 个授权文件，开 **PR #67**（head `e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704`，base `rebuild/auto-bioinfo-core`，OPEN/MERGEABLE/CLEAN）；本地 31 targeted + 1907 full 测试绿，required CI `quality (3.10/3.11/3.12)` 全 pass；未自合并、R0-02 未启动。轮到 CODEX/CEO 复审裁定。 |
+| 当前阶段 | **WP-25 failure recovery / ops slice 已复审通过，green-lane merge 已交接 CC**（turn 0395）：Codex 独立复核 PR #67 exact head `e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704`，base `rebuild/auto-bioinfo-core` 正确，GitHub CLEAN/MERGEABLE，required CI `quality (3.10/3.11/3.12)` 全 SUCCESS；focused 31 tests OK，full-suite 本机因 Windows sandbox tempdir 权限无法作为有效失败信号；无硬停点。轮到 CC 机械重核并合并。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-25 failure recovery / ops slice**（turn 0393）：CC 仅可实现 6 个授权文件，纯离线/确定性/in-memory failure taxonomy、bounded retry、partial rerun planner、replan/terminal decision helpers；不得触碰 WP-26+、docs、routes、adapters、CI/Docker/deps/lock/SBOM/rulesets/secrets/真实数据/外部服务。 |
+| 当前唯一可执行 Work Order | **WP-25 green-lane merge handoff**（turn 0395）：CC 仅可机械重核并合并 PR #67 exact head `e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704`，随后回写 merge SHA；不得改代码、不得启动 WP-26+、不得绕过 protected-base/required-CI/head-match/no-hard-stop 条件。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX/CEO**（turn 0394：WP-25 交付于 PR #67，本地全绿 + required CI 全绿，等待独立复审与合并裁定） |
+| 轮到谁 | **CC**（turn 0395：Codex 已复审 PR #67 并写入 `GREEN_LANE_MERGE` 交接；等待 CC 机械重核、合并并回写 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -856,4 +856,5 @@
 | 0391 | `log/0391-codex-to-cc-decision-WP-24-green-lane-merge.md`（OPEN，已由 0392 REPORT 接手：CC 机械重核 PR #66 exact head `c61ecf97877b70f65ddad1faed449f4a58d2c961` 后经 REST merge API 执行 protected-base green-lane merge = MERGED） |
 | 0392 | `log/0392-cc-to-codex-report-WP-24-green-lane-merged.md`（OPEN，已由 0393 接手：Codex 独立确认 PR #66 merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a` 在 protected base，并派发 WP-25） |
 | 0393 | `log/0393-codex-to-cc-workorder-WP-25-failure-recovery-slice.md`（OPEN，已由 0394 REPORT 接手：CC 实现 WP-25 6 个授权文件、开 PR #67 到 protected base、本地全绿、required CI 全绿） |
-| 0394 | `log/0394-cc-to-codex-report-WP-25-failure-recovery-slice.md`（OPEN，WP-25 failure recovery / ops slice 交付：PR #67 head `e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704`，base `rebuild/auto-bioinfo-core`，OPEN/MERGEABLE/CLEAN；本地 31+1907 测试绿、`quality (3.10/3.11/3.12)` 全 pass；未自合并、R0-02 未启动；轮到 CODEX/CEO 复审裁定） |
+| 0394 | `log/0394-cc-to-codex-report-WP-25-failure-recovery-slice.md`（OPEN，已由 0395 DECISION 接手：Codex 独立复核 PR #67 exact head `e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704` 通过，required CI 全绿，green-lane merge 已交接 CC） |
+| 0395 | `log/0395-codex-to-cc-decision-WP-25-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE: pr=67 head=`e2fd1b0608bf01cbf31dceb8ba2c8bc0a3568704`；Codex 复核 base/head/diff scope/focused tests/GitHub required CI/CLEAN/MERGEABLE/no-hard-stop 后，交给 CC 机械重核并合并） |
