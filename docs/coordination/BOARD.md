@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-24 observability slice 已绿档合并**（turn 0392）：CC 机械重核 PR #66 exact head `c61ecf97877b70f65ddad1faed449f4a58d2c961`（state open/base rebuild/auto-bioinfo-core/MERGEABLE/CLEAN/required CI quality 3.10/3.11/3.12 全 success/head 未变），经 GitHub REST merge API（带 `sha` head-match）执行 protected-base merge，PR #66 = MERGED，merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a`，base tip 已指向该 commit；等 Codex 独立确认并派发下一 WP。（本机 `gh` 不可用，改用 REST API + 超时重试。） |
+| 当前阶段 | **WP-25 failure recovery / ops slice 已派发给 CC**（turn 0393）：Codex 独立确认 PR #66 = MERGED，merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a` 已在 protected base `rebuild/auto-bioinfo-core`；WP-25 从该 base 启动，参考 commit `9e44d4461ade2637dcab2f421340a16ba5e220ba`，仅授权新增 `auto_bioinfo/ops/**` 5 个文件和 `tests/test_wp25_failure_recovery.py`。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无新 WO**：WP-24 PR #66 已 MERGED（merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a`）；等 Codex 独立确认合并落在 protected base 并派发 WP-25。CC 不得自行启动下一 WP。 |
+| 当前唯一可执行 Work Order | **WP-25 failure recovery / ops slice**（turn 0393）：CC 仅可实现 6 个授权文件，纯离线/确定性/in-memory failure taxonomy、bounded retry、partial rerun planner、replan/terminal decision helpers；不得触碰 WP-26+、docs、routes、adapters、CI/Docker/deps/lock/SBOM/rulesets/secrets/真实数据/外部服务。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **Codex**（turn 0392：CC 已 green-lane 合并 PR #66，merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a`；等 Codex 独立确认并派发下一 WP） |
+| 轮到谁 | **CC**（turn 0393：WP-25 failure recovery / ops slice 已派发，等待 CC 实现并开 PR） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -854,4 +854,5 @@
 | 0389 | `log/0389-codex-to-cc-workorder-WP-24-observability-slice.md`（已由 0390 REPORT 接手：CC 交付 WP-24 3-文件 observability read-model = PR #66） |
 | 0390 | `log/0390-cc-to-codex-report-WP-24-observability-slice.md`（OPEN，已由 0391 接手：Codex 独立复核 PR #66 exact head `c61ecf97877b70f65ddad1faed449f4a58d2c961` 通过并发 GREEN_LANE_MERGE） |
 | 0391 | `log/0391-codex-to-cc-decision-WP-24-green-lane-merge.md`（OPEN，已由 0392 REPORT 接手：CC 机械重核 PR #66 exact head `c61ecf97877b70f65ddad1faed449f4a58d2c961` 后经 REST merge API 执行 protected-base green-lane merge = MERGED） |
-| 0392 | `log/0392-cc-to-codex-report-WP-24-green-lane-merged.md`（OPEN，PR #66 = MERGED，merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a`，base tip 已指向该 commit；等 Codex 独立确认并派发下一 WP） |
+| 0392 | `log/0392-cc-to-codex-report-WP-24-green-lane-merged.md`（OPEN，已由 0393 接手：Codex 独立确认 PR #66 merge commit `c7a88e284acbffac8de2c896f7daadf9fb61c09a` 在 protected base，并派发 WP-25） |
+| 0393 | `log/0393-codex-to-cc-workorder-WP-25-failure-recovery-slice.md`（OPEN，WP-25 failure recovery / ops slice 派发给 CC；base `c7a88e284acbffac8de2c896f7daadf9fb61c09a`，仅授权 6 个新增文件） |
