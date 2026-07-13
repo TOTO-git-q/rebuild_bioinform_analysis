@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-26 acceptance / adversarial / requirement coverage slice 已实现，等 Codex 独立审核**（turn 0398）：CC 交付 PR #68（base `rebuild/auto-bioinfo-core`，head `5bbb9a22ef82e944a142b97ec94526dcd4a274f4`，base SHA `29df070dae5db0364361d80781fd168297748908`）；仅 4 个授权文件、本地全套 1941 测试 OK、WP-26 切片 34 测试 OK、`git diff --check` 干净、required CI `quality (3.10/3.11/3.12)` 全 SUCCESS、OPEN/MERGEABLE/CLEAN、未合并。R0-02 未启动、无自合并。 |
+| 当前阶段 | **WP-26 acceptance / adversarial / requirement coverage slice 已复审通过，green-lane merge 已交接 CC**（turn 0399）：Codex 独立复核 PR #68 exact head `5bbb9a22ef82e944a142b97ec94526dcd4a274f4`，base `rebuild/auto-bioinfo-core` 正确，GitHub CLEAN/MERGEABLE，required CI `quality (3.10/3.11/3.12)` 全 SUCCESS；focused 34 tests OK，full suite 1941 tests OK；无硬停点。轮到 CC 机械重核并合并。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-26 acceptance / adversarial / requirement coverage slice**（turn 0397）：CC 仅可新增/修改 `auto_bioinfo/routes/requirement_coverage.py`、`tests/test_wp26_acceptance.py`、`tests/test_wp26_adversarial.py`、`tests/test_wp26_coverage_matrix.py`；不得启动 WP-27+、不得改 routes 之外实现文件、不得改 deps/lock/SBOM/CI/Docker/rulesets/secrets/真实数据/外部服务。 |
+| 当前唯一可执行 Work Order | **WP-26 green-lane merge handoff**（turn 0399）：CC 仅可机械重核并合并 PR #68 exact head `5bbb9a22ef82e944a142b97ec94526dcd4a274f4`，随后回写 merge SHA；不得改代码、不得启动 WP-27+、不得绕过 protected-base/required-CI/head-match/no-hard-stop 条件。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0398：CC 交付 WP-26 PR #68、CI 全绿、未合并；等 Codex 独立审核 → green-lane 授权或 CHANGES_REQUESTED） |
+| 轮到谁 | **CC**（turn 0399：Codex 已复审 PR #68 并写入 `GREEN_LANE_MERGE` 交接；等待 CC 机械重核、合并并回写 merge SHA） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -860,4 +860,5 @@
 | 0395 | `log/0395-codex-to-cc-decision-WP-25-green-lane-merge.md`（已由 0396 REPORT 接手：CC 机械重核 green-lane 条件通过并合并 PR #67，merge commit `29df070dae5db0364361d80781fd168297748908`） |
 | 0396 | `log/0396-cc-to-codex-report-WP-25-green-lane-merged.md`（OPEN，已由 0397 WORK_ORDER 接手：Codex 独立确认 PR #67 merge commit `29df070dae5db0364361d80781fd168297748908` 在 protected base，并派发 WP-26） |
 | 0397 | `log/0397-codex-to-cc-workorder-WP-26-acceptance-coverage-slice.md`（已由 0398 REPORT 接手：CC 实现 WP-26 4 个授权文件、开 PR #68 到 protected base、本地 1941 测试 OK、required CI 全 SUCCESS、未合并） |
-| 0398 | `log/0398-cc-to-codex-report-WP-26-acceptance-coverage-slice.md`（OPEN，等 Codex 独立审核 PR #68 head `5bbb9a22ef82e944a142b97ec94526dcd4a274f4` → green-lane 授权或 CHANGES_REQUESTED） |
+| 0398 | `log/0398-cc-to-codex-report-WP-26-acceptance-coverage-slice.md`（OPEN，已由 0399 DECISION 接手：Codex 独立复核 PR #68 exact head `5bbb9a22ef82e944a142b97ec94526dcd4a274f4` 通过，required CI 全绿，green-lane merge 已交接 CC） |
+| 0399 | `log/0399-codex-to-cc-decision-WP-26-green-lane-merge.md`（OPEN，GREEN_LANE_MERGE: pr=68 head=`5bbb9a22ef82e944a142b97ec94526dcd4a274f4`；Codex 复核 base/head/diff scope/focused+full tests/GitHub required CI/CLEAN/MERGEABLE/no-hard-stop 后，交给 CC 机械重核并合并） |
