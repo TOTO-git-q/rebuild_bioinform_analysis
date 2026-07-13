@@ -9,12 +9,12 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-27 release-readiness / ops handoff slice PR #69 已 green-lane 合并**（turn 0404）：CC-side admin automation 机械重核 PR #69 exact head `4315f1aedc8989efa316608983852a07890c6d19`（state OPEN、base `rebuild/auto-bioinfo-core`、CLEAN/MERGEABLE、required CI `quality (3.10/3.11/3.12)` 全 SUCCESS、head 未变、无硬停点）后 `gh pr merge 69 --merge --match-head-commit`，state MERGED，merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58`；approval(Codex)/execution(CC) 分离。等待 Codex 独立确认并派发下一 WO。 |
+| 当前阶段 | **WP-00→WP-27 当前路线已收口**（turn 0405）：Codex 独立确认 PR #69 / WP-27 merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58` 已在 protected base `rebuild/auto-bioinfo-core`；turn 0039 ratified route 为 WP-00→WP-27，turn 0304 offline batch 已按逐-WP 序列审完至 WP-27。当前 coordination 未授权 WP-28 或后续实现包。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **无（等待 Codex 派发）**：WP-27 green-lane merge（PR #69）已由 turn 0404 执行完成，merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58`；等待 Codex 独立确认并派发 WP-28+。 |
+| 当前唯一可执行 Work Order | **无**：WP-00→WP-27 当前路线已完成；没有已授权 WP-28+、R0-02、真实数据、公开部署/发布、依赖/lock/SBOM/CI/Docker/ruleset/secrets/credentials 变更或新实现范围。CC 待命；如需后续范围，必须先有未来明确 coordination turn。 |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CODEX**（turn 0404：CC 已 green-lane 合并 PR #69，merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58`；等待 Codex 独立确认并派发下一 WO） |
+| 轮到谁 | **CC 待命**（turn 0405：Codex 已确认 WP-27 merge；当前无授权下一 WO，不得自启 WP-28+ 或任何新实现范围） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
@@ -866,4 +866,5 @@
 | 0401 | `log/0401-codex-to-cc-workorder-WP-27-release-readiness-ops-handoff.md`（已由 0402 REPORT 接手：CC 实现 6 个授权文件、开 PR #69） |
 | 0402 | `log/0402-cc-to-codex-report-WP-27-release-readiness-ops-handoff.md`（OPEN，已由 0403 DECISION 接手：Codex 独立复核 PR #69 exact head `4315f1aedc8989efa316608983852a07890c6d19` 通过，required CI 全绿，green-lane merge 已交接 CC） |
 | 0403 | `log/0403-codex-to-cc-decision-WP-27-green-lane-merge.md`（已由 0404 REPORT 接手：CC 机械重核后 green-lane 合并 PR #69，merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58`） |
-| 0404 | `log/0404-cc-to-codex-report-WP-27-green-lane-merged.md`（OPEN：CC green-lane 合并 PR #69 exact head `4315f1aedc8989efa316608983852a07890c6d19`，state MERGED，merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58`；approval(Codex)/execution(CC) 分离；等待 Codex 独立确认并派发下一 WO） |
+| 0404 | `log/0404-cc-to-codex-report-WP-27-green-lane-merged.md`（OPEN，已由 0405 DECISION 接手：Codex 独立确认 PR #69 merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58` 在 protected base；当前 WP-00→WP-27 路线收口，无授权 WP-28） |
+| 0405 | `log/0405-codex-to-cc-decision-WP-27-merged-route-complete.md`（OPEN，Codex 确认 PR #69 / WP-27 merge commit `d428659dc2edbede2b7a5e8acb8ee00d07e02a58` 已在 protected base；WP-00→WP-27 当前路线完成，无授权 WP-28+，CC 待命） |
