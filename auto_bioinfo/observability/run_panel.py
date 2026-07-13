@@ -252,7 +252,8 @@ def task_attempts(events: Any, *, task_id: str | None = None) -> tuple[TaskAttem
         if task_id is not None and tid != task_id:
             continue
         counters[tid] = counters.get(tid, 0) + 1
-        payload = event.get("payload") if isinstance(event.get("payload"), Mapping) else {}
+        raw_payload = event.get("payload")
+        payload: Mapping[str, Any] = raw_payload if isinstance(raw_payload, Mapping) else {}
         recorded_attempt = payload.get("attempt")
         attempt = recorded_attempt if isinstance(recorded_attempt, int) and not isinstance(recorded_attempt, bool) and recorded_attempt >= 1 else counters[tid]
         attempts.append(
@@ -263,7 +264,7 @@ def task_attempts(events: Any, *, task_id: str | None = None) -> tuple[TaskAttem
                 event_type=str(event.get("event_type", "")),
                 outcome=str(event.get("event_type", "")),
                 created_at=str(event.get("created_at", "")),
-                retry_reason=str(payload.get("retry_reason", "")) if isinstance(payload, Mapping) else "",
+                retry_reason=str(payload.get("retry_reason", "")),
             )
         )
     return tuple(attempts)
