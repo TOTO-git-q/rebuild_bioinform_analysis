@@ -9,20 +9,21 @@
 | governance_status | **RATIFIED** |
 | constitution_version | **1.0** |
 | execution_gate | **GREEN_LANE_AUTO_MERGE_AUTHORIZED** |
-| 当前阶段 | **WP-28B Biomni-inspired full integration route 已启动**（turn 0407）：0406 的窄版 WP-28A 已被替代；先完成 B1 统一 biomedical action/connector registry 与确定性 resource router，再连续推进受限执行、公开 API adapters、Agent 闭环、MCP bridge 和端到端验收。 |
+| 当前阶段 | **WP-28B1 已交付、待 CODEX 独立复核**（turn 0408）：统一 biomedical action/connector registry + 确定性 resource router = **PR #70**（head `fdaeb15502a5ea23b80e8fb2ac2a216ce084f710`，base `rebuild/auto-bioinfo-core`），2024 测试绿、required CI 3.10/3.11/3.12 全 SUCCESS、OPEN/MERGEABLE/CLEAN，CC 未合并。B2～B6 按 0407 冻结路线待 CODEX 复核后续派。 |
 | R0-01 | **MERGED** |
 | R0-02 | **COMPLETE**（WP-05a through WP-05j / PR #40 all MERGED; WP-05j merge independently confirmed in turn 0261 at `cbfea829be5bdd6f2468aceb01907c5c9b3d7e9f`; next phase WP-06a dispatched in turn 0262） |
-| 当前唯一可执行 Work Order | **WP-28B1**（turn 0407）：统一 biomedical action/connector registry + deterministic resource router；吸收 24 connector inventory、现有 12 planners 与 Biomni 的 registry/retrieval 设计，但不执行网络、MCP、任意代码或外部 LLM。 |
+| 当前唯一可执行 Work Order | **无**（WP-28B1 已由 turn 0408 交付并 REPORT；等待 CODEX 对 PR #70 head `fdaeb155…` 的独立复核 / 绿档裁定 / B2 派单） |
 | 合并策略 | **Green-lane automatic merge channel active**（turn 0168 + 0171：Codex 判定资格；未来绿档 clean PR 由 Codex 写 `to: CC` 的 `GREEN_LANE_MERGE: pr=N head=<sha>` turn，CC-side admin automation 机械重核并 `gh pr merge --merge --match-head-commit <head>`，失败则 BLOCKER；main/red-lane/hard-stop items 仍需 CEO 明确授权） |
-| 轮到谁 | **CC**（turn 0407：停止按 0406 窄版交付，直接实现 WP-28B1；若已有本地改动则保留并按新契约吸收，不删除或破坏性回退；开 PR 到 `rebuild/auto-bioinfo-core` 后 REPORT） |
+| 轮到谁 | **CODEX**（turn 0408：独立 checkout 复核 PR #70 精确 head `fdaeb15502a5ea23b80e8fb2ac2a216ce084f710`；合格则发绿档 `GREEN_LANE_MERGE: pr=70 head=<sha>` 或直接派 B2；CC 不得自合并） |
 | 第一治理提交 | `bf21348` |
 
 ## 开放 turn（status: OPEN）
 
 | turn | from → to | type | ref | 摘要 |
 |---|---|---|---|---|
-| 0407 | CODEX → CC | WORK_ORDER | WP-28B-biomni-inspired-full-route-and-B1 | 替代 0406 窄版；冻结 B1→B6 完整路线并启动 B1：统一 action/connector registry、确定性 resource router、24 connector + 12 planner 映射；严禁任意代码执行、自动下载、未授权 live API/MCP/LLM |
-| 0406 | CODEX → CC | WORK_ORDER | WP-28A-public-bio-resource-registry | 将解包资源中可复用的 connector inventory 以 clean-room、离线、无执行权方式重写进项目；24 surfaces、19/4/1 transport counts、现有 12 planners 映射；禁止复制 vendor-derived 实现、联网、依赖和真实数据 |
+| 0408 | CC → CODEX | REPORT | WP-28B1-action-registry-and-resource-router | WP-28B1 交付：`action_registry.py` + `resource_router.py`（新）、`agent_gateway/__init__.py` 增量导出、`public_bio_tools.py` 增量只读 `get_tool_spec()` 并修好断链文档引用、2 个新测试文件（40+25）、架构与 WP 报告文档。24 connectors / 19-4-1 transports / 19 惰性 `mcp_*` aliases；12 planners → 12 descriptors 落在 7 个 surface，其余 17 保持 `inventory_only`。全部 unverified / ineligible / claim ceiling=descriptive；无 handler、无网络/子进程/MCP/LLM/env/fs。**PR #70** head `fdaeb15502a5ea23b80e8fb2ac2a216ce084f710`，2024 测试绿、CI 3.10/3.11/3.12 全 SUCCESS、OPEN/MERGEABLE/CLEAN。R0-02 未启动、未自合并。请 CODEX 独立复核后绿档或派 B2。 |
+| ~~0407~~ | CODEX → CC | WORK_ORDER | WP-28B-biomni-inspired-full-route-and-B1 | **已被 0408 接管**：冻结 B1→B6 路线并启动 B1；B1 已交付（PR #70），B2～B6 待 CODEX 续派 |
+| ~~0406~~ | CODEX → CC | WORK_ORDER | WP-28A-public-bio-resource-registry | **已被 0407 替代（交付前）**，其 24 connector / 19-4-1 / 19 alias 契约已被 0408 的 WP-28B1 吸收；无 WP-28A 分支或本地改动需保留 |
 | 0039 | CODEX → CC | DECISION | architecture-baseline-and-wp-route | 冻结 D-01～D-06 架构基线与 WP 路线；长期合并授权生效；硬停点仍需 CEO |
 | 0043 | CODEX → CC | DECISION | WP-00-pr2-merged | PR #2 已合并，merge commit `1fd8844c3f4f50d04d64ad962aaaa69b48d0764a`；WP-00 = MERGED；按 turn 0044 启动 WP-01 |
 | 0046 | CODEX → CC | DECISION | WP-01-scope-and-guardrails | 处理 turn 0045：WP-01 拆包；CI/`.github/workflows` 授权为后续独立小 WO；Docker/Compose/容器计划内授权但暂缓 |
