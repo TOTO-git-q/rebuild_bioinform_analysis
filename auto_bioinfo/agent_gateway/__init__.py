@@ -80,6 +80,26 @@ are out of scope for this foundation.
 
 from __future__ import annotations
 
+from .action_registry import CATEGORIES as ACTION_CATEGORIES
+from .action_registry import CONNECTOR_IDS as ACTION_CONNECTOR_IDS
+from .action_registry import CONNECTOR_INVENTORY as ACTION_CONNECTOR_INVENTORY
+from .action_registry import EXECUTION_KINDS as ACTION_EXECUTION_KINDS
+from .action_registry import EXPECTED_TRANSPORT_COUNTS as ACTION_EXPECTED_TRANSPORT_COUNTS
+from .action_registry import PURPOSES as ACTION_PURPOSES
+from .action_registry import RISK_LEVELS as ACTION_RISK_LEVELS
+from .action_registry import TRANSPORT_CLASSES as ACTION_TRANSPORT_CLASSES
+from .action_registry import (
+    ActionDescriptor,
+    ActionParameter,
+    ActionRegistry,
+    ActionRegistryError,
+    ConnectorDescriptor,
+    UnknownActionError,
+    UnknownConnectorError,
+    build_default_action_registry,
+    registry_to_json,
+    validate_action_descriptor,
+)
 from .audit_record import BINDING_CODES as AUDIT_BINDING_CODES
 from .audit_record import (
     CALL_KIND_PROVIDER,
@@ -329,6 +349,18 @@ from .reliability_policy import STATUS_ALLOWED as RELIABILITY_STATUS_ALLOWED
 from .reliability_policy import STATUS_DENIED as RELIABILITY_STATUS_DENIED
 from .reliability_policy import STATUS_REJECTED as RELIABILITY_STATUS_REJECTED
 from .reliability_policy import STATUSES as RELIABILITY_STATUSES
+from .resource_router import CAPABILITY_GAP_CODES as ROUTE_CAPABILITY_GAP_CODES
+from .resource_router import REASON_CODES as RESOURCE_ROUTER_REASON_CODES
+from .resource_router import (
+    RejectedCandidate,
+    ResourceRouter,
+    RouteRequest,
+    RouteRequestError,
+    RouteTrace,
+    build_default_resource_router,
+    route_actions,
+    validate_route_request,
+)
 from .structured_output import (
     ADMISSION_CODES,
     CODE_DUPLICATE_SCHEMA,
@@ -772,4 +804,36 @@ __all__ = [
     "ReliabilityRequest",
     "ReliabilityDecision",
     "evaluate_reliability",
+    # WP-28B1: unified biomedical action/connector registry (metadata only —
+    # inert descriptors, no handler, no transport, no execution capability).
+    "ACTION_CATEGORIES",
+    "ACTION_CONNECTOR_IDS",
+    "ACTION_CONNECTOR_INVENTORY",
+    "ACTION_EXECUTION_KINDS",
+    "ACTION_EXPECTED_TRANSPORT_COUNTS",
+    "ACTION_PURPOSES",
+    "ACTION_RISK_LEVELS",
+    "ACTION_TRANSPORT_CLASSES",
+    "ActionDescriptor",
+    "ActionParameter",
+    "ActionRegistry",
+    "ActionRegistryError",
+    "ConnectorDescriptor",
+    "UnknownActionError",
+    "UnknownConnectorError",
+    "build_default_action_registry",
+    "registry_to_json",
+    "validate_action_descriptor",
+    # WP-28B1: deterministic resource router (pure metadata routing — a trace is
+    # not retrieval, execution, evidence, a dataset lock, or a claim).
+    "RESOURCE_ROUTER_REASON_CODES",
+    "ROUTE_CAPABILITY_GAP_CODES",
+    "RejectedCandidate",
+    "ResourceRouter",
+    "RouteRequest",
+    "RouteRequestError",
+    "RouteTrace",
+    "build_default_resource_router",
+    "route_actions",
+    "validate_route_request",
 ]
