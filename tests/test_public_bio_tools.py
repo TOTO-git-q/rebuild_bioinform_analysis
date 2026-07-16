@@ -7,11 +7,13 @@ claim scientific eligibility.
 
 import socket
 import unittest
+from dataclasses import FrozenInstanceError
 
 from auto_bioinfo.adapters.public_bio_tools import (
     EXECUTION_MODE_OFFLINE_QUERY_PLAN,
     MaterializationRejected,
     PublicBioToolAdapter,
+    PublicBioToolSpec,
     build_public_bio_tool_registry,
 )
 
@@ -35,6 +37,25 @@ class PublicBioToolCatalogTest(unittest.TestCase):
             self.adapter.describe_tool("no_such_tool")
         with self.assertRaises(KeyError):
             self.adapter.plan_query("no_such_tool", {})
+
+    def test_catalog_has_exactly_twelve_planners(self):
+        # WP-28B1 maps this catalogue 1:1 onto action descriptors; a silent
+        # catalogue change must break here rather than skew the registry.
+        self.assertEqual(len(self.adapter.list_tools()), 12)
+
+    def test_get_tool_spec_returns_a_frozen_handler_free_spec(self):
+        spec = self.adapter.get_tool_spec("geo_dataset_search")
+        self.assertIsInstance(spec, PublicBioToolSpec)
+        self.assertEqual(spec.tool_id, "geo_dataset_search")
+        # Exposing the spec must grant no capability: it is frozen and inert.
+        with self.assertRaises(FrozenInstanceError):
+            spec.tool_id = "hijacked"  # type: ignore[misc]
+        for _name, value in vars(spec).items():
+            self.assertFalse(callable(value))
+
+    def test_get_tool_spec_unknown_fails_closed(self):
+        with self.assertRaises(KeyError):
+            self.adapter.get_tool_spec("no_such_tool")
 
 
 class QueryPlanBehaviorTest(unittest.TestCase):

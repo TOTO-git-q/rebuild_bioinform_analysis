@@ -4,7 +4,13 @@ This adapter exposes a catalogue of public bioinformatics resources (GEO, SRA,
 Europe PMC, Ensembl, UniProt, Reactome, STRING, ...) as **deterministic offline
 query planners**.  It is the clean-room, project-native translation of the
 recovered biomedical connector taxonomy documented in
-``docs/audit/operon_static_analysis_summary.md``.
+``docs/architecture/biomni_cleanroom_integration.md``.
+
+Each planner here is registered as an inert ``ActionDescriptor`` by
+:mod:`auto_bioinfo.agent_gateway.action_registry` (WP-28B1), which maps it onto
+the recovered connector surface whose public domain it addresses.  That registry
+is metadata only: it grants no execution capability beyond this module's own
+offline planning.
 
 What this module *is*:
 
@@ -191,6 +197,15 @@ class PublicBioToolAdapter:
     def describe_tool(self, tool_id: str) -> dict[str, Any]:
         """Return the inert descriptor for a tool (raises ``KeyError`` if unknown)."""
         return self._spec(tool_id).to_dict()
+
+    def get_tool_spec(self, tool_id: str) -> PublicBioToolSpec:
+        """Return the frozen :class:`PublicBioToolSpec` (raises ``KeyError`` if unknown).
+
+        Read-only accessor for metadata layers (e.g. the WP-28B1 action registry)
+        that need the typed spec rather than its dict projection.  The spec is
+        frozen and carries no handler, so exposing it grants no capability.
+        """
+        return self._spec(tool_id)
 
     def plan_query(self, tool_id: str, query: Mapping[str, Any] | None = None) -> dict[str, Any]:
         """Build a deterministic offline query plan for ``tool_id``.
